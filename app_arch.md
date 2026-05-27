@@ -1,12 +1,12 @@
-# Arquitectura conceptual — Travel Planner App con Planner + RAG
+# Arquitectura conceptual — Travel Planner App con Planner + Tools
 
 ## Visión general
 
 La aplicación sigue una arquitectura híbrida:
 
 - **Planner determinista** para generar y validar itinerarios
-- **RAG** para recuperar conocimiento contextual
-- **LLM** para explicaciones, sugerencias y propuestas de alternativas
+- **Tool layer** para consultar conocimiento y datos operativos externos
+- **LLM** para orquestar tools, explicar decisiones, sugerir alternativas y responder preguntas libres
 - **Backend** como fuente de verdad y capa de validación final
 
 ---
@@ -14,136 +14,137 @@ La aplicación sigue una arquitectura híbrida:
 ## Diagrama conceptual
 
 ```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                           CLIENT APPS                              │
-│                                                                     │
-│  Mobile App / Web App                                               │
-│  - Crear viaje                                                      │
-│  - Buscar must-sees                                                 │
-│  - Ver itinerario por bloques                                       │
-│  - Checklist del día                                                │
-│  - Replan manual                                                    │
-│  - Preguntas libres ("qué hacemos si llueve?")                      │
-└──────────────────────────────┬──────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           CLIENT APPS                                       │
+│                                                                              │
+│  Mobile App / Web App                                                        │
+│  - Crear viaje                                                               │
+│  - Buscar must-sees                                                          │
+│  - Ver itinerario por bloques                                                │
+│  - Checklist del día                                                         │
+│  - Replan manual                                                             │
+│  - Preguntas libres ("qué hacemos si llueve?")                              │
+└──────────────────────────────┬───────────────────────────────────────────────┘
                                │ HTTPS / REST
                                ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                         API BACKEND (JAVA)                          │
-│                    Spring Boot / Modular Monolith                   │
-│                                                                     │
-│  Modules:                                                           │
-│  - trip                                                             │
-│  - place                                                            │
-│  - planning                                                         │
-│  - transport                                                        │
-│  - weather                                                          │
-│  - knowledge                                                        │
-│  - user/auth                                                        │
-└───────────────┬──────────────────────────────┬──────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                         API BACKEND (JAVA)                                   │
+│                    Spring Boot / Modular Monolith                            │
+│                                                                              │
+│  Modules:                                                                    │
+│  - trip                                                                      │
+│  - place                                                                     │
+│  - planning                                                                  │
+│  - transport                                                                 │
+│  - weather                                                                   │
+│  - knowledge                                                                 │
+│  - user/auth                                                                 │
+└───────────────┬──────────────────────────────┬───────────────────────────────┘
                 │                              │
                 │                              │
                 ▼                              ▼
-┌───────────────────────────────┐   ┌────────────────────────────────┐
-│      PLANNER / RULE ENGINE    │   │       RAG / AI LAYER           │
-│                               │   │                                │
-│  - ItineraryGenerationService │   │  - KnowledgeRetrievalService   │
-│  - ReplanningService          │   │  - EmbeddingSearch             │
-│  - BlockCapacityPolicy        │   │  - PromptBuilder               │
-│  - PlaceScoringService        │   │  - RecommendationAssistant     │
-│  - TransportDecisionService   │   │  - ExplanationGenerator        │
-│  - WeatherSwapPolicy          │   │                                │
-│                               │   │  Uses:                         │
-│  Deterministic logic for:     │   │  - Vector search              │
-│  - must-sees first            │   │  - LLM                        │
-│  - opening hours              │   │  - metadata filters           │
-│  - travel time                │   │                                │
-│  - block fit                  │   └────────────────────────────────┘
-│  - car vs TP                  │
-│  - replan validation          │
+┌───────────────────────────────┐   ┌─────────────────────────────────────────┐
+│      PLANNER / RULE ENGINE    │   │           AI / TOOL LAYER              │
+│                               │   │                                         │
+│  - ItineraryGenerationService │   │  - ToolOrchestrationService            │
+│  - ReplanningService          │   │  - PlaceSearchToolAdapter              │
+│  - BlockCapacityPolicy        │   │  - RouteLookupToolAdapter              │
+│  - PlaceScoringService        │   │  - WeatherLookupToolAdapter            │
+│  - TransportDecisionService   │   │  - PromptBuilder                       │
+│  - WeatherSwapPolicy          │   │  - RecommendationAssistant             │
+│                               │   │  - ExplanationGenerator                │
+│  Deterministic logic for:     │   │                                         │
+│  - must-sees first            │   │  Uses:                                 │
+│  - opening hours              │   │  - tool/function calling               │
+│  - travel time                │   │  - LLM                                 │
+│  - block fit                  │   │  - structured API responses            │
+│  - car vs TP                  │   │                                         │
+│  - replan validation          │   └─────────────────────────────────────────┘
 └───────────────┬───────────────┘
                 │
                 │ uses
                 ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    OPERATIONAL DATA LAYER                          │
-│                         PostgreSQL (+ PostGIS)                     │
-│                                                                     │
-│  Structured entities:                                               │
-│  - trips                                                            │
-│  - trip_days                                                        │
-│  - must_sees                                                        │
-│  - places                                                           │
-│  - itinerary_days                                                   │
-│  - itinerary_blocks                                                 │
-│  - itinerary_items                                                  │
-│  - checklist_status                                                 │
-│  - replan_events                                                    │
-│  - weather_mode                                                     │
-│  - manual_enrichments                                               │
-└───────────────┬─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    OPERATIONAL DATA LAYER                                    │
+│                         PostgreSQL (+ PostGIS)                               │
+│                                                                              │
+│  Structured entities:                                                        │
+│  - trips                                                                     │
+│  - trip_days                                                                 │
+│  - must_sees                                                                 │
+│  - places                                                                    │
+│  - itinerary_days                                                            │
+│  - itinerary_blocks                                                          │
+│  - itinerary_items                                                           │
+│  - checklist_status                                                          │
+│  - replan_events                                                             │
+│  - weather_mode                                                              │
+│  - manual_enrichments                                                        │
+└───────────────┬──────────────────────────────────────────────────────────────┘
                 │
-                │ related knowledge / enrichment
+                │ curated enrichment / product knowledge
                 ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                     KNOWLEDGE / VECTOR LAYER                       │
-│                    PostgreSQL + pgvector (or Qdrant)               │
-│                                                                     │
-│  RAG documents/chunks:                                              │
-│  - PlaceProfile                                                     │
-│  - AreaGuide                                                        │
-│  - ScenarioGuide                                                    │
-│  - CityPlaybook                                                     │
-│  - PlanningHeuristicNote                                            │
-│                                                                     │
-│  Metadata examples:                                                 │
-│  - city                                                             │
-│  - place_id                                                         │
-│  - indoor_outdoor                                                   │
-│  - weather_fit                                                      │
-│  - family_fit                                                       │
-│  - duration_band                                                    │
-│  - recommended_block                                                │
-│  - area_name                                                        │
-└───────────────┬─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    CURATED KNOWLEDGE LAYER                                   │
+│                         PostgreSQL tables                                    │
+│                                                                              │
+│  Product-owned knowledge:                                                    │
+│  - PlaceProfile                                                              │
+│  - AreaGuide                                                                 │
+│  - ScenarioGuide                                                             │
+│  - CityPlaybook                                                              │
+│  - PlanningHeuristicNote                                                     │
+│                                                                              │
+│  Example attributes:                                                         │
+│  - city                                                                      │
+│  - place_id                                                                  │
+│  - indoor_outdoor                                                            │
+│  - weather_fit                                                               │
+│  - family_fit                                                                │
+│  - duration_band                                                             │
+│  - recommended_block                                                         │
+│  - area_name                                                                 │
+└───────────────┬──────────────────────────────────────────────────────────────┘
                 │
-                │ embeddings / generation
+                │ generation / orchestration
                 ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    EXTERNAL AI / KNOWLEDGE SERVICES                │
-│                                                                     │
-│  - Embedding Model                                                  │
-│  - LLM Provider                                                     │
-│                                                                     │
-│  Used for:                                                          │
-│  - generate document embeddings                                     │
-│  - produce explanations                                             │
-│  - suggest alternatives                                             │
-│  - summarize curated knowledge                                      │
-└───────────────┬─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                    EXTERNAL AI SERVICES                                      │
+│                                                                              │
+│  - LLM Provider                                                              │
+│                                                                              │
+│  Used for:                                                                   │
+│  - tool selection / orchestration                                            │
+│  - explanation generation                                                    │
+│  - suggesting alternatives                                                   │
+│  - summarizing structured and curated knowledge                              │
+└───────────────┬──────────────────────────────────────────────────────────────┘
                 │
                 │ factual integrations
                 ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                     EXTERNAL OPERATIONAL APIS                      │
-│                                                                     │
-│  - Places / Maps API                                                │
-│  - Routing / Travel time API                                        │
-│  - Weather API                                                      │
-│                                                                     │
-│  Used for:                                                          │
-│  - search places                                                    │
-│  - geocoding                                                        │
-│  - route durations                                                  │
-│  - weather conditions                                               │
-│  - opening hours if available                                       │
-└─────────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                     EXTERNAL OPERATIONAL APIS                                │
+│                                                                              │
+│  - Places / Maps API                                                         │
+│  - Routing / Travel time API                                                 │
+│  - Weather API                                                               │
+│  - Optional: reviews / popularity signals APIs                               │
+│                                                                              │
+│  Used for:                                                                   │
+│  - search places                                                             │
+│  - geocoding                                                                 │
+│  - route durations                                                           │
+│  - weather conditions                                                        │
+│  - opening hours if available                                                │
+│  - popularity / social proof signals if available                            │
+└──────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Idea principal
 
-La arquitectura separa claramente dos responsabilidades:
+La arquitectura separa claramente tres responsabilidades:
 
 ### 1. Planner
 Responsable de:
@@ -158,31 +159,44 @@ Es la capa:
 - auditable
 - controlable
 
-### 2. RAG
+### 2. Tool layer
 Responsable de:
-- recuperar conocimiento contextual
-- enriquecer recomendaciones
-- explicar decisiones
-- proponer alternativas razonables
+- consultar fuentes externas bajo demanda
+- recuperar hechos operativos actualizados
+- buscar lugares, rutas, clima y señales externas
+- entregar resultados estructurados al sistema
 
 Es la capa:
-- semántica
+- conectada a datos vivos
+- orientada a integración
+- basada en tools/function calling
+
+### 3. LLM
+Responsable de:
+- decidir qué tools usar en una consulta libre
+- resumir y explicar resultados
+- proponer alternativas razonables
+- traducir respuestas técnicas a UX conversacional
+
+Es la capa:
 - flexible
-- orientada a IA
+- conversacional
+- orientada a asistencia
 
 ---
 
 ## Principio clave
 
-**El LLM/RAG nunca debería escribir directamente el itinerario final.**
+**El LLM nunca debería escribir directamente el itinerario final.**
 
 Siempre debe pasar por el planner y por la validación del backend.
 
 ### Flujo correcto
-1. RAG recupera contexto relevante
-2. LLM propone explicación o alternativas
-3. Planner valida restricciones
-4. Backend persiste el resultado válido
+1. El usuario pide plan o hace una pregunta
+2. El sistema consulta tools/APIs relevantes si hace falta
+3. El LLM resume o propone opciones
+4. El planner valida restricciones y genera/ajusta el resultado
+5. El backend persiste el resultado válido
 
 ---
 
@@ -209,12 +223,13 @@ Implementa la lógica principal del producto:
 - decisión de transporte
 - replanificación
 
-### RAG / AI Layer
-Recupera conocimiento semántico y alimenta al LLM para:
-- explicaciones
-- sugerencias
-- alternativas
-- respuestas abiertas
+### AI / Tool Layer
+Recupera datos externos y los pone a disposición del sistema para:
+- búsqueda de lugares
+- consulta de clima
+- consulta de rutas/tiempos
+- enriquecimiento de respuestas
+- soporte a preguntas abiertas
 
 ### Operational Data Layer
 Guarda la verdad operativa del sistema:
@@ -225,9 +240,9 @@ Guarda la verdad operativa del sistema:
 - checklist
 - eventos de replan
 
-### Knowledge / Vector Layer
-Guarda el conocimiento semántico:
-- perfiles de lugares
+### Curated Knowledge Layer
+Guarda conocimiento propio del producto:
+- perfiles de lugares enriquecidos
 - guías de zonas
 - escenarios
 - playbooks de ciudad
@@ -235,9 +250,10 @@ Guarda el conocimiento semántico:
 
 ### External AI Services
 Se usan para:
-- embeddings
+- tool calling
 - generación de texto
-- resumen de conocimiento curado
+- explicaciones
+- resumen de resultados
 
 ### External Operational APIs
 Se usan para hechos operativos:
@@ -254,9 +270,10 @@ Se usan para hechos operativos:
 La app debería funcionar con este principio:
 
 - **Planner = cerebro operativo**
-- **RAG = memoria semántica**
+- **Tools/APIs = acceso a hechos externos**
 - **LLM = capa de interacción inteligente**
 - **Backend = validador y fuente de verdad**
+- **Conocimiento curado = diferenciación de producto**
 
 ---
 
@@ -269,11 +286,10 @@ Spring Boot Backend
   ├── Planner
   ├── PostgreSQL
   ├── Knowledge module
-  └── pgvector
+  ├── Tool adapters
+  └── LLM orchestration
        ↓
-   LLM / Embeddings
-       ↓
- Maps / Weather APIs
+ Places / Routing / Weather APIs
 ```
 
 ---
@@ -282,8 +298,9 @@ Spring Boot Backend
 
 Permite que la app:
 
-- funcione bien incluso sin IA generativa en el núcleo
+- use datos actualizados sin depender de un índice vectorial desde el día 1
+- mantenga la lógica crítica en una capa determinista
 - use IA donde realmente aporta valor
 - sea más explicable
-- sea más robusta
-- sea defendible como proyecto de MSc/TFM
+- sea más robusta para un MVP
+- permita introducir RAG más adelante solo si el conocimiento curado crece lo suficiente
