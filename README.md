@@ -55,5 +55,5 @@ This approach keeps critical planning logic under system control while still usi
 
 More detailed project information is available in:
 
-- `app_arch.md` — conceptual architecture and system layering
-- `spec-v2.md` — MVP product specification and planning rules
+- `doc/app_arch.md` — conceptual architecture and system layering
+- `doc/spec-v2.md` — MVP product specification and planning rules
