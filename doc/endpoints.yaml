@@ -1,0 +1,404 @@
+openapi: 3.0.3
+info:
+  title: Basecamp Family Trip Planner API
+  description: API REST para la generación, gestión y replanificación en tiempo real de itinerarios familiares optimizados por bloques utilizando Google OR-Tools.
+  version: 2.0.0
+servers:
+  - url: https://api.basecamp-tripplanner.com/v2
+    description: Servidor de Producción
+paths:
+  /trips:
+    get:
+      summary: Listar viajes guardados
+      description: Recupera una lista resumida de todos los viajes planificados, con soporte para filtros por destino y rangos de fechas.
+      operationId: listTrips
+      parameters:
+        - name: cityId
+          in: query
+          required: false
+          description: Filtrar por el identificador único de la ciudad (ej. madrid-es).
+          schema:
+            type: string
+        - name: startDate
+          in: query
+          required: false
+          description: Filtrar viajes que comiencen a partir de esta fecha (ISO 8601 YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: false
+          description: Filtrar viajes que terminen antes o durante esta fecha (ISO 8601 YYYY-MM-DD).
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Lista de viajes recuperada con éxito.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TripSummaryResponse'
+        '400':
+          description: Parámetros de consulta inválidos.
+
+    post:
+      summary: Generar un nuevo itinerario de viaje
+      description: Toma las preferencias de la familia, el hotel base y la lista de lugares deseados para calcular una distribución óptima utilizando Google OR-Tools.
+      operationId: generateTrip
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripGenerationRequest'
+      responses:
+        '200':
+          description: Itinerario generado y guardado exitosamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripPlanResponse'
+        '400':
+          description: Datos de entrada inválidos.
+        '422':
+          description: El itinerario es matemáticamente irresoluble (Over-constrained).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trips/{tripId}:
+    get:
+      summary: Obtener el detalle de un viaje
+      description: Recupera el itinerario completo estructurado por días y bloques junto con el estado del checklist de sus actividades.
+      operationId: getTripDetails
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detalle del viaje recuperado correctamente.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripPlanResponse'
+        '404':
+          description: Viaje no encontrado.
+
+  /trips/{tripId}/places/{placeId}/complete:
+    patch:
+      summary: Marcar un destino como completado
+      description: Actualiza de forma atómica el estado de una actividad específica dentro del itinerario del viaje (Checklist de ejecución).
+      operationId: completePlace
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: placeId
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "pl-museo-del-prado"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - isCompleted
+              properties:
+                isCompleted:
+                  type: boolean
+                  example: true
+      responses:
+        '200':
+          description: Estado del lugar actualizado con éxito en el checklist.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  placeId:
+                    type: string
+                    example: "pl-museo-del-prado"
+                  isCompleted:
+                    type: boolean
+                    example: true
+        '404':
+          description: Viaje o lugar no encontrado en el itinerario.
+
+  /trips/{tripId}/replan:
+    post:
+      summary: Replanificar el resto del día en ejecución
+      description: Endpoint de baja latencia que recalcula instantáneamente los bloques restantes del día actual basándose en los ítems completados, ubicación actual y cambios climáticos súbitos.
+      operationId: replanTrip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TripReplanRequest'
+      responses:
+        '200':
+          description: Itinerario remanente recalculado y adaptado con éxito.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripPlanResponse'
+        '404':
+          description: Viaje no encontrado.
+
+components:
+  schemas:
+    TripSummaryResponse:
+      type: object
+      properties:
+        tripId:
+          type: string
+          format: uuid
+          example: "b5a9c123-4321-9876-fedc-ba9876543210"
+        cityId:
+          type: string
+          example: "madrid-es"
+        cityName:
+          type: string
+          example: "Madrid, España"
+        startDate:
+          type: string
+          format: date
+          example: "2026-06-15"
+        endDate:
+          type: string
+          format: date
+          example: "2026-06-18"
+        totalMustSees:
+          type: integer
+          example: 5
+        completedActivitiesCount:
+          type: integer
+          example: 2
+        totalActivitiesCount:
+          type: integer
+          example: 8
+
+    TripGenerationRequest:
+      type: object
+      required:
+        - cityId
+        - startDate
+        - endDate
+        - baseHotel
+        - mustSees
+      properties:
+        cityId:
+          type: string
+          example: "madrid-es"
+        startDate:
+          type: string
+          format: date
+          example: "2026-06-15"
+        endDate:
+          type: string
+          format: date
+          example: "2026-06-18"
+        defaultStartHour:
+          type: string
+          pattern: '^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$'
+          default: "09:00"
+          example: "09:00"
+        baseHotel:
+          $ref: '#/components/schemas/Location'
+        mustSees:
+          type: array
+          items:
+            $ref: '#/components/schemas/MustSeeInput'
+
+    Location:
+      type: object
+      required:
+        - name
+        - latitude
+        - longitude
+      properties:
+        name:
+          type: string
+          example: "Hotel RIU Plaza España"
+        latitude:
+          type: number
+          format: double
+          example: 40.4241
+        longitude:
+          type: number
+          format: double
+          example: -3.7109
+
+    MustSeeInput:
+      type: object
+      required:
+        - placeId
+        - priority
+      properties:
+        placeId:
+          type: string
+          example: "pl-museo-del-prado"
+        priority:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+          example: "HIGH"
+        pinnedDayIndex:
+          type: integer
+          minimum: 0
+          example: 0
+        pinnedBlock:
+          type: string
+          enum: [MORNING, AFTERNOON, EVENING]
+
+    TripReplanRequest:
+      type: object
+      required:
+        - currentDateTime
+        - currentLocation
+        - currentBlockWeather
+      properties:
+        currentDateTime:
+          type: string
+          format: date-time
+          example: "2026-06-15T14:15:00Z"
+        currentLocation:
+          $ref: '#/components/schemas/Location'
+        currentBlockWeather:
+          type: string
+          enum: [GOOD, BAD]
+          example: "BAD"
+
+    TripPlanResponse:
+      type: object
+      properties:
+        tripId:
+          type: string
+          format: uuid
+          example: "b5a9c123-4321-9876-fedc-ba9876543210"
+        cityId:
+          type: string
+          example: "madrid-es"
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayPlan'
+
+    DayPlan:
+      type: object
+      properties:
+        dayIndex:
+          type: integer
+          example: 0
+        date:
+          type: string
+          format: date
+          example: "2026-06-15"
+        weatherSummary:
+          type: string
+          enum: [GOOD, BAD]
+          example: "GOOD"
+        blocks:
+          type: object
+          properties:
+            morning:
+              $ref: '#/components/schemas/BlockTimeline'
+            afternoon:
+              $ref: '#/components/schemas/BlockTimeline'
+            evening:
+              $ref: '#/components/schemas/BlockTimeline'
+
+    BlockTimeline:
+      type: object
+      properties:
+        blockTotalDurationMinutes:
+          type: integer
+          example: 180
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActivityNode'
+
+    ActivityNode:
+      type: object
+      properties:
+        sequenceOrder:
+          type: integer
+          example: 1
+        placeId:
+          type: string
+          example: "pl-parque-del-retiro"
+        name:
+          type: string
+          example: "Parque del Retiro"
+        isCompleted:
+          type: boolean
+          example: false
+        estimatedArrival:
+          type: string
+          example: "16:30"
+        estimatedDeparture:
+          type: string
+          example: "18:30"
+        durationMinutes:
+          type: integer
+          example: 120
+        isIndoor:
+          type: boolean
+          example: false
+        transitToNext:
+          $ref: '#/components/schemas/TransitDetails'
+
+    TransitDetails:
+      type: object
+      properties:
+        transportMode:
+          type: string
+          enum: [WALK_AND_PUBLIC_TRANSPORT, CAR]
+          example: "WALK_AND_PUBLIC_TRANSPORT"
+        durationMinutes:
+          type: integer
+          example: 20
+        bufferMinutes:
+          type: integer
+          example: 10
+        frictionAlert:
+          type: boolean
+          example: false
+
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "OVER_CONSTRAINED_ROUTE"
+        message:
+          type: string
+          example: "Es imposible acomodar todos los Must-Sees de alta prioridad en el tiempo disponible."
+        conflictingPlaceIds:
+          type: array
+          items:
+            type: string
+          example: ["pl-warner-park"]
