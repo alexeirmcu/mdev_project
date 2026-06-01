@@ -1,59 +1,37 @@
-# mdev_project
+# Smart Trip Planner
 
-Travel itinerary planning MVP for families doing basecamp-style trips in Europe.
+MVP for generating realistic, block-based travel itineraries for families doing basecamp-style trips in European cities.
 
-## Overview
+## Value Proposition
 
-This project is designed to generate realistic, day-by-day travel itineraries organized into **Morning / Afternoon / Night** blocks. The goal is to help families maximize sightseeing while keeping plans practical, adaptable, and easy to follow.
+Generate an executable day-by-day itinerary (Morning / Afternoon / Night blocks) that maximizes what a family can see, uses sensible transport, and adapts quickly when plans change or weather is bad.
 
-The product focuses on:
+**Core constraint:** The LLM never writes the final itinerary. Itinerary generation is deterministic — owned by the planner/backend layer.
 
-- prioritizing must-see places
-- grouping visits into executable daily blocks
-- suggesting sensible transport options
-- adapting plans to weather changes
-- supporting lightweight replanning during the day
+## Tech Stack
 
-## Product concept
+| Concern | Technology |
+|---|---|
+| Platform | .NET 8 / C# 12 |
+| Web framework | ASP.NET Core MVC Controllers |
+| Architecture | Clean Architecture + CQRS |
+| Mediator | MediatR 12.x |
+| Mapping | AutoMapper 13.x |
+| Validation | FluentValidation |
+| Logging | Serilog 4.x |
+| Route optimization | Google OR-Tools (VRPTW) |
+| AI enrichment | External LLM API (background/offline only) |
+| ORM | Entity Framework Core 8.x (InMemory for MVP) |
+| API docs | Swashbuckle.AspNetCore 6.8.x |
+| Database (target) | PostgreSQL |
+## Key Design Decision
 
-The app combines deterministic planning logic with AI-assisted explanations and external data integrations.
-
-Core idea:
-
-- **Planner** = operational brain that builds and validates itineraries
-- **Tools / APIs** = access to live external facts such as places, routes, and weather
-- **LLM** = intelligent conversational layer for explanations, recommendations, and free-form questions
-- **Backend** = source of truth and final validator
-
-A key architectural principle is that the LLM should not directly write the final itinerary. Instead, itinerary generation and validation stay in the planner/backend layer to keep results deterministic, auditable, and robust.
-
-## Main MVP features
-
-- Create a trip with city, dates, and base location
-- Add must-see places with priority
-- Generate a block-based itinerary for each day
-- Show estimated duration per block and visit
-- Suggest transport mode between visits
-- Support indoor/outdoor swaps for bad weather
-- Allow checklist tracking and manual replanning
-
-## Architecture summary
-
-The repository documentation describes a hybrid architecture with:
-
-- client apps for trip setup, itinerary viewing, and replanning
-- a Java Spring Boot backend organized as a modular monolith
-- a deterministic planner / rule engine
-- an AI and tool orchestration layer
-- PostgreSQL as the operational data layer
-- curated product knowledge for planning heuristics and enriched place data
-- external APIs for maps, routing, weather, and place information
-
-This approach keeps critical planning logic under system control while still using AI where it adds the most value: explanation, orchestration, and intelligent assistance.
+Itinerary scheduling uses **Google OR-Tools** (VRPTW) synchronously for sub-50ms deterministic results. The LLM is used only asynchronously in the background to enrich place metadata (duration estimates, family-friendly scores, indoor/outdoor flags). See [ADR-001](doc/adr/ADR-v1.md) for full rationale.
 
 ## Documentation
 
-More detailed project information is available in:
-
-- `doc/app_arch.md` — conceptual architecture and system layering
-- `doc/spec-v2.md` — MVP product specification and planning rules
+| Document | Description |
+|---|---|
+| [Solution Architecture](doc/architecture/solution_arch.md) | Clean Architecture breakdown, domain model, CQRS features, API endpoints |
+| [ADR-001: Hybrid Planning Engine](doc/adr/ADR-v1.md) | Decision record for OR-Tools + LLM approach |
+| [MVP Product Spec](doc/spec/spec-v1.md) | Product requirements, scoring model, transport and weather rules |

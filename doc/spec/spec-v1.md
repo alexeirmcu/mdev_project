@@ -1,4 +1,4 @@
-# MVP Mini‑PRD — Basecamp Family Trip Planner (Europe) v2
+# MVP Mini‑PRD — Smart Trip Planner (Europe) v1
 
 ## Resumen
 

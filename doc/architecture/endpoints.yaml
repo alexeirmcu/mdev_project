@@ -1,10 +1,10 @@
 openapi: 3.0.3
 info:
-  title: Basecamp Family Trip Planner API
+  title: Smart Trip Planner API
   description: API REST para la generación, gestión y replanificación en tiempo real de itinerarios familiares optimizados por bloques utilizando Google OR-Tools.
   version: 2.0.0
 servers:
-  - url: https://api.basecamp-tripplanner.com/v2
+  - url: https://api.smart-tripplanner.com/v2
     description: Servidor de Producción
 paths:
   /trips:
@@ -124,19 +124,8 @@ paths:
                   type: boolean
                   example: true
       responses:
-        '200':
-          description: Estado del lugar actualizado con éxito en el checklist.
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  placeId:
-                    type: string
-                    example: "pl-museo-del-prado"
-                  isCompleted:
-                    type: boolean
-                    example: true
+        '204':
+          description: Estado del lugar actualizado con éxito en el checklist. Sin cuerpo de respuesta.
         '404':
           description: Viaje o lugar no encontrado en el itinerario.
 

@@ -6,7 +6,7 @@
 Aprobado
 
 ### Contexto
-El MVP del *Basecamp Family Trip Planner* requiere una API capaz de generar itinerarios de viaje optimizados en tiempo real, organizados en tres bloques diarios (Mañana/Tarde/Noche). El sistema debe manejar restricciones complejas como ventanas de horarios de apertura, tiempos de traslado variables según el transporte (coche vs. transporte público + caminar) y selección dinámica según el clima. Adicionalmente, debe soportar una función de replanificación instantánea si el itinerario se descarrila.
+El MVP del *Smart Trip Planner* requiere una API capaz de generar itinerarios de viaje optimizados en tiempo real, organizados en tres bloques diarios (Mañana/Tarde/Noche). El sistema debe manejar restricciones complejas como ventanas de horarios de apertura, tiempos de traslado variables según el transporte (coche vs. transporte público + caminar) y selección dinámica según el clima. Adicionalmente, debe soportar una función de replanificación instantánea si el itinerario se descarrila.
 
 Se evaluaron tres enfoques para el motor de planificación:
 1. Un enfoque basado 100% en un Modelo de Lenguaje (LLM).
