@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/tests/">
+    <Project Path="tests/SmartTripPlanner.Tests/SmartTripPlanner.Tests.csproj" />
+  </Folder>
+  <Project Path="SmartTripPlanner.API/SmartTripPlanner.API.csproj" />
+  <Project Path="SmartTripPlanner.ApplicationServices/SmartTripPlanner.ApplicationServices.csproj" />
+  <Project Path="SmartTripPlanner.Domain/SmartTripPlanner.Domain.csproj" />
+  <Project Path="SmartTripPlanner.Infrastructure/SmartTripPlanner.Infrastructure.csproj" />
+</Solution>

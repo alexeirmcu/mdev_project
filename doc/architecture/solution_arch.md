@@ -25,7 +25,7 @@ Este documento define la estructura y las directrices técnicas definitivas para
 La solución se llama `SmartTripPlanner.sln`. Los proyectos cuelgan directamente de la raíz, sin wrapper `src/`:
 
 ```
-SmartTripPlanner/
+/
 ├── SmartTripPlanner.sln
 ├── SmartTripPlanner.API/                  # Entry point — Controllers, Middleware, Config
 ├── SmartTripPlanner.ApplicationServices/  # Commands, Handlers, Services, Behaviors
