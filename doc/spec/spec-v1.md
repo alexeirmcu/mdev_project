@@ -216,4 +216,4 @@ Para habilitar la búsqueda interna de must-sees en Europa desde el día 1:
 - **Opción B**: Catálogo curado para 1–2 ciudades piloto (control total, alcance limitado)
 - **Opción C** *(recomendada)*: API externa para estructura y búsqueda + enriquecimiento manual de los top-50 lugares de la ciudad piloto
 
-Elegir una opción y definir la primera ciudad piloto (ej. Bucarest) para establecer el plan de validación y las métricas del MVP.
+Elegir una opción y definir la primera ciudad piloto (ej. Madrid) para establecer el plan de validación y las métricas del MVP.

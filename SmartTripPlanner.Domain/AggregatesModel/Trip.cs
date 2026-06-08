@@ -5,7 +5,6 @@ namespace SmartTripPlanner.Domain.AggregatesModel;
 
 public class Trip : Entity, IAggregateRoot
 {
-    public Guid TripId { get; private set; }
     public required string CityId { get; init; }
     public DateOnly StartDate { get; private set; }
     public DateOnly EndDate { get; private set; }
