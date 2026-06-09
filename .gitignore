@@ -341,3 +341,6 @@ ASALocalRun/
 .github/
 
 /doc/.obsidian/
+
+# SDD skill registry cache
+.atl/*.cache.json
