@@ -8,6 +8,7 @@ public class PlannerDbContext : DbContext, IUnitOfWork
 {
     public DbSet<Trip> Trips { get; set; }
     public DbSet<City> Cities { get; set; }
+    public DbSet<Place> Places { get; set; }
 
     public PlannerDbContext(DbContextOptions<PlannerDbContext> options) : base(options)
     {
