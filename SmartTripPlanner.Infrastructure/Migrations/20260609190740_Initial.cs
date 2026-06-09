@@ -37,7 +37,8 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     EndDate = table.Column<DateOnly>(type: "date", nullable: false),
                     HotelName = table.Column<string>(type: "text", nullable: false),
                     HotelLatitude = table.Column<double>(type: "double precision", nullable: false),
-                    HotelLongitude = table.Column<double>(type: "double precision", nullable: false)
+                    HotelLongitude = table.Column<double>(type: "double precision", nullable: false),
+                    DefaultStartTime = table.Column<TimeOnly>(type: "time without time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -59,6 +60,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     Afternoon_Id = table.Column<long>(type: "bigint", nullable: false),
                     Evening_BlockTotalDurationMinutes = table.Column<int>(type: "integer", nullable: false),
                     Evening_Id = table.Column<long>(type: "bigint", nullable: false),
+                    StartTime = table.Column<TimeOnly>(type: "time without time zone", nullable: false),
                     TripId = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -73,22 +75,20 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "MustSeeInput",
+                name: "SelectedAttraction",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     PlaceId = table.Column<string>(type: "text", nullable: false),
-                    Priority = table.Column<int>(type: "integer", nullable: false),
-                    PinnedDayIndex = table.Column<int>(type: "integer", nullable: true),
-                    PinnedBlock = table.Column<int>(type: "integer", nullable: true),
+                    Name = table.Column<string>(type: "text", nullable: false),
                     TripId = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_MustSeeInput", x => x.Id);
+                    table.PrimaryKey("PK_SelectedAttraction", x => x.Id);
                     table.ForeignKey(
-                        name: "FK_MustSeeInput_Trips_TripId",
+                        name: "FK_SelectedAttraction_Trips_TripId",
                         column: x => x.TripId,
                         principalTable: "Trips",
                         principalColumn: "Id",
@@ -113,6 +113,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     TransitToNext_DurationMinutes = table.Column<int>(type: "integer", nullable: true),
                     TransitToNext_BufferMinutes = table.Column<int>(type: "integer", nullable: true),
                     TransitToNext_FrictionAlert = table.Column<bool>(type: "boolean", nullable: true),
+                    Priority = table.Column<int>(type: "integer", nullable: false),
                     DayPlanId = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -144,6 +145,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     TransitToNext_DurationMinutes = table.Column<int>(type: "integer", nullable: true),
                     TransitToNext_BufferMinutes = table.Column<int>(type: "integer", nullable: true),
                     TransitToNext_FrictionAlert = table.Column<bool>(type: "boolean", nullable: true),
+                    Priority = table.Column<int>(type: "integer", nullable: false),
                     DayPlanId = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -175,6 +177,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     TransitToNext_DurationMinutes = table.Column<int>(type: "integer", nullable: true),
                     TransitToNext_BufferMinutes = table.Column<int>(type: "integer", nullable: true),
                     TransitToNext_FrictionAlert = table.Column<bool>(type: "boolean", nullable: true),
+                    Priority = table.Column<int>(type: "integer", nullable: false),
                     DayPlanId = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -215,8 +218,8 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 column: "DayPlanId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_MustSeeInput_TripId",
-                table: "MustSeeInput",
+                name: "IX_SelectedAttraction_TripId",
+                table: "SelectedAttraction",
                 column: "TripId");
         }
 
@@ -236,7 +239,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 name: "MorningActivities");
 
             migrationBuilder.DropTable(
-                name: "MustSeeInput");
+                name: "SelectedAttraction");
 
             migrationBuilder.DropTable(
                 name: "DayPlan");

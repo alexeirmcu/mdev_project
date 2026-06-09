@@ -58,6 +58,9 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<TimeOnly>("DefaultStartTime")
+                        .HasColumnType("time without time zone");
+
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date");
 
@@ -84,6 +87,9 @@ namespace SmartTripPlanner.Infrastructure.Migrations
 
                             b1.Property<int>("DayIndex")
                                 .HasColumnType("integer");
+
+                            b1.Property<TimeOnly>("StartTime")
+                                .HasColumnType("time without time zone");
 
                             b1.Property<long>("TripId")
                                 .HasColumnType("bigint");
@@ -151,6 +157,9 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                                             b3.Property<string>("PlaceId")
                                                 .IsRequired()
                                                 .HasColumnType("text");
+
+                                            b3.Property<int>("Priority")
+                                                .HasColumnType("integer");
 
                                             b3.Property<int>("SequenceOrder")
                                                 .HasColumnType("integer");
@@ -247,6 +256,9 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                                                 .IsRequired()
                                                 .HasColumnType("text");
 
+                                            b3.Property<int>("Priority")
+                                                .HasColumnType("integer");
+
                                             b3.Property<int>("SequenceOrder")
                                                 .HasColumnType("integer");
 
@@ -342,6 +354,9 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                                                 .IsRequired()
                                                 .HasColumnType("text");
 
+                                            b3.Property<int>("Priority")
+                                                .HasColumnType("integer");
+
                                             b3.Property<int>("SequenceOrder")
                                                 .HasColumnType("integer");
 
@@ -421,7 +436,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                                 .HasForeignKey("TripId");
                         });
 
-                    b.OwnsMany("SmartTripPlanner.Domain.ApiModels.MustSeeInput", "OriginalMustSees", b1 =>
+                    b.OwnsMany("SmartTripPlanner.Domain.AggregatesModel.SelectedAttraction", "SelectedAttractions", b1 =>
                         {
                             b1.Property<int>("Id")
                                 .ValueGeneratedOnAdd()
@@ -429,18 +444,13 @@ namespace SmartTripPlanner.Infrastructure.Migrations
 
                             NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
 
-                            b1.Property<int?>("PinnedBlock")
-                                .HasColumnType("integer");
-
-                            b1.Property<int?>("PinnedDayIndex")
-                                .HasColumnType("integer");
+                            b1.Property<string>("Name")
+                                .IsRequired()
+                                .HasColumnType("text");
 
                             b1.Property<string>("PlaceId")
                                 .IsRequired()
                                 .HasColumnType("text");
-
-                            b1.Property<int>("Priority")
-                                .HasColumnType("integer");
 
                             b1.Property<long>("TripId")
                                 .HasColumnType("bigint");
@@ -449,7 +459,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
 
                             b1.HasIndex("TripId");
 
-                            b1.ToTable("MustSeeInput");
+                            b1.ToTable("SelectedAttraction");
 
                             b1.WithOwner()
                                 .HasForeignKey("TripId");
@@ -460,7 +470,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
 
                     b.Navigation("Days");
 
-                    b.Navigation("OriginalMustSees");
+                    b.Navigation("SelectedAttractions");
                 });
 #pragma warning restore 612, 618
         }

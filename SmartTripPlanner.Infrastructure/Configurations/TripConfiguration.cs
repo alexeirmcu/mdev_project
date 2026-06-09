@@ -50,11 +50,13 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
             }));
         });
 
-        builder.OwnsMany(t => t.OriginalMustSees, msi =>
+        builder.OwnsMany(t => t.SelectedAttractions, sa =>
         {
-            msi.WithOwner().HasForeignKey("TripId");
-            msi.Property<int>("Id");
-            msi.HasKey("Id");
+            sa.WithOwner().HasForeignKey("TripId");
+            sa.Property<int>("Id");
+            sa.HasKey("Id");
+            sa.Property(s => s.PlaceId).IsRequired();
+            sa.Property(s => s.Name).IsRequired();
         });
 
         builder.Metadata.FindNavigation(nameof(Trip.Days))?.SetPropertyAccessMode(PropertyAccessMode.Field);
