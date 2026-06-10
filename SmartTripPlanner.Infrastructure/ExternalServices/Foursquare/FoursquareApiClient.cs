@@ -7,6 +7,8 @@ namespace SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
 
 public class FoursquareApiClient : IFoursquareApiClient
 {
+    private const string BasePath = "/places";
+
     private readonly HttpClient _httpClient;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -24,7 +26,7 @@ public class FoursquareApiClient : IFoursquareApiClient
     {
         try
         {
-            var url = $"/places/search?query={Uri.EscapeDataString(query)}&near={Uri.EscapeDataString(near)}&limit={limit}";
+            var url = $"{BasePath}/search?query={Uri.EscapeDataString(query)}&near={Uri.EscapeDataString(near)}&limit={limit}";
             var response = await _httpClient.GetAsync(url);
 
             if (!response.IsSuccessStatusCode)
@@ -44,7 +46,7 @@ public class FoursquareApiClient : IFoursquareApiClient
     {
         try
         {
-            var url = $"/places/{Uri.EscapeDataString(fsqId)}?fields=fsq_id,name,geocodes,hours,categories";
+            var url = $"{BasePath}/{Uri.EscapeDataString(fsqId)}?fields=fsq_id,name,geocodes,hours,categories";
             var response = await _httpClient.GetAsync(url);
 
             if (!response.IsSuccessStatusCode)

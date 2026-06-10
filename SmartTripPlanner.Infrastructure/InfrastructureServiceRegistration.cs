@@ -2,8 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SmartTripPlanner.Domain.Base;
 using SmartTripPlanner.Domain.Repository;
-using SmartTripPlanner.Infrastructure.Configuration;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
+using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Configuration;
 using SmartTripPlanner.Infrastructure.Repositories;
 
 namespace SmartTripPlanner.Infrastructure;

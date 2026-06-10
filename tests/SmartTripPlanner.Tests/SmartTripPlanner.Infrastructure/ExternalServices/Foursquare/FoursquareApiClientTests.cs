@@ -2,8 +2,8 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
-using SmartTripPlanner.Infrastructure.Configuration;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
+using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Configuration;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Models;
 
 namespace SmartTripPlanner.Tests.Infrastructure.ExternalServices.Foursquare;

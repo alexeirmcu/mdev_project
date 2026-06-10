@@ -1,4 +1,4 @@
-namespace SmartTripPlanner.Infrastructure.Configuration;
+namespace SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Configuration;
 
 public class FoursquareApiOptions
 {

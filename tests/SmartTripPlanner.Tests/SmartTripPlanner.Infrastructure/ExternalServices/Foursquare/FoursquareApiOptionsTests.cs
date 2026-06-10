@@ -1,6 +1,6 @@
-using SmartTripPlanner.Infrastructure.Configuration;
+using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Configuration;
 
-namespace SmartTripPlanner.Tests.Infrastructure.Configuration;
+namespace SmartTripPlanner.Tests.Infrastructure.ExternalServices.Foursquare;
 
 [TestClass]
 public sealed class FoursquareApiOptionsTests
