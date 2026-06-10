@@ -1,6 +1,6 @@
 namespace SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Models;
 
-public class FoursquarePlace
+internal class FoursquarePlace
 {
     public string FsqId { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;

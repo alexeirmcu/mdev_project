@@ -1,11 +1,8 @@
-using System.Net;
-using System.Text;
-using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Moq;
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.Repository;
 using SmartTripPlanner.Infrastructure;
-using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
-using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Models;
 using SmartTripPlanner.Infrastructure.Repositories;
 
 namespace SmartTripPlanner.Tests.Infrastructure.Repositories;
@@ -21,115 +18,96 @@ public sealed class PlaceRepositoryCascadeTests
         return new PlannerDbContext(options);
     }
 
-    private sealed class MockApiClient : IFoursquareApiClient
-    {
-        private readonly List<FoursquarePlace>? _results;
-        private readonly HttpStatusCode _statusCode;
-
-        public MockApiClient(List<FoursquarePlace> results)
-        {
-            _results = results;
-            _statusCode = HttpStatusCode.OK;
-        }
-
-        public MockApiClient(HttpStatusCode statusCode)
-        {
-            _results = null;
-            _statusCode = statusCode;
-        }
-
-        public bool WasCalled { get; private set; }
-
-        public Task<List<FoursquarePlace>> SearchPlacesAsync(string query, string near, int limit = 20)
-        {
-            WasCalled = true;
-            if (_statusCode != HttpStatusCode.OK || _results is null)
-                return Task.FromResult(new List<FoursquarePlace>());
-            return Task.FromResult(_results);
-        }
-
-        public Task<FoursquarePlace?> GetPlaceByIdAsync(string fsqId)
-        {
-            WasCalled = true;
-            return Task.FromResult<FoursquarePlace?>(null);
-        }
-    }
-
     [TestMethod]
     public async Task SearchAsync_LocalResultsExist_ReturnsLocal_NoApiCall()
     {
+        // Arrange
         using var db = CreateDbContext();
         db.Places.Add(new Place("f1", "Museo del Prado", "madrid-es", new PlaceLocation(40.4168, -3.7038)));
         db.Places.Add(new Place("f2", "Museo Reina Sofia", "madrid-es", new PlaceLocation(40.4089, -3.6944)));
         await db.SaveChangesAsync();
 
-        var mockApi = new MockApiClient(new List<FoursquarePlace>());
-        var repo = new PlaceRepository(db, mockApi);
+        var mockService = new Mock<IPlaceExternalService>(MockBehavior.Strict);
+        var repo = new PlaceRepository(db, mockService.Object);
 
+        // Act
         var results = await repo.SearchAsync("Museo", "madrid-es");
 
+        // Assert
         Assert.AreEqual(2, results.Count);
-        Assert.IsFalse(mockApi.WasCalled, "API should NOT be called when local results exist");
+        mockService.Verify(s => s.SearchPlacesAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>()),
+            Times.Never);
     }
 
     [TestMethod]
     public async Task SearchAsync_NoLocalResults_CallsApi_ReturnsMapped()
     {
+        // Arrange
         using var db = CreateDbContext();
-        var apiPlaces = new List<FoursquarePlace>
+        var apiPlaces = new List<Place>
         {
-            new()
-            {
-                FsqId = "fsq1",
-                Name = "Museo del Prado",
-                Geocodes = new FoursquareGeocodes { Main = new FoursquareLatLng { Latitude = 40.4168, Longitude = -3.7038 } },
-                Categories = new List<FoursquareCategory> { new() { Id = "10000", Name = "Museum" } }
-            }
+            new Place("fsq1", "Museo del Prado", "madrid-es",
+                new PlaceLocation(40.4168, -3.7038), 120, true, true)
         };
-        var mockApi = new MockApiClient(apiPlaces);
-        var repo = new PlaceRepository(db, mockApi);
+        var mockService = new Mock<IPlaceExternalService>();
+        mockService
+            .Setup(s => s.SearchPlacesAsync("Museo", "madrid-es", 20))
+            .ReturnsAsync(apiPlaces);
 
+        var repo = new PlaceRepository(db, mockService.Object);
+
+        // Act
         var results = await repo.SearchAsync("Museo", "madrid-es");
 
-        Assert.IsTrue(mockApi.WasCalled, "API should be called when no local results");
+        // Assert
         Assert.AreEqual(1, results.Count);
         Assert.AreEqual("fsq1", results[0].PlaceId);
         Assert.AreEqual("Museo del Prado", results[0].Name);
         Assert.AreEqual("madrid-es", results[0].CityId);
+        mockService.Verify(s => s.SearchPlacesAsync("Museo", "madrid-es", 20), Times.Once);
     }
 
     [TestMethod]
     public async Task SearchAsync_NoLocalResults_ApiError_ReturnsEmpty()
     {
+        // Arrange
         using var db = CreateDbContext();
-        var mockApi = new MockApiClient(HttpStatusCode.InternalServerError);
-        var repo = new PlaceRepository(db, mockApi);
+        var mockService = new Mock<IPlaceExternalService>();
+        mockService
+            .Setup(s => s.SearchPlacesAsync("Museo", "madrid-es", 20))
+            .ThrowsAsync(new HttpRequestException("API error"));
 
+        var repo = new PlaceRepository(db, mockService.Object);
+
+        // Act
         var results = await repo.SearchAsync("Museo", "madrid-es");
 
-        Assert.IsTrue(mockApi.WasCalled, "API should be called");
+        // Assert
         Assert.AreEqual(0, results.Count);
+        mockService.Verify(s => s.SearchPlacesAsync("Museo", "madrid-es", 20), Times.Once);
     }
 
     [TestMethod]
     public async Task SearchAsync_SavedPlaces_NotPersistedFromApi()
     {
+        // Arrange
         using var db = CreateDbContext();
-        var apiPlaces = new List<FoursquarePlace>
+        var apiPlaces = new List<Place>
         {
-            new()
-            {
-                FsqId = "fsq_api_1",
-                Name = "Prado from API",
-                Geocodes = new FoursquareGeocodes { Main = new FoursquareLatLng { Latitude = 40.4168, Longitude = -3.7038 } },
-                Categories = new List<FoursquareCategory> { new() { Id = "10000", Name = "Museum" } }
-            }
+            new Place("fsq_api_1", "Prado from API", "madrid-es",
+                new PlaceLocation(40.4168, -3.7038), 120, true, true)
         };
-        var mockApi = new MockApiClient(apiPlaces);
-        var repo = new PlaceRepository(db, mockApi);
+        var mockService = new Mock<IPlaceExternalService>();
+        mockService
+            .Setup(s => s.SearchPlacesAsync("Prado", "madrid-es", 20))
+            .ReturnsAsync(apiPlaces);
 
+        var repo = new PlaceRepository(db, mockService.Object);
+
+        // Act
         var results = await repo.SearchAsync("Prado", "madrid-es");
 
+        // Assert
         Assert.AreEqual(1, results.Count);
 
         var savedCount = await db.Places.CountAsync();

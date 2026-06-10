@@ -2,22 +2,18 @@ using Microsoft.EntityFrameworkCore;
 using SmartTripPlanner.Domain.AggregatesModel;
 using SmartTripPlanner.Domain.Base;
 using SmartTripPlanner.Domain.Repository;
-using SmartTripPlanner.Infrastructure;
-using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
-using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Mapping;
-using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Models;
 
 namespace SmartTripPlanner.Infrastructure.Repositories;
 
 public class PlaceRepository : IPlaceRepository
 {
     private readonly PlannerDbContext _context;
-    private readonly IFoursquareApiClient? _foursquareApiClient;
+    private readonly IPlaceExternalService? _externalService;
 
-    public PlaceRepository(PlannerDbContext context, IFoursquareApiClient? foursquareApiClient = null)
+    public PlaceRepository(PlannerDbContext context, IPlaceExternalService? externalService = null)
     {
         _context = context;
-        _foursquareApiClient = foursquareApiClient;
+        _externalService = externalService;
     }
 
     public IUnitOfWork UnitOfWork => _context;
@@ -33,13 +29,12 @@ public class PlaceRepository : IPlaceRepository
         if (localResults.Count > 0)
             return localResults;
 
-        if (_foursquareApiClient is null)
+        if (_externalService is null)
             return new List<Place>();
 
         try
         {
-            var apiResults = await _foursquareApiClient.SearchPlacesAsync(query, cityId, maxResults);
-            return apiResults.Select(p => MapToPlace(p, cityId)).ToList();
+            return await _externalService.SearchPlacesAsync(query, cityId, maxResults);
         }
         catch (HttpRequestException)
         {
@@ -52,20 +47,5 @@ public class PlaceRepository : IPlaceRepository
         return await _context.Places
             .Include(p => p.OpeningHours)
             .FirstOrDefaultAsync(p => p.PlaceId == placeId);
-    }
-
-    private Place MapToPlace(FoursquarePlace apiPlace, string cityId)
-    {
-        var location = apiPlace.Geocodes?.Main is not null
-            ? new PlaceLocation(apiPlace.Geocodes.Main.Latitude, apiPlace.Geocodes.Main.Longitude)
-            : new PlaceLocation(0, 0);
-
-        var (duration, isIndoor, isFamilyFriendly) =
-            FoursquareCategoryHeuristics.Map(apiPlace.Categories);
-
-        return new Place(
-            apiPlace.FsqId,
-            apiPlace.Name,
-            cityId, location, duration, isIndoor, isFamilyFriendly);
     }
 }

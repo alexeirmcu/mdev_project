@@ -1,0 +1,10 @@
+# SDD DAG State — abstract-place-external-service
+phases:
+  proposal: completed
+  specs: completed
+  design: completed
+  tasks: completed
+  apply: completed
+  verify: completed
+  archive: completed
+created: 2026-06-10

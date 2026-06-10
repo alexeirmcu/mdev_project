@@ -30,6 +30,8 @@ public static class InfrastructureServiceRegistration
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApiKey);
         });
 
+        services.AddScoped<IPlaceExternalService, FoursquarePlaceService>();
+
         return services;
     }
 }

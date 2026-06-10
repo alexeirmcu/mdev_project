@@ -2,7 +2,7 @@ using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Models;
 
 namespace SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Mapping;
 
-public static class FoursquareCategoryHeuristics
+internal static class FoursquareCategoryHeuristics
 {
     public static (int TypicalDurationMinutes, bool IsIndoor, bool IsFamilyFriendly)
         Map(IEnumerable<FoursquareCategory> categories)

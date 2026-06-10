@@ -1,6 +1,6 @@
 namespace SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Models;
 
-public class FoursquareHours
+internal class FoursquareHours
 {
     public List<FoursquareRegularHour>? Regular { get; set; }
 }
