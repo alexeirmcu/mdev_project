@@ -5,7 +5,7 @@ using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Models;
 
 namespace SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
 
-public class FoursquareApiClient : IFoursquareApiClient
+internal class FoursquareApiClient : IFoursquareApiClient
 {
     private const string BasePath = "/places";
 

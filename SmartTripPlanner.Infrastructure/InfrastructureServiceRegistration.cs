@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SmartTripPlanner.Domain.Base;
+using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Domain.Repository;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Configuration;
@@ -29,6 +30,8 @@ public static class InfrastructureServiceRegistration
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApiKey);
         });
+
+        services.AddScoped<IPlaceExternalService, FoursquarePlaceService>();
 
         return services;
     }

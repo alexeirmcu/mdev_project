@@ -41,32 +41,29 @@ public interface IPlaceRepository : IRepository<Place>
 
 ### FR5: PlaceRepository (Infrastructure)
 - EF Core implementation in `SmartTripPlanner.Infrastructure/Repositories/PlaceRepository.cs`.
-- `PlaceConfiguration` in `SmartTripPlanner.Infrastructure/Configurations/PlaceConfiguration.cs`:
-  - HasKey on Id (auto-generated).
-  - Unique index on PlaceId.
-  - OwnsOne for Location (columns: Location_Latitude, Location_Longitude).
-  - OwnsMany for OpeningHours (separate table `PlaceOpeningHours`).
-- Register `DbSet<Place>` in `PlannerDbContext`.
+- `PlaceConfiguration` in `SmartTripPlanner.Infrastructure/Configurations/PlaceConfiguration.cs`.
 - Register `IPlaceRepository` in `InfrastructureServiceRegistration`.
-- **Cascade logic**: `SearchAsync` queries local DB first. If no results, calls `IFoursquareApiClient`, maps results via `FoursquareCategoryHeuristics`, and returns mapped `Place` list without persisting.
+- **Cascade logic**: `SearchAsync` queries local DB first. If no results, calls `IPlaceExternalService.SearchPlacesAsync`, and returns mapped `Place` list without persisting.
 
-### FR6: IFoursquareApiClient
-```csharp
-namespace SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
+#### Scenario: Cascade search uses port instead of direct Foursquare dependency
+- GIVEN a `PlaceRepository` with `IPlaceExternalService` injected
+- WHEN `SearchAsync` returns no local results
+- THEN the repository calls `IPlaceExternalService.SearchPlacesAsync` (not `IFoursquareApiClient`)
+- AND the external results are returned as `Place` entities
 
-public interface IFoursquareApiClient
-{
-    Task<List<FoursquarePlace>> SearchPlacesAsync(string query, string near, int limit = 20);
-    Task<FoursquarePlace?> GetPlaceByIdAsync(string fsqId);
-}
-```
-- Lives in Infrastructure layer only — no other layer may reference Foursquare DTOs.
-- Implements a typed HttpClient wired via `IHttpClientFactory`.
-- Configuration via `IOptions<FoursquareApiOptions>`:
-  - `BaseUrl` (string, default `"https://api.foursquare.com/v3/"`)
-  - `ApiKey` (string, loaded from User Secrets in development)
-- Communicates with Foursquare Places API `/places/search` and `/places/{fsq_id}` endpoints.
-- Returns Infrastructure-level DTOs that are NOT shared with any other layer.
+#### Scenario: Cascade returns local results without calling external service
+- GIVEN a `PlaceRepository` with `IPlaceExternalService` injected
+- WHEN `SearchAsync` finds local results matching the query
+- THEN it returns the local results
+- AND `IPlaceExternalService.SearchPlacesAsync` is NOT called
+
+### FR6: IFoursquareApiClient (internal)
+`IFoursquareApiClient` remains in Infrastructure and is unchanged. It is now consumed exclusively by `FoursquarePlaceService`. All Foursquare DTOs (`FoursquarePlace`, etc.) and mappers (`FoursquareCategoryHeuristics`) become `internal` — no layer outside Infrastructure may reference them.
+
+#### Scenario: Foursquare types are internal
+- GIVEN the `SmartTripPlanner.Infrastructure` assembly
+- WHEN external assemblies reference `FoursquarePlace`, `FoursquareCategoryHeuristics`, or other Foursquare types
+- THEN those types are `internal` and inaccessible from outside Infrastructure
 
 ### FR7: FoursquareCategoryHeuristics
 - Maps Foursquare category IDs and names to heuristic `Place` property values:
@@ -80,19 +77,13 @@ public interface IFoursquareApiClient
 - Lives in `SmartTripPlanner.Infrastructure/ExternalServices/Foursquare/Mapping/`.
 
 ### FR8: Cascade Search Implementation
-- `PlaceRepository.SearchAsync` must implement:
-  1. Query local DB via EF Core (existing Phase 1 logic).
-  2. If local results found (count > 0), return them.
-  3. If no local results, call `IFoursquareApiClient.SearchPlacesAsync`.
-  4. For each Foursquare result, map to `Place` domain entity:
-     - `PlaceId` = Foursquare `fsq_id`
-     - `Name` = Foursquare `name`
-     - `CityId` = original `cityId` parameter
-     - `Location` = Foursquare `geocodes.main` (lat/lng)
-     - `OpeningHours` = Foursquare `hours.regular` (if available)
-     - `TypicalDurationMinutes` + `IsIndoor` + `IsFamilyFriendly` = from `FoursquareCategoryHeuristics`
-  5. Return the mapped `List<Place>`.
-- API results are **ephemeral** — not saved to the database.
+`PlaceRepository.SearchAsync` must implement:
+1. Query local DB via EF Core.
+2. If local results found (count > 0), return them.
+3. If no local results, call `IPlaceExternalService.SearchPlacesAsync`.
+4. Results from `IPlaceExternalService` are already mapped to `Place` entities — no additional mapping needed in the repository.
+5. Return the mapped `List<Place>`.
+6. API results are **ephemeral** — not saved to the database.
 
 ### FR9: Configuration
 - `appsettings.json` / `appsettings.Development.json`:
@@ -107,6 +98,39 @@ public interface IFoursquareApiClient
 - API Key stored in **User Secrets** for development: `dotnet user-secrets set "FoursquareApi:ApiKey" "<key>"`.
 - `FoursquareApiOptions` class in `SmartTripPlanner.Infrastructure/Configuration/` with `IOptions` validation.
 - `InfrastructureServiceRegistration` binds options and registers the typed HttpClient.
+
+### FR10: IPlaceExternalService (Port)
+The Domain layer MUST define `IPlaceExternalService` as a port for searching places in external providers. The interface SHALL return domain entities (`Place`), not DTOs.
+
+```csharp
+namespace SmartTripPlanner.Domain.Repository;
+
+public interface IPlaceExternalService
+{
+    Task<List<Place>> SearchPlacesAsync(string query, string cityId, int maxResults = 20);
+}
+```
+
+#### Scenario: Port abstracts external provider lookup
+- GIVEN a query, cityId, and maxResults
+- WHEN `SearchPlacesAsync` is called
+- THEN it returns a `List<Place>` with mapped results from the external provider
+
+### FR11: FoursquarePlaceService (Adapter)
+The Infrastructure layer MUST implement `IPlaceExternalService` via a `FoursquarePlaceService` class that:
+- Wraps `IFoursquareApiClient` internally
+- Maps `FoursquarePlace` → `Place` domain entity using `FoursquareCategoryHeuristics`
+- Is registered via DI as `IPlaceExternalService`
+
+#### Scenario: Adapter returns mapped domain entities
+- GIVEN a `FoursquarePlaceService` with a working `IFoursquareApiClient`
+- WHEN `SearchPlacesAsync` is called with "Museum" in "madrid-es"
+- THEN it returns `Place` entities with `PlaceId`, `Name`, `Location`, `TypicalDurationMinutes`, and `IsIndoor` correctly mapped
+
+#### Scenario: Adapter returns empty list on API failure
+- GIVEN a `FoursquarePlaceService` whose `IFoursquareApiClient` throws `HttpRequestException`
+- WHEN `SearchPlacesAsync` is called
+- THEN it returns an empty list (graceful degradation)
 
 ## Non-Functional Requirements
 - Strict TDD — tests define contracts before implementation.
@@ -163,10 +187,10 @@ public interface IFoursquareApiClient
 - Unknown category returns default values (60, true, true).
 
 ### AC7: Cascade Search
-- Local DB results are returned without calling the Foursquare API.
-- No local results → Foursquare API is called → results are mapped and returned.
-- Foursquare API failure (HTTP error) returns empty list (graceful degradation).
-- Results from Foursquare API are ephemeral (not persisted in DB).
+- Local DB results are returned without calling the external service.
+- No local results → `IPlaceExternalService.SearchPlacesAsync` is called → results are returned.
+- External service failure (exception) returns empty list (graceful degradation).
+- Results from external service are ephemeral (not persisted in DB).
 
 ## Infrastructure Dependencies
 - `Microsoft.EntityFrameworkCore.InMemory` package for infrastructure tests (already added in Phase 1).
