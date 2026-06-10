@@ -1,6 +1,6 @@
 using SmartTripPlanner.Domain.AggregatesModel;
 
-namespace SmartTripPlanner.Domain.Repository;
+namespace SmartTripPlanner.Domain.Ports;
 
 public interface IPlaceExternalService
 {

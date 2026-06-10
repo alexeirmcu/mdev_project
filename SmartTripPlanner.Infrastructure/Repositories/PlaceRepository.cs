@@ -1,8 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using SmartTripPlanner.Domain.AggregatesModel;
 using SmartTripPlanner.Domain.Base;
+using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Domain.Repository;
-
+ 
 namespace SmartTripPlanner.Infrastructure.Repositories;
 
 public class PlaceRepository : IPlaceRepository

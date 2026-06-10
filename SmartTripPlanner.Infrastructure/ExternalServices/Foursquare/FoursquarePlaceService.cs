@@ -1,5 +1,5 @@
 using SmartTripPlanner.Domain.AggregatesModel;
-using SmartTripPlanner.Domain.Repository;
+using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Mapping;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Models;
 

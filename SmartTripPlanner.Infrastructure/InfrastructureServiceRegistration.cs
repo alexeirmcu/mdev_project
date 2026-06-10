@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SmartTripPlanner.Domain.Base;
+using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Domain.Repository;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Configuration;

@@ -1,7 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Moq;
 using SmartTripPlanner.Domain.AggregatesModel;
-using SmartTripPlanner.Domain.Repository;
+using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Infrastructure;
 using SmartTripPlanner.Infrastructure.Repositories;
 
