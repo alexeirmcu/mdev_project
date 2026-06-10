@@ -1,11 +1,11 @@
 # Proposal: flow1-place-domain
 
 ## Intent
-Implement the Place domain entity and its local repository for Flow 1 (Place Discovery) — Domain + Infrastructure only. This covers the **Paso A** (local DB search) from the cascade pipeline: seed data is available locally and queried via EF Core before any external API fallback.
+Implement the Place domain entity, its local repository, and the Foursquare API cascade for Flow 1 (Place Discovery) — Domain + Infrastructure only. This covers **Paso A** (local DB search) and **Paso B** (Foursquare API fallback) with **Paso C** (emergency/heuristic mapping) from the cascade pipeline.
 
 ## Scope
 
-### In Scope
+### Phase 1 (Done)
 - `Place` entity (`SmartTripPlanner.Domain/AggregatesModel/`)
 - `OpeningHoursWindow` ValueObject (`SmartTripPlanner.Domain/AggregatesModel/`)
 - `PlaceLocation` ValueObject (`SmartTripPlanner.Domain/AggregatesModel/` — pure lat/lng, no Name)
@@ -17,22 +17,36 @@ Implement the Place domain entity and its local repository for Flow 1 (Place Dis
 - Domain tests under `tests/SmartTripPlanner.Tests/SmartTripPlanner.Domain/AggregatesModel/`
 - Infrastructure tests under `tests/SmartTripPlanner.Tests/SmartTripPlanner.Infrastructure/Repositories/` using EF Core InMemory
 
+### Phase 2 (This change)
+- `IFoursquareApiClient` interface (`SmartTripPlanner.Infrastructure/ExternalServices/Foursquare/`)
+- `FoursquareApiClient` typed HttpClient implementation
+- Foursquare Places API DTOs (request/response models, in Infrastructure only)
+- `FoursquareApiOptions` configuration class (`SmartTripPlanner.Infrastructure/Configuration/`)
+- `FoursquareCategoryHeuristics` — category-to-domain-property mapper
+- Update `PlaceRepository.SearchAsync` cascade: local DB → Foursquare API → heuristic mapping
+- Register `IFoursquareApiClient` and `IHttpClientFactory` in `InfrastructureServiceRegistration`
+- Update `Program.cs` to bind `FoursquareApiOptions` from configuration
+- Infrastructure tests for Foursquare client (using `HttpMessageHandler` mock)
+- Updated `PlaceRepositoryTests` for cascade fallback scenarios
+
 ### Out of Scope
-- Foursquare API integration and HTTP clients
-- Emergency/heuristic mapping (TypicalDurationMinutes/IsIndoor/IsFamilyFriendly injection from categories)
 - Application handlers, commands, or queries
 - API controllers, search endpoints
 - Async enrichment pipeline
 - Seed data / initial top-50 curated places
 - Trip generation logic or trip-level search orchestration
+- Real Foursquare API calls in CI/tests (mocked via `HttpMessageHandler`)
 
 ## Key Decisions
 1. **Place inherits from `Entity` (long PK)** for EF Core consistency with existing aggregates (`Trip`, `City`). `PlaceId` (string, from Foursquare `fsq_id`) has a **unique non-clustered index** for domain lookup.
 2. **`OpeningHoursWindow` is a ValueObject** mapped via `OwnsMany` with `DayOfWeek`, `OpenMinutes`, `CloseMinutes` (minutes from 00:00, e.g. 540 = 09:00, 1260 = 21:00).
 3. **New `PlaceLocation` ValueObject** created instead of reusing `Location`. The existing `Location` includes `Name` (hotel-specific for `Trip.BaseHotel`). A pure lat/lng VO avoids coupling and keeps single responsibility.
-4. **Local DB search only** — no external API in this phase. `PlaceRepository.SearchAsync` uses EF Core `Where` with `Contains` on `Name` and `CityId` filter.
+4. **Cascade search pipeline**: local DB → Foursquare API → heuristic mapping. `PlaceRepository` orchestrates the cascade.
 5. **TDD approach** — tests define the contract before implementation.
 6. **Tests mirror source directory structure** under `tests/SmartTripPlanner.Tests/`.
+7. **`IFoursquareApiClient` in Infrastructure** — not Domain. The spec dictates no component outside Infrastructure may know Foursquare API schemas.
+8. **Typed HttpClient via `IHttpClientFactory`** — standard .NET pattern for resilient HTTP clients.
+9. **`FoursquareCategoryHeuristics`** — pure mapping service with no side effects. Category lookup falls back to defaults (60 min, indoor=true, family-friendly=true).
 
 ## Entities
 
@@ -66,12 +80,18 @@ Implement the Place domain entity and its local repository for Flow 1 (Place Dis
 1. **long PK + string unique index** pattern already used by `City` (`CityCode` unique index). `Place` follows the same convention: `Id` is the EF-friendly auto-generated long, `PlaceId` is the domain/business identifier with a unique index.
 2. **OpeningHoursWindow as OwnsMany** — consistent with how `DayPlan` owns `BlockTimeline` and `ActivityNode` in `TripConfiguration`. They live on the same table as `Place` (or a separate table, EF choice) but are always loaded with the parent.
 3. **PlaceLocation as OwnsOne** — same pattern as `Trip.BaseHotel` (Location VO owned as columns with prefix). Columns named `Location_Latitude` and `Location_Longitude` by convention.
-4. **IPlaceRepository in Domain, PlaceRepository in Infrastructure** — standard DDD repository pattern already established by `ITripRepository`/`TripRepository` (TripRepository doesn't exist yet as a file, but the interface pattern is set).
+4. **IPlaceRepository in Domain, PlaceRepository in Infrastructure** — standard DDD repository pattern already established by `ITripRepository`/`TripRepository`.
 5. **No repository for OpeningHoursWindow** — it's a child VO loaded through Place; no direct querying needed.
-6. **SearchAsync returns `List<Place>`** — simple Contains + CityId filter. No pagination in this phase (defaults to 20 max).
+6. **Cascade search pipeline**: `PlaceRepository.SearchAsync` implements: (1) local DB via EF Core, (2) if no results → `IFoursquareApiClient`, (3) map Foursquare DTOs to `Place` via `FoursquareCategoryHeuristics`. Results from the API are ephemeral (not persisted).
+7. **`IFoursquareApiClient` in Infrastructure**, not Domain — per spec constraint. Domain knows only `IPlaceRepository`.
+8. **Typed HttpClient + `IHttpClientFactory`** — standard .NET pattern with `AddHttpClient<T>` for lifecycle management, resilience, and testability.
+9. **`FoursquareApiOptions`** — class bound via `IOptions<FoursquareApiOptions>` from `appsettings.json` section `"FoursquareApi"`. API Key stored in User Secrets for development.
+10. **`FoursquareCategoryHeuristics`** — static mapping of Foursquare category IDs to heuristic values. Museum/Art/ThemePark → 120 min, Historic/Monument → 60 min, Restaurant/Cafe → 90 min, Adult → `IsFamilyFriendly=false`, Indoor → `IsIndoor=true`. Default: 60 min, indoor=true, family-friendly=true.
+11. **No Domain changes** — `Place` entity already has all properties needed. Foursquare DTOs and mapping live exclusively in Infrastructure.
 
 ## Interfaces
 
+### IPlaceRepository (Domain)
 ```csharp
 namespace SmartTripPlanner.Domain.Repository;
 
@@ -82,29 +102,43 @@ public interface IPlaceRepository : IRepository<Place>
 }
 ```
 
+### IFoursquareApiClient (Infrastructure)
+```csharp
+namespace SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
+
+public interface IFoursquareApiClient
+{
+    Task<List<FoursquarePlace>> SearchPlacesAsync(string query, string near, int limit = 20);
+    Task<FoursquarePlace?> GetPlaceByIdAsync(string fsqId);
+}
+```
+
 ## Dependencies
 - **SmartTripPlanner.Domain**: No new NuGet packages. Existing `Base/` types cover Entity, ValueObject, IAggregateRoot, IRepository.
-- **SmartTripPlanner.Infrastructure**: Already has `Microsoft.EntityFrameworkCore` and `Npgsql.EntityFrameworkCore.PostgreSQL`. No new packages needed.
-- **SmartTripPlanner.Tests**: Needs `Microsoft.EntityFrameworkCore.InMemory` for infrastructure tests. Needs project reference to `SmartTripPlanner.Infrastructure`.
+- **SmartTripPlanner.Infrastructure**: Already has `Microsoft.EntityFrameworkCore` and `Npgsql.EntityFrameworkCore.PostgreSQL`. Add `Microsoft.Extensions.Http` (or rely on the ASP.NET metapackage). No additional external packages needed.
+- **SmartTripPlanner.Tests**: Already has `Microsoft.EntityFrameworkCore.InMemory` and project reference to `SmartTripPlanner.Infrastructure` (from Phase 1).
 
 ## Test Plan
 
 ### Domain Tests (mirror: `tests/SmartTripPlanner.Tests/SmartTripPlanner.Domain/`)
 | File | Tests | What it covers |
 |------|-------|----------------|
-| `AggregatesModel/PlaceTests.cs` | ~6-8 | Place construction, PlaceId uniqueness, required fields, Location validation |
-| `AggregatesModel/OpeningHoursWindowTests.cs` | ~4-5 | Value equality, minutes range validation, day of week |
-| `AggregatesModel/PlaceLocationTests.cs` | ~4-5 | Value equality, lat/lng range validation, construction |
+| `AggregatesModel/PlaceTests.cs` | 9 | Place construction, validation, defaults, OpeningHours init |
+| `AggregatesModel/OpeningHoursWindowTests.cs` | 6 | Value equality, minutes range, day of week |
+| `AggregatesModel/PlaceLocationTests.cs` | 6 | Value equality, lat/lng range, construction |
 
 ### Infrastructure Tests (mirror: `tests/SmartTripPlanner.Tests/SmartTripPlanner.Infrastructure/`)
 | File | Tests | What it covers |
 |------|-------|----------------|
-| `Repositories/PlaceRepositoryTests.cs` | ~6-8 | Search by name + city, GetByPlaceId, no results, max results, save + retrieve |
+| `Repositories/PlaceRepositoryTests.cs` | 7 | Search by name + city, GetByPlaceId, no results, max results, save + retrieve |
+| `ExternalServices/Foursquare/FoursquareApiClientTests.cs` | ~4-5 | API client with mocked HttpMessageHandler, search and get by ID |
+| `ExternalServices/Foursquare/FoursquareCategoryHeuristicsTests.cs` | ~5-6 | Category mapping: museum→120min, adult→!family, indoor, defaults |
+| `Repositories/PlaceRepositoryCascadeTests.cs` | ~4-5 | Cascade fallback: local results returned, no results → API fallback, API failure returns empty |
 
-### Total: ~20-25 tests
+### Total: ~40-45 tests (Phase 1 + Phase 2)
 
 ## Risk Assessment
-- **Low**: Pure domain entity with well-understood EF Core mapping patterns. Codebase already has `City` and `Trip` as reference implementations.
-- **Medium**: `OwnsMany` for `OpeningHoursWindow` with EF Core — needs correct configuration to avoid cartesian explosion or mapping issues. Mitigated by following existing `DayPlan`/`BlockTimeline` OwnsMany pattern in `TripConfiguration.cs`.
-- **Low**: All existing functionality remains unchanged. New types don't modify existing aggregates.
-- **Low**: TDD approach reduces risk of incorrect behavior at the domain level.
+- **Medium**: Foursquare API contract may change. Mitigated by isolating DTOs in Infrastructure and mocking in tests.
+- **Medium**: No real API key in CI/CD — tests must work without one via `HttpMessageHandler` mocking.
+- **Low**: `Place` entity unchanged — no regression risk on Phase 1 tests.
+- **Low**: Cascade logic is straightforward: local check → API call → mapping. No state mutation between steps.

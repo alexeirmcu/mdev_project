@@ -26,4 +26,13 @@ public class Place : Entity, IAggregateRoot
         CityId = cityId ?? throw new ArgumentNullException(nameof(cityId));
         Location = location ?? throw new ArgumentNullException(nameof(location));
     }
+
+    public Place(string placeId, string name, string cityId, PlaceLocation location,
+                 int typicalDurationMinutes, bool isIndoor, bool isFamilyFriendly)
+        : this(placeId, name, cityId, location)
+    {
+        TypicalDurationMinutes = typicalDurationMinutes;
+        IsIndoor = isIndoor;
+        IsFamilyFriendly = isFamilyFriendly;
+    }
 }
