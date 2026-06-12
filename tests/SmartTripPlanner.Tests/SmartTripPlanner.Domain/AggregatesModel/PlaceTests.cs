@@ -1,4 +1,5 @@
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.Exceptions;
 
 namespace SmartTripPlanner.Tests.Domain.AggregatesModel;
 
@@ -18,53 +19,53 @@ public sealed class PlaceTests
     }
 
     [TestMethod]
-    public void Constructor_WithNullPlaceId_ThrowsArgumentNullException()
+    public void Constructor_WithNullPlaceId_ThrowsSmartTripDomainException()
     {
         try
         {
             _ = new Place(null!, "Museo del Prado", "madrid-es", ValidLocation);
-            Assert.Fail("Expected ArgumentNullException was not thrown");
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
-        catch (ArgumentNullException)
+        catch (SmartTripDomainException)
         {
         }
     }
 
     [TestMethod]
-    public void Constructor_WithEmptyPlaceId_ThrowsArgumentException()
+    public void Constructor_WithEmptyPlaceId_ThrowsSmartTripDomainException()
     {
         try
         {
             _ = new Place("", "Museo del Prado", "madrid-es", ValidLocation);
-            Assert.Fail("Expected ArgumentException was not thrown");
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
-        catch (ArgumentException)
+        catch (SmartTripDomainException)
         {
         }
     }
 
     [TestMethod]
-    public void Constructor_WithNullName_ThrowsArgumentNullException()
+    public void Constructor_WithNullName_ThrowsSmartTripDomainException()
     {
         try
         {
             _ = new Place("fsq123", null!, "madrid-es", ValidLocation);
-            Assert.Fail("Expected ArgumentNullException was not thrown");
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
-        catch (ArgumentNullException)
+        catch (SmartTripDomainException)
         {
         }
     }
 
     [TestMethod]
-    public void Constructor_WithNullLocation_ThrowsArgumentNullException()
+    public void Constructor_WithNullLocation_ThrowsSmartTripDomainException()
     {
         try
         {
             _ = new Place("fsq123", "Museo del Prado", "madrid-es", null!);
-            Assert.Fail("Expected ArgumentNullException was not thrown");
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
-        catch (ArgumentNullException)
+        catch (SmartTripDomainException)
         {
         }
     }

@@ -1,4 +1,5 @@
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.Exceptions;
 
 namespace SmartTripPlanner.Tests.Domain.AggregatesModel;
 
@@ -15,40 +16,40 @@ public sealed class OpeningHoursWindowTests
     }
 
     [TestMethod]
-    public void Constructor_WithOpenAfterClose_ThrowsArgumentException()
+    public void Constructor_WithOpenAfterClose_ThrowsSmartTripDomainException()
     {
         try
         {
             _ = new OpeningHoursWindow(DayOfWeek.Monday, 1260, 540);
-            Assert.Fail("Expected ArgumentException was not thrown");
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
-        catch (ArgumentException)
+        catch (SmartTripDomainException)
         {
         }
     }
 
     [TestMethod]
-    public void Constructor_WithOpenMinutesNegative_ThrowsArgumentOutOfRangeException()
+    public void Constructor_WithOpenMinutesNegative_ThrowsSmartTripDomainException()
     {
         try
         {
             _ = new OpeningHoursWindow(DayOfWeek.Monday, -1, 540);
-            Assert.Fail("Expected ArgumentOutOfRangeException was not thrown");
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
-        catch (ArgumentOutOfRangeException)
+        catch (SmartTripDomainException)
         {
         }
     }
 
     [TestMethod]
-    public void Constructor_WithCloseMinutesOver1439_ThrowsArgumentOutOfRangeException()
+    public void Constructor_WithCloseMinutesOver1439_ThrowsSmartTripDomainException()
     {
         try
         {
             _ = new OpeningHoursWindow(DayOfWeek.Monday, 0, 1440);
-            Assert.Fail("Expected ArgumentOutOfRangeException was not thrown");
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
-        catch (ArgumentOutOfRangeException)
+        catch (SmartTripDomainException)
         {
         }
     }

@@ -11,7 +11,7 @@ internal static class FoursquareCategoryHeuristics
         if (first is null)
             return (60, true, true);
 
-        return first.Id switch
+        return first.FsqCategoryId switch
         {
             "10000" or "10035" or "10014" => (120, true, true),
             "10024" or "10025" or "10033" or "10040" => (60, true, true),

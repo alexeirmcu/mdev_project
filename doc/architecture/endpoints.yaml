@@ -1,53 +1,59 @@
 openapi: 3.0.3
 info:
   title: Smart Trip Planner API
-  description: API REST para la generación, gestión y replanificación en tiempo real de itinerarios familiares optimizados por bloques utilizando Google OR-Tools.
+  description: REST API for generating, managing, and real-time replanning of family itineraries optimized by blocks using Google OR-Tools.
   version: 2.0.0
 servers:
   - url: https://api.smart-tripplanner.com/v2
-    description: Servidor de Producción
+    description: Production server
 paths:
   /trips:
     get:
-      summary: Listar viajes guardados
-      description: Recupera una lista resumida de todos los viajes planificados, con soporte para filtros por destino y rangos de fechas.
+      summary: List saved trips
+      description: Returns a summarized list of all planned trips with optional filters by destination and date range.
       operationId: listTrips
       parameters:
-        - name: cityId
+        - name: cityCode
           in: query
           required: false
-          description: Filtrar por el identificador único de la ciudad (ej. madrid-es).
+          description: Filter by the unique city identifier (e.g. madrid-es).
           schema:
             type: string
         - name: startDate
           in: query
           required: false
-          description: Filtrar viajes que comiencen a partir de esta fecha (ISO 8601 YYYY-MM-DD).
+          description: Filter trips starting from this date (ISO 8601 YYYY-MM-DD).
           schema:
             type: string
             format: date
         - name: endDate
           in: query
           required: false
-          description: Filtrar viajes que terminen antes o durante esta fecha (ISO 8601 YYYY-MM-DD).
+          description: Filter trips ending on or before this date (ISO 8601 YYYY-MM-DD).
           schema:
             type: string
             format: date
       responses:
         '200':
-          description: Lista de viajes recuperada con éxito.
+          description: List of trips retrieved successfully.
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/TripSummaryResponse'
-        '400':
-          description: Parámetros de consulta inválidos.
+        '422':
+          description: Invalid query parameters.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValidationResult'
 
     post:
-      summary: Generar un nuevo itinerario de viaje
-      description: Toma las preferencias de la familia, el hotel base y la lista de lugares deseados para calcular una distribución óptima utilizando Google OR-Tools.
+      summary: Generate a new trip itinerary
+      description: Takes family preferences, base hotel, and desired places to calculate an optimal day distribution using Google OR-Tools.
       operationId: generateTrip
       requestBody:
         required: true
@@ -57,24 +63,24 @@ paths:
               $ref: '#/components/schemas/TripGenerationRequest'
       responses:
         '200':
-          description: Itinerario generado y guardado exitosamente.
+          description: Itinerary generated and saved successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TripPlanResponse'
-        '400':
-          description: Datos de entrada inválidos.
         '422':
-          description: El itinerario es matemáticamente irresoluble (Over-constrained).
+          description: Invalid input data.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValidationResult'
 
   /trips/{tripId}:
     get:
-      summary: Obtener el detalle de un viaje
-      description: Recupera el itinerario completo estructurado por días y bloques junto con el estado del checklist de sus actividades.
+      summary: Get trip details
+      description: Returns the full structured itinerary by days and blocks, along with the activity checklist status.
       operationId: getTripDetails
       parameters:
         - name: tripId
@@ -85,18 +91,24 @@ paths:
             format: uuid
       responses:
         '200':
-          description: Detalle del viaje recuperado correctamente.
+          description: Trip details retrieved successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TripPlanResponse'
-        '404':
-          description: Viaje no encontrado.
+        '422':
+          description: Trip not found.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValidationResult'
 
   /trips/{tripId}/places/{placeId}/complete:
     patch:
-      summary: Marcar un destino como completado
-      description: Actualiza de forma atómica el estado de una actividad específica dentro del itinerario del viaje (Checklist de ejecución).
+      summary: Mark a destination as completed
+      description: Atomically updates the completion status of a specific activity within the trip itinerary.
       operationId: completePlace
       parameters:
         - name: tripId
@@ -125,14 +137,20 @@ paths:
                   example: true
       responses:
         '204':
-          description: Estado del lugar actualizado con éxito en el checklist. Sin cuerpo de respuesta.
-        '404':
-          description: Viaje o lugar no encontrado en el itinerario.
+          description: Place completion status updated successfully. No response body.
+        '422':
+          description: Trip or place not found in the itinerary.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValidationResult'
 
   /trips/{tripId}/replan:
     post:
-      summary: Replanificar el resto del día en ejecución
-      description: Endpoint de baja latencia que recalcula instantáneamente los bloques restantes del día actual basándose en los ítems completados, ubicación actual y cambios climáticos súbitos.
+      summary: Replan the remainder of the day
+      description: Low-latency endpoint that instantly recalculates the remaining blocks of the current day based on completed items, current location, and sudden weather changes.
       operationId: replanTrip
       parameters:
         - name: tripId
@@ -149,13 +167,48 @@ paths:
               $ref: '#/components/schemas/TripReplanRequest'
       responses:
         '200':
-          description: Itinerario remanente recalculado y adaptado con éxito.
+          description: Remaining itinerary recalculated and adapted successfully.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/TripPlanResponse'
-        '404':
-          description: Viaje no encontrado.
+        '422':
+          description: Trip not found.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValidationResult'
+
+  /trips/places/search:
+    post:
+      summary: Search points of interest (Must-sees)
+      description: Retrieves a list of places filtered by city following a cascade search algorithm (local database → Foursquare external API).
+      operationId: searchPlaces
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceSearchRequest'
+      responses:
+        '200':
+          description: List of places retrieved successfully.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PlaceResponse'
+        '422':
+          description: Validation error or external service failure.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValidationResult'
 
 components:
   schemas:
@@ -377,17 +430,96 @@ components:
           type: boolean
           example: false
 
-    ErrorResponse:
+    PlaceResponse:
       type: object
       properties:
-        code:
+        placeId:
           type: string
-          example: "OVER_CONSTRAINED_ROUTE"
-        message:
+          example: "fsq_1"
+        name:
           type: string
-          example: "Es imposible acomodar todos los Must-Sees de alta prioridad en el tiempo disponible."
-        conflictingPlaceIds:
+          example: "Museo del Prado"
+        cityId:
+          type: string
+          example: "madrid-es"
+        location:
+          $ref: '#/components/schemas/PlaceLocationModel'
+        typicalDurationMinutes:
+          type: integer
+          example: 120
+        isIndoor:
+          type: boolean
+          example: true
+        isFamilyFriendly:
+          type: boolean
+          example: true
+        openingHours:
           type: array
           items:
-            type: string
-          example: ["pl-warner-park"]
+            $ref: '#/components/schemas/OpeningHoursWindowModel'
+
+    PlaceLocationModel:
+      type: object
+      properties:
+        latitude:
+          type: number
+          format: double
+          example: 40.4168
+        longitude:
+          type: number
+          format: double
+          example: -3.7038
+
+    OpeningHoursWindowModel:
+      type: object
+      properties:
+        dayOfWeek:
+          type: integer
+          enum: [0, 1, 2, 3, 4, 5, 6]
+          description: "Day of week: 0 = Sunday, 1 = Monday, 2 = Tuesday, 3 = Wednesday, 4 = Thursday, 5 = Friday, 6 = Saturday."
+          example: 1
+        openMinutes:
+          type: integer
+          example: 540
+        closeMinutes:
+          type: integer
+          example: 1200
+
+    PlaceSearchRequest:
+      type: object
+      required:
+        - query
+        - cityCode
+      properties:
+        query:
+          type: string
+          minLength: 3
+          example: "Museo"
+        cityCode:
+          type: string
+          example: "madrid-es"
+        maxResults:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 10
+          example: 10
+
+    ErrorCode:
+      type: string
+      enum:
+        - MIN_LENGTH_VIOLATION
+        - INVALID_CITY
+        - MAX_RESULTS_EXCEEDED
+        - EXTERNAL_SERVICE_FAILURE
+        - REQUIRED_FIELD
+        - VALIDATION_ERROR
+
+    ValidationResult:
+      type: object
+      properties:
+        errorCode:
+          $ref: '#/components/schemas/ErrorCode'
+        description:
+          type: string
+          example: "The search query must be at least 3 characters long."

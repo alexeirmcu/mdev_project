@@ -18,6 +18,7 @@ public static class InfrastructureServiceRegistration
 
         services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<PlannerDbContext>());
 
+        services.AddScoped<ICityRepository, CityRepository>();
         services.AddScoped<IPlaceRepository, PlaceRepository>();
 
         services.AddOptions<FoursquareApiOptions>()
@@ -29,6 +30,7 @@ public static class InfrastructureServiceRegistration
             client.BaseAddress = new Uri(options.BaseUrl);
             client.DefaultRequestHeaders.Authorization =
                 new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApiKey);
+            client.DefaultRequestHeaders.Add("X-Places-Api-Version", options.ApiVersion);
         });
 
         services.AddScoped<IPlaceExternalService, FoursquarePlaceService>();

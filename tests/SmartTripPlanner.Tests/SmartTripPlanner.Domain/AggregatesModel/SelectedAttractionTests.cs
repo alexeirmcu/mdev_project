@@ -1,4 +1,5 @@
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.Exceptions;
 
 namespace SmartTripPlanner.Tests.Domain.AggregatesModel;
 
@@ -15,30 +16,28 @@ public sealed class SelectedAttractionTests
     }
 
     [TestMethod]
-    public void Constructor_WithNullPlaceId_ThrowsArgumentNullException()
+    public void Constructor_WithNullPlaceId_ThrowsSmartTripDomainException()
     {
         try
         {
             _ = new SelectedAttraction(null!, "Name");
-            Assert.Fail("Expected ArgumentNullException was not thrown");
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
-        catch (ArgumentNullException ex)
+        catch (SmartTripDomainException)
         {
-            Assert.AreEqual("placeId", ex.ParamName);
         }
     }
 
     [TestMethod]
-    public void Constructor_WithNullName_ThrowsArgumentNullException()
+    public void Constructor_WithNullName_ThrowsSmartTripDomainException()
     {
         try
         {
             _ = new SelectedAttraction("place-1", null!);
-            Assert.Fail("Expected ArgumentNullException was not thrown");
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
-        catch (ArgumentNullException ex)
+        catch (SmartTripDomainException)
         {
-            Assert.AreEqual("name", ex.ParamName);
         }
     }
 

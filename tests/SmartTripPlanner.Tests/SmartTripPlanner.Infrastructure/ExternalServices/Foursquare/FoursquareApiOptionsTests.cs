@@ -10,8 +10,9 @@ public sealed class FoursquareApiOptionsTests
     {
         var options = new FoursquareApiOptions();
 
-        Assert.AreEqual("https://api.foursquare.com/v3/", options.BaseUrl);
+        Assert.AreEqual("https://places-api.foursquare.com/", options.BaseUrl);
         Assert.AreEqual(string.Empty, options.ApiKey);
+        Assert.AreEqual("2025-06-17", options.ApiVersion);
     }
 
     [TestMethod]

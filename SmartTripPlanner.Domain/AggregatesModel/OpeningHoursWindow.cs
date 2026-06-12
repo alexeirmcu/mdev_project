@@ -1,4 +1,5 @@
 using SmartTripPlanner.Domain.Base;
+using SmartTripPlanner.Domain.Exceptions;
 
 namespace SmartTripPlanner.Domain.AggregatesModel;
 
@@ -13,11 +14,11 @@ public class OpeningHoursWindow : ValueObject
     public OpeningHoursWindow(DayOfWeek dayOfWeek, int openMinutes, int closeMinutes)
     {
         if (openMinutes < 0 || openMinutes > 1439)
-            throw new ArgumentOutOfRangeException(nameof(openMinutes), openMinutes, "Open minutes must be between 0 and 1439");
+            throw new SmartTripDomainException("Open minutes must be between 0 and 1439.");
         if (closeMinutes < 0 || closeMinutes > 1439)
-            throw new ArgumentOutOfRangeException(nameof(closeMinutes), closeMinutes, "Close minutes must be between 0 and 1439");
+            throw new SmartTripDomainException("Close minutes must be between 0 and 1439.");
         if (openMinutes > closeMinutes)
-            throw new ArgumentException("Open minutes must be less than or equal to close minutes");
+            throw new SmartTripDomainException("Open minutes must be less than or equal to close minutes.");
 
         DayOfWeek = dayOfWeek;
         OpenMinutes = openMinutes;

@@ -1,8 +1,11 @@
 using AutoMapper;
 using AutoMapper.Configuration;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Builder;
+using SmartTripPlanner.API.Middleware;
 using SmartTripPlanner.ApplicationServices;
+using SmartTripPlanner.ApplicationServices.Configurations;
 using SmartTripPlanner.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -17,6 +20,11 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddInfrastructure(connectionString!);
 builder.Services.AddApplicationServices(builder.Configuration);
 
+builder.Services.AddTransient<ExceptionHandlingMiddleware>();
+
+builder.Services.Configure<PlaceSearchOptions>(
+    builder.Configuration.GetSection(PlaceSearchOptions.SectionName));
+
 builder.Services.AddSingleton<IMapper>(sp =>
 {
     var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
@@ -29,6 +37,13 @@ builder.Services.AddSingleton<IMapper>(sp =>
 
 var app = builder.Build();
 
+// Apply pending EF Core migrations on startup.
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<PlannerDbContext>();
+    await db.Database.MigrateAsync();
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -37,6 +52,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseMiddleware<ExceptionHandlingMiddleware>();
 
 app.MapHealthChecks("/health");
 app.MapControllers();

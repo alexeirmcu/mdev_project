@@ -14,6 +14,7 @@ public class CityConfiguration : IEntityTypeConfiguration<City>
         builder.Property(c => c.CityCode).IsRequired();
         builder.HasIndex(c => c.CityCode).IsUnique();
 
+        builder.Property(c => c.IsAllowed).IsRequired().HasDefaultValue(true);
 
         builder.Property(c => c.CityName).IsRequired();
     }

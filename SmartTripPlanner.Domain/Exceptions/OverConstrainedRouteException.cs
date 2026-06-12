@@ -1,6 +1,6 @@
 namespace SmartTripPlanner.Domain.Exceptions;
 
-public class OverConstrainedRouteException : Exception
+public class OverConstrainedRouteException : SmartTripDomainException
 {
     public IReadOnlyList<string> ConflictingPlaceIds { get; }
 

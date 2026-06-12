@@ -13,15 +13,13 @@ public sealed class FoursquarePlaceServiceTests
     {
         return new FoursquarePlace
         {
-            FsqId = "fsq_museum_1",
+            FsqPlaceId = "fsq_museum_1",
             Name = "Museo del Prado",
-            Geocodes = new FoursquareGeocodes
-            {
-                Main = new FoursquareLatLng { Latitude = 40.4168, Longitude = -3.7038 }
-            },
+            Latitude = 40.4168,
+            Longitude = -3.7038,
             Categories = new List<FoursquareCategory>
             {
-                new() { Id = "10000", Name = "Museum" }
+                new() { FsqCategoryId = "10000", Name = "Museum" }
             }
         };
     }
@@ -30,15 +28,13 @@ public sealed class FoursquarePlaceServiceTests
     {
         return new FoursquarePlace
         {
-            FsqId = "fsq_night_1",
+            FsqPlaceId = "fsq_night_1",
             Name = "Teatro de la Luz",
-            Geocodes = new FoursquareGeocodes
-            {
-                Main = new FoursquareLatLng { Latitude = 40.4169, Longitude = -3.7039 }
-            },
+            Latitude = 40.4169,
+            Longitude = -3.7039,
             Categories = new List<FoursquareCategory>
             {
-                new() { Id = "10008", Name = "Nightclub" }
+                new() { FsqCategoryId = "10008", Name = "Nightclub" }
             }
         };
     }
@@ -83,7 +79,7 @@ public sealed class FoursquarePlaceServiceTests
     }
 
     [TestMethod]
-    public async Task SearchPlacesAsync_WithNullGeocodes_ReturnsPlaceWithZeroLocation()
+    public async Task SearchPlacesAsync_WithZeroLocation_ReturnsPlaceWithZeroLocation()
     {
         // Arrange
         var mockClient = new Mock<IFoursquareApiClient>();
@@ -91,9 +87,10 @@ public sealed class FoursquarePlaceServiceTests
         {
             new()
             {
-                FsqId = "fsq_no_geo",
+                FsqPlaceId = "fsq_no_geo",
                 Name = "No Geo Place",
-                Geocodes = null,
+                Latitude = 0,
+                Longitude = 0,
                 Categories = new List<FoursquareCategory>()
             }
         };

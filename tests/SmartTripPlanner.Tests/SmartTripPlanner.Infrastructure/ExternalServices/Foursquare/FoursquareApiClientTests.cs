@@ -19,12 +19,12 @@ public sealed class FoursquareApiClientTests
     private static FoursquareApiOptions CreateOptions() => new()
     {
         ApiKey = "test-api-key",
-        BaseUrl = "https://api.foursquare.com/v3/"
+        BaseUrl = "https://places-api.foursquare.com/"
     };
 
     private static HttpClient CreateClient(HttpMessageHandler handler)
     {
-        return new HttpClient(handler) { BaseAddress = new Uri("https://api.foursquare.com/v3/") };
+        return new HttpClient(handler) { BaseAddress = new Uri("https://places-api.foursquare.com/") };
     }
 
     [TestMethod]
@@ -34,17 +34,19 @@ public sealed class FoursquareApiClientTests
         {
             new()
             {
-                FsqId = "fsq1",
+                FsqPlaceId = "fsq1",
                 Name = "Museo del Prado",
-                Geocodes = new FoursquareGeocodes { Main = new FoursquareLatLng { Latitude = 40.4168, Longitude = -3.7038 } },
-                Categories = new List<FoursquareCategory> { new() { Id = "10000", Name = "Museum" } }
+                Latitude = 40.4168,
+                Longitude = -3.7038,
+                Categories = new List<FoursquareCategory> { new() { FsqCategoryId = "10000", Name = "Museum" } }
             },
             new()
             {
-                FsqId = "fsq2",
+                FsqPlaceId = "fsq2",
                 Name = "Reina Sofia",
-                Geocodes = new FoursquareGeocodes { Main = new FoursquareLatLng { Latitude = 40.4089, Longitude = -3.6944 } },
-                Categories = new List<FoursquareCategory> { new() { Id = "10000", Name = "Museum" } }
+                Latitude = 40.4089,
+                Longitude = -3.6944,
+                Categories = new List<FoursquareCategory> { new() { FsqCategoryId = "10000", Name = "Museum" } }
             }
         };
         var json = JsonSerializer.Serialize(new { results = places }, JsonOptions);
@@ -57,7 +59,7 @@ public sealed class FoursquareApiClientTests
         var result = await client.SearchPlacesAsync("museum", "madrid");
 
         Assert.AreEqual(2, result.Count);
-        Assert.AreEqual("fsq1", result[0].FsqId);
+        Assert.AreEqual("fsq1", result[0].FsqPlaceId);
         Assert.AreEqual("Museo del Prado", result[0].Name);
     }
 
@@ -94,10 +96,11 @@ public sealed class FoursquareApiClientTests
     {
         var place = new FoursquarePlace
         {
-            FsqId = "fsq123",
+            FsqPlaceId = "fsq123",
             Name = "Museo del Prado",
-            Geocodes = new FoursquareGeocodes { Main = new FoursquareLatLng { Latitude = 40.4168, Longitude = -3.7038 } },
-            Categories = new List<FoursquareCategory> { new() { Id = "10000", Name = "Museum" } }
+            Latitude = 40.4168,
+            Longitude = -3.7038,
+            Categories = new List<FoursquareCategory> { new() { FsqCategoryId = "10000", Name = "Museum" } }
         };
         var json = JsonSerializer.Serialize(place, JsonOptions);
 
@@ -109,7 +112,7 @@ public sealed class FoursquareApiClientTests
         var result = await client.GetPlaceByIdAsync("fsq123");
 
         Assert.IsNotNull(result);
-        Assert.AreEqual("fsq123", result.FsqId);
+        Assert.AreEqual("fsq123", result.FsqPlaceId);
         Assert.AreEqual("Museo del Prado", result.Name);
     }
 

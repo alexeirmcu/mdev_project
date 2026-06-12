@@ -1,4 +1,5 @@
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.Exceptions;
 
 namespace SmartTripPlanner.Tests.Domain.AggregatesModel;
 
@@ -14,53 +15,53 @@ public sealed class PlaceLocationTests
     }
 
     [TestMethod]
-    public void Constructor_WithLatitudeTooHigh_ThrowsArgumentOutOfRangeException()
+    public void Constructor_WithLatitudeTooHigh_ThrowsSmartTripDomainException()
     {
         try
         {
             _ = new PlaceLocation(91, 0);
-            Assert.Fail("Expected ArgumentOutOfRangeException was not thrown");
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
-        catch (ArgumentOutOfRangeException)
+        catch (SmartTripDomainException)
         {
         }
     }
 
     [TestMethod]
-    public void Constructor_WithLatitudeTooLow_ThrowsArgumentOutOfRangeException()
+    public void Constructor_WithLatitudeTooLow_ThrowsSmartTripDomainException()
     {
         try
         {
             _ = new PlaceLocation(-91, 0);
-            Assert.Fail("Expected ArgumentOutOfRangeException was not thrown");
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
-        catch (ArgumentOutOfRangeException)
+        catch (SmartTripDomainException)
         {
         }
     }
 
     [TestMethod]
-    public void Constructor_WithLongitudeTooHigh_ThrowsArgumentOutOfRangeException()
+    public void Constructor_WithLongitudeTooHigh_ThrowsSmartTripDomainException()
     {
         try
         {
             _ = new PlaceLocation(0, 181);
-            Assert.Fail("Expected ArgumentOutOfRangeException was not thrown");
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
-        catch (ArgumentOutOfRangeException)
+        catch (SmartTripDomainException)
         {
         }
     }
 
     [TestMethod]
-    public void Constructor_WithLongitudeTooLow_ThrowsArgumentOutOfRangeException()
+    public void Constructor_WithLongitudeTooLow_ThrowsSmartTripDomainException()
     {
         try
         {
             _ = new PlaceLocation(0, -181);
-            Assert.Fail("Expected ArgumentOutOfRangeException was not thrown");
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
-        catch (ArgumentOutOfRangeException)
+        catch (SmartTripDomainException)
         {
         }
     }

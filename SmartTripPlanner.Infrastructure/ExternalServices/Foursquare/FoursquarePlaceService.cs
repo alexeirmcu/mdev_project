@@ -29,15 +29,13 @@ internal sealed class FoursquarePlaceService : IPlaceExternalService
 
     private static Place MapToPlace(FoursquarePlace apiPlace, string cityId)
     {
-        var location = apiPlace.Geocodes?.Main is not null
-            ? new PlaceLocation(apiPlace.Geocodes.Main.Latitude, apiPlace.Geocodes.Main.Longitude)
-            : new PlaceLocation(0, 0);
+        var location = new PlaceLocation(apiPlace.Latitude, apiPlace.Longitude);
 
         var (duration, isIndoor, isFamilyFriendly) =
             FoursquareCategoryHeuristics.Map(apiPlace.Categories);
 
         return new Place(
-            apiPlace.FsqId,
+            apiPlace.FsqPlaceId,
             apiPlace.Name,
             cityId, location, duration, isIndoor, isFamilyFriendly);
     }

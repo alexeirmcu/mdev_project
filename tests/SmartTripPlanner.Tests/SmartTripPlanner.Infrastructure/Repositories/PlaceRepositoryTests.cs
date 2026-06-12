@@ -128,4 +128,23 @@ public sealed class PlaceRepositoryTests
         Assert.IsTrue(saved.IsFamilyFriendly);
         Assert.AreEqual(2, saved.OpeningHours.Count);
     }
+
+    [TestMethod]
+    public async Task AddRangeAsync_AddsMultiplePlaces()
+    {
+        using var db = CreateDbContext();
+        var repo = new PlaceRepository(db);
+
+        var places = new List<Place>
+        {
+            new("fsq_a", "Place A", "madrid-es", new PlaceLocation(40.0, -3.0)),
+            new("fsq_b", "Place B", "madrid-es", new PlaceLocation(41.0, -4.0)),
+        };
+
+        await repo.AddRangeAsync(places);
+        await repo.UnitOfWork.SaveChangesAsync();
+
+        var saved = await db.Places.ToListAsync();
+        Assert.AreEqual(2, saved.Count);
+    }
 }

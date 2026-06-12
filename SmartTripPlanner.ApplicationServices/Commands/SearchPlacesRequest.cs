@@ -1,6 +1,7 @@
 using MediatR;
+using SmartTripPlanner.Domain.ApiModels;
 
 namespace SmartTripPlanner.ApplicationServices.Commands;
 
-public record SearchPlacesRequest(string? Query, string CityId, int MaxResults = 20)
+public record SearchPlacesRequest(PlaceSearchRequest SearchRequest, int DefaultMaxResults = 10)
     : IRequest<SearchPlacesResponse>;

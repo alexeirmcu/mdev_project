@@ -16,6 +16,11 @@ public class PlaceConfiguration : IEntityTypeConfiguration<Place>
         builder.Property(p => p.Name).IsRequired().HasMaxLength(200);
         builder.Property(p => p.CityId).IsRequired().HasMaxLength(50);
 
+        builder.HasOne(p => p.City)
+            .WithMany(c => c.Places)
+            .HasForeignKey(p => p.CityId)
+            .HasPrincipalKey(c => c.CityCode);
+
         builder.OwnsOne(p => p.Location, loc =>
         {
             loc.Property(l => l.Latitude).HasColumnName("Location_Latitude");

@@ -11,7 +11,7 @@ public sealed class FoursquareCategoryHeuristicsTests
     {
         var categories = new List<FoursquareCategory>
         {
-            new() { Id = "10000", Name = "Museum" }
+            new() { FsqCategoryId = "10000", Name = "Museum" }
         };
 
         var (duration, indoor, familyFriendly) = FoursquareCategoryHeuristics.Map(categories);
@@ -26,7 +26,7 @@ public sealed class FoursquareCategoryHeuristicsTests
     {
         var categories = new List<FoursquareCategory>
         {
-            new() { Id = "10024", Name = "Historic Site" }
+            new() { FsqCategoryId = "10024", Name = "Historic Site" }
         };
 
         var (duration, indoor, familyFriendly) = FoursquareCategoryHeuristics.Map(categories);
@@ -41,7 +41,7 @@ public sealed class FoursquareCategoryHeuristicsTests
     {
         var categories = new List<FoursquareCategory>
         {
-            new() { Id = "13003", Name = "Restaurant" }
+            new() { FsqCategoryId = "13003", Name = "Restaurant" }
         };
 
         var (duration, indoor, familyFriendly) = FoursquareCategoryHeuristics.Map(categories);
@@ -56,7 +56,7 @@ public sealed class FoursquareCategoryHeuristicsTests
     {
         var categories = new List<FoursquareCategory>
         {
-            new() { Id = "10008", Name = "Nightclub" }
+            new() { FsqCategoryId = "10008", Name = "Nightclub" }
         };
 
         var (duration, indoor, familyFriendly) = FoursquareCategoryHeuristics.Map(categories);
@@ -83,7 +83,7 @@ public sealed class FoursquareCategoryHeuristicsTests
     {
         var categories = new List<FoursquareCategory>
         {
-            new() { Id = "99999", Name = "Unknown" }
+            new() { FsqCategoryId = "99999", Name = "Unknown" }
         };
 
         var (duration, indoor, familyFriendly) = FoursquareCategoryHeuristics.Map(categories);
@@ -98,8 +98,8 @@ public sealed class FoursquareCategoryHeuristicsTests
     {
         var categories = new List<FoursquareCategory>
         {
-            new() { Id = "10000", Name = "Museum" },
-            new() { Id = "13003", Name = "Restaurant" }
+            new() { FsqCategoryId = "10000", Name = "Museum" },
+            new() { FsqCategoryId = "13003", Name = "Restaurant" }
         };
 
         var (duration, indoor, familyFriendly) = FoursquareCategoryHeuristics.Map(categories);
