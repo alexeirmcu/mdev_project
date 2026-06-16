@@ -5,5 +5,7 @@ namespace SmartTripPlanner.Domain.Repository;
 
 public interface ICityRepository : IRepository<City>
 {
-    Task<City?> GetByCodeAsync(string cityCode);
+    Task<City?> GetByCodeAsync(string cityCode, CancellationToken ct);
+    Task<City?> GetByIdAsync(long id, CancellationToken ct);
+    Task<IEnumerable<City>> ListAllowedAsync(CancellationToken ct);
 }
