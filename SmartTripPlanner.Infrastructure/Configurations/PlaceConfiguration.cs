@@ -38,8 +38,21 @@ public class PlaceConfiguration : IEntityTypeConfiguration<Place>
             oh.Property(ohw => ohw.CloseMinutes).IsRequired();
         });
 
+        builder.OwnsMany(p => p.Attributes, attr =>
+        {
+            attr.WithOwner().HasForeignKey("PlaceId");
+            attr.ToTable("PlaceAttributes");
+            attr.Property<long>("Id");
+            attr.HasKey("Id");
+            attr.Property(a => a.Provider).IsRequired().HasMaxLength(100);
+            attr.Property(a => a.Key).IsRequired().HasMaxLength(100);
+            attr.Property(a => a.Value).IsRequired().HasMaxLength(500);
+            attr.HasIndex("PlaceId", "Value");
+        });
+
         builder.Property(p => p.TypicalDurationMinutes).HasDefaultValue(60);
         builder.Property(p => p.IsIndoor).HasDefaultValue(false);
         builder.Property(p => p.IsFamilyFriendly).HasDefaultValue(true);
+        builder.Property(p => p.IsAutoUpdateEnabled).HasDefaultValue(true);
     }
 }

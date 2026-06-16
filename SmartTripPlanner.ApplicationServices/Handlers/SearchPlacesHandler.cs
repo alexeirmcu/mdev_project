@@ -49,8 +49,8 @@ public class SearchPlacesHandler(
         #endregion
 
         #region SaveToLocalDatabase
-        // Paso C: guardar los resultados en BD local para futuras búsquedas
-        await repository.AddRangeAsync(places);
+        // Paso C: guardar los resultados en BD local para futuras búsquedas (upsert)
+        await repository.UpsertRangeAsync(places);
         await repository.UnitOfWork.SaveChangesAsync(cancellationToken);
         #endregion
 

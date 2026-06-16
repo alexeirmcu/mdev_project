@@ -15,7 +15,9 @@ public class Place : Entity, IAggregateRoot
     public int TypicalDurationMinutes { get; private set; } = 60;
     public bool IsIndoor { get; private set; } = false;
     public bool IsFamilyFriendly { get; private set; } = true;
+    public bool IsAutoUpdateEnabled { get; private set; } = true;
     public List<OpeningHoursWindow> OpeningHours { get; private set; } = new();
+    public List<PlaceAttribute> Attributes { get; private set; } = new();
 
     private Place() { ProviderReferenceId = null!; Name = null!; Location = null!; }
 
@@ -41,5 +43,36 @@ public class Place : Entity, IAggregateRoot
         TypicalDurationMinutes = typicalDurationMinutes;
         IsIndoor = isIndoor;
         IsFamilyFriendly = isFamilyFriendly;
+    }
+
+    public Place(string providerReferenceId, string name, long cityId, PlaceLocation location,
+                 int typicalDurationMinutes, bool isIndoor, bool isFamilyFriendly, bool isAutoUpdateEnabled,
+                 Provider provider = Provider.Foursquare)
+        : this(providerReferenceId, name, cityId, location, typicalDurationMinutes, isIndoor, isFamilyFriendly, provider)
+    {
+        IsAutoUpdateEnabled = isAutoUpdateEnabled;
+    }
+
+    public void AddAttribute(PlaceAttribute attribute)
+    {
+        Attributes.Add(attribute ?? throw new SmartTripDomainException("Attribute cannot be null."));
+    }
+
+    public void UpdateFromExternalProvider(string name, PlaceLocation location,
+        int typicalDurationMinutes, bool isIndoor, bool isFamilyFriendly,
+        List<PlaceAttribute> attributes)
+    {
+        if (!IsAutoUpdateEnabled)
+            throw new InvalidOperationException("Cannot update a place with auto-update disabled.");
+
+        Name = name;
+        Location = location;
+        TypicalDurationMinutes = typicalDurationMinutes;
+        IsIndoor = isIndoor;
+        IsFamilyFriendly = isFamilyFriendly;
+
+        Attributes.Clear();
+        foreach (var attr in attributes)
+            Attributes.Add(attr);
     }
 }

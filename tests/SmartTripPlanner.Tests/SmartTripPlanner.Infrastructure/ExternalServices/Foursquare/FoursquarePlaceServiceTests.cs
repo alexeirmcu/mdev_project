@@ -24,6 +24,25 @@ public sealed class FoursquarePlaceServiceTests
         };
     }
 
+    private static FoursquarePlace CreateChainPlace()
+    {
+        return new FoursquarePlace
+        {
+            FsqPlaceId = "fsq_mcd_1",
+            Name = "McDonald's Centro",
+            Latitude = 40.4168,
+            Longitude = -3.7038,
+            Categories = new List<FoursquareCategory>
+            {
+                new() { FsqCategoryId = "13002", Name = "Fast Food" }
+            },
+            Chains = new List<FoursquareChain>
+            {
+                new() { Id = "123", Name = "McDonald's" }
+            }
+        };
+    }
+
     private static FoursquarePlace CreateNightclubPlace()
     {
         return new FoursquarePlace
@@ -70,12 +89,20 @@ public sealed class FoursquarePlaceServiceTests
         Assert.AreEqual(120, first.TypicalDurationMinutes);
         Assert.IsTrue(first.IsIndoor);
         Assert.IsTrue(first.IsFamilyFriendly);
+        Assert.AreEqual(1, first.Attributes.Count);
+        Assert.AreEqual("foursquare", first.Attributes[0].Provider);
+        Assert.AreEqual("category", first.Attributes[0].Key);
+        Assert.AreEqual("Museum", first.Attributes[0].Value);
 
         var second = results[1];
         Assert.AreEqual("fsq_night_1", second.ProviderReferenceId);
         Assert.AreEqual("Teatro de la Luz", second.Name);
         Assert.AreEqual(60, second.TypicalDurationMinutes);
         Assert.IsFalse(second.IsFamilyFriendly);
+        Assert.AreEqual(1, second.Attributes.Count);
+        Assert.AreEqual("foursquare", second.Attributes[0].Provider);
+        Assert.AreEqual("category", second.Attributes[0].Key);
+        Assert.AreEqual("Nightclub", second.Attributes[0].Value);
     }
 
     [TestMethod]
@@ -145,5 +172,69 @@ public sealed class FoursquarePlaceServiceTests
         // Assert
         Assert.IsNotNull(results);
         Assert.AreEqual(0, results.Count);
+    }
+
+    [TestMethod]
+    public async Task SearchPlacesAsync_WithChainAttribute_MapsChainToAttribute()
+    {
+        // Arrange
+        var mockClient = new Mock<IFoursquareApiClient>();
+        var apiPlaces = new List<FoursquarePlace>
+        {
+            CreateChainPlace()
+        };
+        mockClient
+            .Setup(c => c.SearchPlacesAsync("McDonald's", "madrid-es", 20))
+            .ReturnsAsync(apiPlaces);
+
+        var service = new FoursquarePlaceService(mockClient.Object);
+
+        // Act
+        var results = await service.SearchPlacesAsync("McDonald's", "madrid-es", 1L, 20);
+
+        // Assert
+        Assert.AreEqual(1, results.Count);
+        var place = results[0];
+        Assert.AreEqual(2, place.Attributes.Count);
+
+        var chainAttr = place.Attributes.First(a => a.Key == "chain");
+        Assert.AreEqual("foursquare", chainAttr.Provider);
+        Assert.AreEqual("chain", chainAttr.Key);
+        Assert.AreEqual("McDonald's", chainAttr.Value);
+    }
+
+    [TestMethod]
+    public async Task SearchPlacesAsync_WithEmptyChains_SkipsChainAttributes()
+    {
+        // Arrange
+        var mockClient = new Mock<IFoursquareApiClient>();
+        var apiPlaces = new List<FoursquarePlace>
+        {
+            new()
+            {
+                FsqPlaceId = "fsq_no_chain",
+                Name = "Local Restaurant",
+                Latitude = 40.4168,
+                Longitude = -3.7038,
+                Categories = new List<FoursquareCategory>
+                {
+                    new() { FsqCategoryId = "13002", Name = "Restaurant" }
+                },
+                Chains = new List<FoursquareChain>()
+            }
+        };
+        mockClient
+            .Setup(c => c.SearchPlacesAsync("Restaurant", "madrid-es", 20))
+            .ReturnsAsync(apiPlaces);
+
+        var service = new FoursquarePlaceService(mockClient.Object);
+
+        // Act
+        var results = await service.SearchPlacesAsync("Restaurant", "madrid-es", 1L, 20);
+
+        // Assert
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual(1, results[0].Attributes.Count);
+        Assert.AreEqual("category", results[0].Attributes[0].Key);
     }
 }

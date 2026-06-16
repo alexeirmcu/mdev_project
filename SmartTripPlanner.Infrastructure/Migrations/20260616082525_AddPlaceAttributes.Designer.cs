@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartTripPlanner.Infrastructure;
@@ -11,9 +12,11 @@ using SmartTripPlanner.Infrastructure;
 namespace SmartTripPlanner.Infrastructure.Migrations
 {
     [DbContext(typeof(PlannerDbContext))]
-    partial class PlannerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260616082525_AddPlaceAttributes")]
+    partial class AddPlaceAttributes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -85,11 +88,6 @@ namespace SmartTripPlanner.Infrastructure.Migrations
 
                     b.Property<long>("CityId")
                         .HasColumnType("bigint");
-
-                    b.Property<bool>("IsAutoUpdateEnabled")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true);
 
                     b.Property<bool>("IsFamilyFriendly")
                         .ValueGeneratedOnAdd()

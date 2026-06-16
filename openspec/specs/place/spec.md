@@ -15,6 +15,8 @@ Implement the Place domain entity, its local repository, and the Foursquare API 
 - `IsFamilyFriendly` (bool) — default true.
 - `Location` — `PlaceLocation` ValueObject (OwnsOne).
 - `OpeningHours` — `List<OpeningHoursWindow>` (OwnsMany).
+- `Attributes` — `List<PlaceAttribute>` (OwnsMany, default empty).
+- `AddAttribute(PlaceAttribute)` — method that appends to the `Attributes` collection (null check enforced).
 
 ### FR2: OpeningHoursWindow ValueObject
 - `DayOfWeek` (DayOfWeek).
@@ -44,6 +46,7 @@ public interface IPlaceRepository : IRepository<Place>
 - `PlaceConfiguration` in `SmartTripPlanner.Infrastructure/Configurations/PlaceConfiguration.cs`.
 - Register `IPlaceRepository` in `InfrastructureServiceRegistration`.
 - **Cascade logic**: `SearchAsync` queries local DB first. If no results, calls `IPlaceExternalService.SearchPlacesAsync`, and returns mapped `Place` list without persisting.
+- **Attribute search**: `SearchAsync(query, cityCode, maxResults)` MUST match places where `Name.Contains(query)` OR any `Attribute.Value.Contains(query)` (case-insensitive) within the specified city. The query MUST include `Attributes` via EF Core `Include`.
 
 #### Scenario: Cascade search uses port instead of direct Foursquare dependency
 - GIVEN a `PlaceRepository` with `IPlaceExternalService` injected
@@ -56,6 +59,21 @@ public interface IPlaceRepository : IRepository<Place>
 - WHEN `SearchAsync` finds local results matching the query
 - THEN it returns the local results
 - AND `IPlaceExternalService.SearchPlacesAsync` is NOT called
+
+#### Scenario: Search matches attribute value
+- GIVEN a Place with Name="Gran Palace" and Attribute("foursquare","category","Hotel") in city "MAD"
+- WHEN SearchAsync("hotel", "MAD") is called
+- THEN the Place is returned
+
+#### Scenario: Existing name search preserved
+- GIVEN a Place with Name="Hotel California" in city "MAD"
+- WHEN SearchAsync("hotel", "MAD") is called
+- THEN the Place is returned
+
+#### Scenario: Search matches chain attribute
+- GIVEN a Place with Attribute("foursquare","chain","McDonald's") in city "MAD"
+- WHEN SearchAsync("mcdonalds", "MAD") is called
+- THEN the Place is returned
 
 ### FR6: IFoursquareApiClient (internal)
 `IFoursquareApiClient` remains in Infrastructure and is unchanged. It is now consumed exclusively by `FoursquarePlaceService`. All Foursquare DTOs (`FoursquarePlace`, etc.) and mappers (`FoursquareCategoryHeuristics`) become `internal` — no layer outside Infrastructure may reference them.
@@ -120,6 +138,8 @@ public interface IPlaceExternalService
 The Infrastructure layer MUST implement `IPlaceExternalService` via a `FoursquarePlaceService` class that:
 - Wraps `IFoursquareApiClient` internally
 - Maps `FoursquarePlace` → `Place` domain entity using `FoursquareCategoryHeuristics`
+- Maps `FoursquarePlace.Categories` to `PlaceAttribute("foursquare", "category", cat.Name)` via `Place.AddAttribute` for each category
+- Maps `FoursquarePlace.Chains` to `PlaceAttribute("foursquare", "chain", chain.Name)` for non-empty chain labels
 - Is registered via DI as `IPlaceExternalService`
 
 #### Scenario: Adapter returns mapped domain entities
@@ -131,6 +151,27 @@ The Infrastructure layer MUST implement `IPlaceExternalService` via a `Foursquar
 - GIVEN a `FoursquarePlaceService` whose `IFoursquareApiClient` throws `HttpRequestException`
 - WHEN `SearchPlacesAsync` is called
 - THEN it returns an empty list (graceful degradation)
+
+#### Scenario: Categories mapped to attributes
+- GIVEN an API response with Categories containing Name="Hotel" and Name="Boutique"
+- WHEN MapToPlace creates a Place
+- THEN Place.Attributes contains corresponding PlaceAttribute entries with Provider="foursquare", Key="category"
+
+### FR12: PlaceModel Attributes
+`PlaceModel` MUST include `IReadOnlyList<PlaceAttributeModel> Attributes`. `PlaceAttributeModel` is a record with `Provider`, `Key`, `Value` (all string). `AutoMapperProfile` MUST map `PlaceAttribute` to `PlaceAttributeModel`.
+
+#### Scenario: Attributes returned in API response
+- GIVEN a Place with two attributes
+- WHEN mapped to PlaceModel via AutoMapper
+- THEN PlaceModel.Attributes contains matching PlaceAttributeModel entries
+
+### FR13: EF Core PlaceAttribute Configuration
+`PlaceConfiguration` MUST configure `OwnsMany(p => p.Attributes, ...)` with separate table "PlaceAttributes", foreign key "PlaceId", and properties: Provider (max 100, required), Key (max 100, required), Value (max 500, required). A composite index on `(PlaceId, Value)` SHOULD be applied for search performance.
+
+#### Scenario: Attributes persisted and loaded
+- GIVEN a Place with attributes saved via EF Core
+- WHEN the Place is retrieved with Include
+- THEN all Attributes are loaded with correct values
 
 ## Non-Functional Requirements
 - Strict TDD — tests define contracts before implementation.
@@ -191,6 +232,34 @@ The Infrastructure layer MUST implement `IPlaceExternalService` via a `Foursquar
 - No local results → `IPlaceExternalService.SearchPlacesAsync` is called → results are returned.
 - External service failure (exception) returns empty list (graceful degradation).
 - Results from external service are ephemeral (not persisted in DB).
+
+### AC8: PlaceAttribute ValueObject (enhance-place-search)
+- Creating a valid PlaceAttribute with Provider, Key, Value succeeds.
+- Creating with null/empty Provider, Key, or Value throws SmartTripDomainException.
+- Two PlaceAttribute instances with same values are equal.
+
+### AC9: Place Attributes Collection (enhance-place-search)
+- Place exposes an empty `Attributes` list by default.
+- `AddAttribute` appends to the `Attributes` collection.
+- Adding null attribute throws ArgumentNullException.
+
+### AC10: Attribute Search (enhance-place-search)
+- Searching "hotel" returns places whose attribute Value is "Hotel" even if name doesn't match.
+- Existing name-based search still works (regression).
+- Searching "mcdonalds" returns places with chain attribute "McDonald's".
+- Search is case-insensitive for attribute values.
+
+### AC11: Foursquare Category Mapping (enhance-place-search)
+- FoursquarePlaceService maps API categories to PlaceAttribute entries with Provider="foursquare", Key="category".
+- Only Pro-tier Foursquare data is used — no premium fields.
+
+### AC12: PlaceModel Attributes (enhance-place-search)
+- PlaceModel includes an Attributes collection.
+- AutoMapper correctly maps PlaceAttribute to PlaceAttributeModel.
+
+### AC13: Attribute Persistence (enhance-place-search)
+- Place attributes are persisted to a separate "PlaceAttributes" table.
+- Attributes are correctly loaded when Place is retrieved with Include.
 
 ## Infrastructure Dependencies
 - `Microsoft.EntityFrameworkCore.InMemory` package for infrastructure tests (already added in Phase 1).

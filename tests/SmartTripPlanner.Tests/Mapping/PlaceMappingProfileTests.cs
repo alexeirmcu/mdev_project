@@ -35,6 +35,7 @@ public sealed class PlaceMappingProfileTests
         Assert.AreEqual(place.TypicalDurationMinutes, model.TypicalDurationMinutes);
         Assert.AreEqual(place.IsIndoor, model.IsIndoor);
         Assert.AreEqual(place.IsFamilyFriendly, model.IsFamilyFriendly);
+        Assert.AreEqual(place.IsAutoUpdateEnabled, model.IsAutoUpdateEnabled);
     }
 
     [TestMethod]
@@ -70,6 +71,28 @@ public sealed class PlaceMappingProfileTests
         Assert.AreEqual(place.OpeningHours[1].DayOfWeek, second.DayOfWeek);
         Assert.AreEqual(place.OpeningHours[1].OpenMinutes, second.OpenMinutes);
         Assert.AreEqual(place.OpeningHours[1].CloseMinutes, second.CloseMinutes);
+    }
+
+    [TestMethod]
+    public void Map_PlaceToPlaceModel_MapsAttributes()
+    {
+        var mapper = CreateMapper();
+        var place = PlaceFixture.CreatePopulatedPlace();
+
+        var model = mapper.Map<PlaceModel>(place);
+
+        Assert.IsNotNull(model.Attributes);
+        Assert.AreEqual(2, model.Attributes.Count);
+
+        var first = model.Attributes[0];
+        Assert.AreEqual("foursquare", first.Provider);
+        Assert.AreEqual("category", first.Key);
+        Assert.AreEqual("Museum", first.Value);
+
+        var second = model.Attributes[1];
+        Assert.AreEqual("foursquare", second.Provider);
+        Assert.AreEqual("chain", second.Key);
+        Assert.AreEqual("Prado", second.Value);
     }
 
     [TestMethod]

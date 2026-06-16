@@ -34,10 +34,23 @@ internal sealed class FoursquarePlaceService : IPlaceExternalService
         var (duration, isIndoor, isFamilyFriendly) =
             FoursquareCategoryHeuristics.Map(apiPlace.Categories);
 
-        return new Place(
+        var place = new Place(
             apiPlace.FsqPlaceId,
             apiPlace.Name,
             cityId, location, duration, isIndoor, isFamilyFriendly,
             Domain.Enums.Provider.Foursquare);
+
+        foreach (var category in apiPlace.Categories)
+        {
+            place.AddAttribute(new PlaceAttribute("foursquare", "category", category.Name));
+        }
+
+        foreach (var chain in apiPlace.Chains)
+        {
+            if (!string.IsNullOrEmpty(chain.Name))
+                place.AddAttribute(new PlaceAttribute("foursquare", "chain", chain.Name));
+        }
+
+        return place;
     }
 }

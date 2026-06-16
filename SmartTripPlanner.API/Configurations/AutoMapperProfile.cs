@@ -10,6 +10,10 @@ public class AutoMapperProfile : Profile
     {
         CreateMap<PlaceLocation, PlaceLocationModel>();
         CreateMap<OpeningHoursWindow, OpeningHoursWindowModel>();
-        CreateMap<Place, PlaceModel>();
+        CreateMap<PlaceAttribute, PlaceAttributeModel>();
+
+        CreateMap<Place, PlaceModel>()
+            .ForMember(dest => dest.Attributes, opt => opt.MapFrom(src => src.Attributes))
+            .ForMember(dest => dest.IsAutoUpdateEnabled, opt => opt.MapFrom(src => src.IsAutoUpdateEnabled));
     }
 }

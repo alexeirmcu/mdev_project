@@ -16,6 +16,11 @@ public sealed class PlaceRepositoryTests
         return new PlannerDbContext(options);
     }
 
+    private static PlaceRepository CreateRepository(PlannerDbContext db)
+    {
+        return new PlaceRepository(db, Microsoft.Extensions.Logging.Abstractions.NullLogger<PlaceRepository>.Instance);
+    }
+
     [TestMethod]
     public async Task SearchAsync_WithMatchingQuery_ReturnsResults()
     {
@@ -30,7 +35,7 @@ public sealed class PlaceRepositoryTests
         db.Places.Add(new Place("f3", "Louvre Museum", paris.Id, new PlaceLocation(48.8606, 2.3376)));
         await db.SaveChangesAsync();
 
-        var repo = new PlaceRepository(db);
+        var repo = CreateRepository(db);
         var results = await repo.SearchAsync("Museo", "madrid-es");
 
         Assert.AreEqual(2, results.Count);
@@ -47,7 +52,7 @@ public sealed class PlaceRepositoryTests
         db.Places.Add(new Place("f1", "Museo del Prado", madrid.Id, new PlaceLocation(40.4168, -3.7038)));
         await db.SaveChangesAsync();
 
-        var repo = new PlaceRepository(db);
+        var repo = CreateRepository(db);
         var results = await repo.SearchAsync("Zoo", "madrid-es");
 
         Assert.AreEqual(0, results.Count);
@@ -66,7 +71,7 @@ public sealed class PlaceRepositoryTests
         db.Places.Add(new Place("f2", "Louvre Museum", paris.Id, new PlaceLocation(48.8606, 2.3376)));
         await db.SaveChangesAsync();
 
-        var repo = new PlaceRepository(db);
+        var repo = CreateRepository(db);
         var results = await repo.SearchAsync("Louvre", "paris-fr");
 
         Assert.AreEqual(1, results.Count);
@@ -85,7 +90,7 @@ public sealed class PlaceRepositoryTests
             db.Places.Add(new Place($"f{i}", $"Place {i}", city.Id, new PlaceLocation(0, 0)));
         await db.SaveChangesAsync();
 
-        var repo = new PlaceRepository(db);
+        var repo = CreateRepository(db);
         var results = await repo.SearchAsync("Place", "city", maxResults: 3);
 
         Assert.AreEqual(3, results.Count);
@@ -102,7 +107,7 @@ public sealed class PlaceRepositoryTests
         db.Places.Add(new Place("fsq123", "Museo del Prado", madrid.Id, new PlaceLocation(40.4168, -3.7038)));
         await db.SaveChangesAsync();
 
-        var repo = new PlaceRepository(db);
+        var repo = CreateRepository(db);
         var place = await repo.GetByProviderReferenceIdAsync("fsq123");
 
         Assert.IsNotNull(place);
@@ -113,7 +118,7 @@ public sealed class PlaceRepositoryTests
     public async Task GetByProviderReferenceIdAsync_WithNonExistingId_ReturnsNull()
     {
         using var db = CreateDbContext();
-        var repo = new PlaceRepository(db);
+        var repo = CreateRepository(db);
         var place = await repo.GetByProviderReferenceIdAsync("nonexistent");
 
         Assert.IsNull(place);
@@ -163,7 +168,7 @@ public sealed class PlaceRepositoryTests
         db.Cities.Add(madrid);
         await db.SaveChangesAsync();
 
-        var repo = new PlaceRepository(db);
+        var repo = CreateRepository(db);
 
         var places = new List<Place>
         {
@@ -176,5 +181,143 @@ public sealed class PlaceRepositoryTests
 
         var saved = await db.Places.ToListAsync();
         Assert.AreEqual(2, saved.Count);
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_WithAttributeValueMatch_ReturnsPlace()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        var place = new Place("fsq_gran_palace", "Gran Palace", madrid.Id,
+            new PlaceLocation(40.4168, -3.7038));
+        place.AddAttribute(new PlaceAttribute("foursquare", "category", "Hotel"));
+        db.Places.Add(place);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var results = await repo.SearchAsync("Hotel", "madrid-es");
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Gran Palace", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_NameMatchStillWorks_WhenAttributesMatch()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        var place = new Place("fsq_hotel_california", "Hotel California", madrid.Id,
+            new PlaceLocation(40.4168, -3.7038));
+        place.AddAttribute(new PlaceAttribute("foursquare", "category", "Lodging"));
+        db.Places.Add(place);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var results = await repo.SearchAsync("Hotel", "madrid-es");
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Hotel California", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_ByChainAttribute_ReturnsPlace()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        var place = new Place("fsq_mcd_123", "McDonald's Centro", madrid.Id,
+            new PlaceLocation(40.4168, -3.7038));
+        place.AddAttribute(new PlaceAttribute("foursquare", "chain", "McDonald's"));
+        db.Places.Add(place);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var results = await repo.SearchAsync("McDonald's", "madrid-es");
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("McDonald's Centro", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_WithAttributes_DoesNotReturnPlaceFromDifferentCity()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        var barcelona = new City("barcelona-es", "Barcelona", true);
+        db.Cities.AddRange(madrid, barcelona);
+        await db.SaveChangesAsync();
+
+        var madridPlace = new Place("fsq_mad_1", "Gran Palace", madrid.Id,
+            new PlaceLocation(40.4168, -3.7038));
+        madridPlace.AddAttribute(new PlaceAttribute("foursquare", "category", "Hotel"));
+        db.Places.Add(madridPlace);
+
+        var bcnPlace = new Place("fsq_bcn_1", "Hotel Arts", barcelona.Id,
+            new PlaceLocation(41.3874, 2.1686));
+        db.Places.Add(bcnPlace);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var results = await repo.SearchAsync("Hotel", "madrid-es");
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Gran Palace", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_LowercaseQuery_MatchesAttributeValue()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        var place = new Place("fsq_gran_palace", "Gran Palace", madrid.Id,
+            new PlaceLocation(40.4168, -3.7038));
+        place.AddAttribute(new PlaceAttribute("foursquare", "category", "Hotel"));
+        db.Places.Add(place);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var results = await repo.SearchAsync("hotel", "madrid-es");
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Gran Palace", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SavePlace_PreservesAttributes()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        var place = new Place("fsq_palace", "Gran Palace", madrid.Id,
+            new PlaceLocation(40.4168, -3.7038));
+        place.AddAttribute(new PlaceAttribute("foursquare", "category", "Hotel"));
+        place.AddAttribute(new PlaceAttribute("foursquare", "chain", "Iberostar"));
+        db.Places.Add(place);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var saved = await repo.GetByProviderReferenceIdAsync("fsq_palace");
+
+        Assert.IsNotNull(saved);
+        Assert.AreEqual(2, saved.Attributes.Count);
+
+        var category = saved.Attributes.First(a => a.Key == "category");
+        Assert.AreEqual("Hotel", category.Value);
+
+        var chain = saved.Attributes.First(a => a.Key == "chain");
+        Assert.AreEqual("Iberostar", chain.Value);
     }
 }

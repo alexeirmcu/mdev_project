@@ -97,4 +97,66 @@ public sealed class PlaceTests
         var place = new Place("fsq123", "Museo del Prado", 1L, ValidLocation);
         Assert.AreEqual(0, place.OpeningHours.Count);
     }
+
+    [TestMethod]
+    public void Attributes_InitiallyEmpty()
+    {
+        var place = new Place("fsq123", "Museo del Prado", 1L, ValidLocation);
+        Assert.AreEqual(0, place.Attributes.Count);
+    }
+
+    [TestMethod]
+    public void AddAttribute_WithValidAttribute_IncreasesCount()
+    {
+        var place = new Place("fsq123", "Museo del Prado", 1L, ValidLocation);
+        var attr = new PlaceAttribute("foursquare", "category", "Museum");
+
+        place.AddAttribute(attr);
+
+        Assert.AreEqual(1, place.Attributes.Count);
+    }
+
+    [TestMethod]
+    public void AddAttribute_WithValidAttribute_AttributeIsPreserved()
+    {
+        var place = new Place("fsq123", "Museo del Prado", 1L, ValidLocation);
+        var attr = new PlaceAttribute("foursquare", "category", "Museum");
+
+        place.AddAttribute(attr);
+
+        Assert.AreSame(attr, place.Attributes[0]);
+        Assert.AreEqual("foursquare", place.Attributes[0].Provider);
+        Assert.AreEqual("category", place.Attributes[0].Key);
+        Assert.AreEqual("Museum", place.Attributes[0].Value);
+    }
+
+    [TestMethod]
+    public void AddAttribute_WithNull_ThrowsSmartTripDomainException()
+    {
+        var place = new Place("fsq123", "Museo del Prado", 1L, ValidLocation);
+
+        try
+        {
+            place.AddAttribute(null!);
+            Assert.Fail("Expected SmartTripDomainException was not thrown");
+        }
+        catch (SmartTripDomainException)
+        {
+        }
+    }
+
+    [TestMethod]
+    public void AddAttribute_MultipleAttributes_AllPreserved()
+    {
+        var place = new Place("fsq123", "Museo del Prado", 1L, ValidLocation);
+        var attr1 = new PlaceAttribute("foursquare", "category", "Museum");
+        var attr2 = new PlaceAttribute("foursquare", "chain", "Prado");
+
+        place.AddAttribute(attr1);
+        place.AddAttribute(attr2);
+
+        Assert.AreEqual(2, place.Attributes.Count);
+        Assert.AreSame(attr1, place.Attributes[0]);
+        Assert.AreSame(attr2, place.Attributes[1]);
+    }
 }

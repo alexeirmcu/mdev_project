@@ -8,4 +8,6 @@ public record PlaceModel(
     int TypicalDurationMinutes,
     bool IsIndoor,
     bool IsFamilyFriendly,
-    IReadOnlyList<OpeningHoursWindowModel> OpeningHours);
+    bool IsAutoUpdateEnabled,
+    IReadOnlyList<OpeningHoursWindowModel> OpeningHours,
+    IReadOnlyList<PlaceAttributeModel> Attributes);

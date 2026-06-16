@@ -68,11 +68,11 @@ public sealed class SearchPlacesHandlerTests
         var mappedModels = new List<PlaceModel>
         {
             new("fsq-prado-123", "Museo del Prado", 1L,
-                new PlaceLocationModel(40.4168, -3.7038), 120, true, false, []),
+                new PlaceLocationModel(40.4168, -3.7038), 120, true, false, true, [], []),
             new("fsq-louvre-456", "Musée du Louvre", 2L,
-                new PlaceLocationModel(48.8566, 2.3522), 180, true, true, []),
+                new PlaceLocationModel(48.8566, 2.3522), 180, true, true, true, [], []),
             new("fsq-colosseum-789", "Colosseum", 3L,
-                new PlaceLocationModel(41.9028, 12.4964), 90, false, true, []),
+                new PlaceLocationModel(41.9028, 12.4964), 90, false, true, true, [], []),
         };
 
         _mapperMock
@@ -88,7 +88,7 @@ public sealed class SearchPlacesHandlerTests
             s => s.SearchPlacesAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<int>()),
             Times.Never);
 
-        _repositoryMock.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
+        _repositoryMock.Verify(r => r.UpsertRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
     }
 
     [TestMethod]
@@ -104,7 +104,7 @@ public sealed class SearchPlacesHandlerTests
         var mappedModels = new List<PlaceModel>
         {
             new("fsq-prado-123", "Museo del Prado", 1L,
-                new PlaceLocationModel(40.4168, -3.7038), 120, true, false, []),
+                new PlaceLocationModel(40.4168, -3.7038), 120, true, false, true, [], []),
         };
 
         _mapperMock
@@ -142,7 +142,7 @@ public sealed class SearchPlacesHandlerTests
         var mappedModels = new List<PlaceModel>
         {
             new("fsq-api-1", "Museo del Prado", 1L,
-                new PlaceLocationModel(40.4168, -3.7038), 120, true, true, [])
+                new PlaceLocationModel(40.4168, -3.7038), 120, true, true, true, [], [])
         };
 
         _mapperMock
@@ -155,7 +155,7 @@ public sealed class SearchPlacesHandlerTests
         Assert.AreEqual(1, result.Results.Count);
         Assert.AreEqual("fsq-api-1", result.Results[0].ProviderReferenceId);
 
-        _repositoryMock.Verify(r => r.AddRangeAsync(externalPlaces), Times.Once);
+        _repositoryMock.Verify(r => r.UpsertRangeAsync(externalPlaces), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -179,7 +179,7 @@ public sealed class SearchPlacesHandlerTests
         Assert.IsNotNull(result);
         Assert.AreEqual(0, result.Results.Count);
 
-        _repositoryMock.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
+        _repositoryMock.Verify(r => r.UpsertRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -203,7 +203,7 @@ public sealed class SearchPlacesHandlerTests
         Assert.IsNotNull(result);
         Assert.AreEqual(0, result.Results.Count);
 
-        _repositoryMock.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
+        _repositoryMock.Verify(r => r.UpsertRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
     }
 
     [TestMethod]
@@ -220,7 +220,7 @@ public sealed class SearchPlacesHandlerTests
 
         await _handler.Handle(request, CancellationToken.None);
 
-        _repositoryMock.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
+        _repositoryMock.Verify(r => r.UpsertRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
         _externalServiceMock.Verify(
             s => s.SearchPlacesAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<int>()),
             Times.Never);
@@ -289,5 +289,44 @@ public sealed class SearchPlacesHandlerTests
         await _handler.Handle(request, CancellationToken.None);
 
         _repositoryMock.Verify(r => r.SearchAsync("Cafe", "madrid-es", 10), Times.Once);
+    }
+
+    [TestMethod]
+    public async Task Handle_WithLocalResultsContainingAttributes_ReturnsMappedAttributes()
+    {
+        var request = new SearchPlacesRequest(new PlaceSearchRequest("Hotel", "madrid-es", 10), 10);
+
+        var loc = new PlaceLocation(40.4168, -3.7038);
+        var place = new Place("fsq-gran-palace", "Gran Palace", 1L, loc, 120, true, true);
+        place.AddAttribute(new PlaceAttribute("foursquare", "category", "Hotel"));
+
+        _repositoryMock
+            .Setup(r => r.SearchAsync("Hotel", "madrid-es", 10))
+            .ReturnsAsync(new List<Place> { place });
+
+        var mappedPlace = new PlaceModel(
+            "fsq-gran-palace", "Gran Palace", 1L,
+            new PlaceLocationModel(40.4168, -3.7038), 120, true, true, true,
+            new List<OpeningHoursWindowModel>(),
+            new List<PlaceAttributeModel>
+            {
+                new("foursquare", "category", "Hotel")
+            });
+
+        _mapperMock
+            .Setup(m => m.Map<List<PlaceModel>>(It.IsAny<List<Place>>()))
+            .Returns(new List<PlaceModel> { mappedPlace });
+
+        var result = await _handler.Handle(request, CancellationToken.None);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual(1, result.Results.Count);
+
+        var model = result.Results[0];
+        Assert.AreEqual("Gran Palace", model.Name);
+        Assert.AreEqual(1, model.Attributes.Count);
+        Assert.AreEqual("foursquare", model.Attributes[0].Provider);
+        Assert.AreEqual("category", model.Attributes[0].Key);
+        Assert.AreEqual("Hotel", model.Attributes[0].Value);
     }
 }

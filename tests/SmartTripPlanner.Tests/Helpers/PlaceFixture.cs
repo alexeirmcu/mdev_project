@@ -13,6 +13,9 @@ public static class PlaceFixture
         place.OpeningHours.Add(new OpeningHoursWindow(DayOfWeek.Monday, 600, 1200));
         place.OpeningHours.Add(new OpeningHoursWindow(DayOfWeek.Tuesday, 600, 1200));
 
+        place.AddAttribute(new PlaceAttribute("foursquare", "category", "Museum"));
+        place.AddAttribute(new PlaceAttribute("foursquare", "chain", "Prado"));
+
         return place;
     }
 }

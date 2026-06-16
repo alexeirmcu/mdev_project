@@ -27,8 +27,9 @@ public sealed class PlacesControllerTests
         var results = new List<PlaceModel>
         {
             new("fsq_1", "Museo del Prado", 1L,
-                new PlaceLocationModel(40.4168, -3.7038), 120, true, true,
-                new List<OpeningHoursWindowModel>())
+                new PlaceLocationModel(40.4168, -3.7038), 120, true, true, true,
+                new List<OpeningHoursWindowModel>(),
+                new List<PlaceAttributeModel>())
         };
 
         _mediatorMock
