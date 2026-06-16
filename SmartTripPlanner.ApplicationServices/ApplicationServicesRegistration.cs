@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using SmartTripPlanner.ApplicationServices.Behaviors;
+using SmartTripPlanner.ApplicationServices.Configurations;
 
 namespace SmartTripPlanner.ApplicationServices;
 
@@ -21,6 +22,8 @@ public static class ApplicationServicesRegistration
         });
 
         services.AddValidatorsFromAssembly(assembly);
+
+        services.AddScoped<ITripCodeGenerator, TripCodeGenerator>();
 
         return services;
     }

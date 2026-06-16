@@ -31,7 +31,7 @@ public class SearchPlacesHandler(
         #endregion
 
         #region ExternalSearch
-        var city = await cityRepo.GetByCodeAsync(sr.CityCode);
+        var city = await cityRepo.GetByCodeAsync(sr.CityCode, cancellationToken);
         if (city is null)
             return new SearchPlacesResponse(new List<PlaceModel>().AsReadOnly());
 
