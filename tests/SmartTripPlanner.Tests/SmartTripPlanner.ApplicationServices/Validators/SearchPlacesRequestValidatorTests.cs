@@ -31,7 +31,7 @@ public sealed class SearchPlacesRequestValidatorTests
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("Museo", "madrid-es", 5));
 
-        _cityRepoMock.Setup(r => r.GetByIdAsync("madrid-es"))
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es"))
             .ReturnsAsync(new City("madrid-es", "Madrid", true));
 
         var result = await _sut.TestValidateAsync(request);
@@ -64,44 +64,44 @@ public sealed class SearchPlacesRequestValidatorTests
     }
 
     [TestMethod]
-    public async Task CityId_WhenEmpty_Fails_WithRequiredField()
+    public async Task CityCode_WhenEmpty_Fails_WithRequiredField()
     {
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("Museo", "", null));
 
         var result = await _sut.TestValidateAsync(request);
 
-        result.ShouldHaveValidationErrorFor(x => x.SearchRequest.CityId)
+        result.ShouldHaveValidationErrorFor(x => x.SearchRequest.CityCode)
             .WithErrorCode(nameof(ErrorCode.REQUIRED_FIELD));
     }
 
     [TestMethod]
-    public async Task CityId_WhenNotFound_Fails_WithInvalidCity()
+    public async Task CityCode_WhenNotFound_Fails_WithInvalidCity()
     {
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("Museo", "london-gb", null));
 
-        _cityRepoMock.Setup(r => r.GetByIdAsync("london-gb"))
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("london-gb"))
             .ReturnsAsync((City?)null);
 
         var result = await _sut.TestValidateAsync(request);
 
-        result.ShouldHaveValidationErrorFor(x => x.SearchRequest.CityId)
+        result.ShouldHaveValidationErrorFor(x => x.SearchRequest.CityCode)
             .WithErrorCode(nameof(ErrorCode.INVALID_CITY));
     }
 
     [TestMethod]
-    public async Task CityId_WhenNotAllowed_Fails_WithInvalidCity()
+    public async Task CityCode_WhenNotAllowed_Fails_WithInvalidCity()
     {
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("Museo", "disabled-city", null));
 
-        _cityRepoMock.Setup(r => r.GetByIdAsync("disabled-city"))
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("disabled-city"))
             .ReturnsAsync(new City("disabled-city", "Disabled", false));
 
         var result = await _sut.TestValidateAsync(request);
 
-        result.ShouldHaveValidationErrorFor(x => x.SearchRequest.CityId)
+        result.ShouldHaveValidationErrorFor(x => x.SearchRequest.CityCode)
             .WithErrorCode(nameof(ErrorCode.INVALID_CITY));
     }
 
@@ -111,7 +111,7 @@ public sealed class SearchPlacesRequestValidatorTests
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("Museo", "madrid-es", 20));
 
-        _cityRepoMock.Setup(r => r.GetByIdAsync("madrid-es"))
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es"))
             .ReturnsAsync(new City("madrid-es", "Madrid", true));
 
         var result = await _sut.TestValidateAsync(request);
@@ -126,7 +126,7 @@ public sealed class SearchPlacesRequestValidatorTests
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("Museo", "madrid-es", 5));
 
-        _cityRepoMock.Setup(r => r.GetByIdAsync("madrid-es"))
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es"))
             .ReturnsAsync(new City("madrid-es", "Madrid", true));
 
         var result = await _sut.TestValidateAsync(request);
@@ -140,7 +140,7 @@ public sealed class SearchPlacesRequestValidatorTests
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("Museo", "madrid-es", null));
 
-        _cityRepoMock.Setup(r => r.GetByIdAsync("madrid-es"))
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es"))
             .ReturnsAsync(new City("madrid-es", "Madrid", true));
 
         var result = await _sut.TestValidateAsync(request);

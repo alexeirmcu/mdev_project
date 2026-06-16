@@ -11,19 +11,19 @@ public sealed class PlaceTests
     [TestMethod]
     public void Constructor_WithValidFields_SetsProperties()
     {
-        var place = new Place("fsq123", "Museo del Prado", "madrid-es", ValidLocation);
-        Assert.AreEqual("fsq123", place.PlaceId);
+        var place = new Place("fsq123", "Museo del Prado", 1L, ValidLocation);
+        Assert.AreEqual("fsq123", place.ProviderReferenceId);
         Assert.AreEqual("Museo del Prado", place.Name);
-        Assert.AreEqual("madrid-es", place.CityId);
+        Assert.AreEqual(1L, place.CityId);
         Assert.AreEqual(ValidLocation, place.Location);
     }
 
     [TestMethod]
-    public void Constructor_WithNullPlaceId_ThrowsSmartTripDomainException()
+    public void Constructor_WithNullProviderReferenceId_ThrowsSmartTripDomainException()
     {
         try
         {
-            _ = new Place(null!, "Museo del Prado", "madrid-es", ValidLocation);
+            _ = new Place(null!, "Museo del Prado", 1L, ValidLocation);
             Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
         catch (SmartTripDomainException)
@@ -32,11 +32,11 @@ public sealed class PlaceTests
     }
 
     [TestMethod]
-    public void Constructor_WithEmptyPlaceId_ThrowsSmartTripDomainException()
+    public void Constructor_WithEmptyProviderReferenceId_ThrowsSmartTripDomainException()
     {
         try
         {
-            _ = new Place("", "Museo del Prado", "madrid-es", ValidLocation);
+            _ = new Place("", "Museo del Prado", 1L, ValidLocation);
             Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
         catch (SmartTripDomainException)
@@ -49,7 +49,7 @@ public sealed class PlaceTests
     {
         try
         {
-            _ = new Place("fsq123", null!, "madrid-es", ValidLocation);
+            _ = new Place("fsq123", null!, 1L, ValidLocation);
             Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
         catch (SmartTripDomainException)
@@ -62,7 +62,7 @@ public sealed class PlaceTests
     {
         try
         {
-            _ = new Place("fsq123", "Museo del Prado", "madrid-es", null!);
+            _ = new Place("fsq123", "Museo del Prado", 1L, null!);
             Assert.Fail("Expected SmartTripDomainException was not thrown");
         }
         catch (SmartTripDomainException)
@@ -73,28 +73,28 @@ public sealed class PlaceTests
     [TestMethod]
     public void DefaultTypicalDurationMinutes_Is60()
     {
-        var place = new Place("fsq123", "Museo del Prado", "madrid-es", ValidLocation);
+        var place = new Place("fsq123", "Museo del Prado", 1L, ValidLocation);
         Assert.AreEqual(60, place.TypicalDurationMinutes);
     }
 
     [TestMethod]
     public void DefaultIsIndoor_IsFalse()
     {
-        var place = new Place("fsq123", "Museo del Prado", "madrid-es", ValidLocation);
+        var place = new Place("fsq123", "Museo del Prado", 1L, ValidLocation);
         Assert.IsFalse(place.IsIndoor);
     }
 
     [TestMethod]
     public void DefaultIsFamilyFriendly_IsTrue()
     {
-        var place = new Place("fsq123", "Museo del Prado", "madrid-es", ValidLocation);
+        var place = new Place("fsq123", "Museo del Prado", 1L, ValidLocation);
         Assert.IsTrue(place.IsFamilyFriendly);
     }
 
     [TestMethod]
     public void OpeningHours_InitiallyEmpty()
     {
-        var place = new Place("fsq123", "Museo del Prado", "madrid-es", ValidLocation);
+        var place = new Place("fsq123", "Museo del Prado", 1L, ValidLocation);
         Assert.AreEqual(0, place.OpeningHours.Count);
     }
 }

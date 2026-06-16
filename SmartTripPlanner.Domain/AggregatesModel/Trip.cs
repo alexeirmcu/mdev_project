@@ -9,20 +9,20 @@ public class Trip : Entity, IAggregateRoot
     public DateOnly EndDate { get; init; }
     public required Location BaseHotel { get; init; }
     public List<DayPlan> Days { get; private set; } = new();
-    public List<SelectedAttraction> SelectedAttractions { get; private set; } = new();
+    public ICollection<Place> SelectedPlaces { get; private set; } = new List<Place>();
     public TimeOnly DefaultStartTime { get; private set; } = new TimeOnly(9, 0);
 
-    public void AddSelectedAttraction(string placeId, string name)
+    public void SelectPlace(Place place)
     {
-        SelectedAttractions.Add(new SelectedAttraction(placeId, name));
+        SelectedPlaces.Add(place);
     }
 
-    public bool RemoveSelectedAttraction(string placeId)
+    public bool UnselectPlace(long placeId)
     {
-        var item = SelectedAttractions.FirstOrDefault(sa => sa.PlaceId == placeId);
-        if (item is not null)
+        var place = SelectedPlaces.FirstOrDefault(p => p.Id == placeId);
+        if (place is not null)
         {
-            SelectedAttractions.Remove(item);
+            SelectedPlaces.Remove(place);
             return true;
         }
         return false;

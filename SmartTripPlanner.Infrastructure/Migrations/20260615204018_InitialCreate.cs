@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace SmartTripPlanner.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class Initial : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -19,7 +19,8 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     Id = table.Column<long>(type: "bigint", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     CityCode = table.Column<string>(type: "text", nullable: false),
-                    CityName = table.Column<string>(type: "text", nullable: false)
+                    CityName = table.Column<string>(type: "text", nullable: false),
+                    IsAllowed = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true)
                 },
                 constraints: table =>
                 {
@@ -43,6 +44,33 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_Trips", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Places",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    ProviderReferenceId = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Provider = table.Column<int>(type: "integer", nullable: false),
+                    Name = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    CityId = table.Column<long>(type: "bigint", nullable: false),
+                    Location_Latitude = table.Column<double>(type: "double precision", nullable: false),
+                    Location_Longitude = table.Column<double>(type: "double precision", nullable: false),
+                    TypicalDurationMinutes = table.Column<int>(type: "integer", nullable: false, defaultValue: 60),
+                    IsIndoor = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    IsFamilyFriendly = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Places", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Places_Cities_CityId",
+                        column: x => x.CityId,
+                        principalTable: "Cities",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -75,20 +103,45 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "SelectedAttraction",
+                name: "PlaceOpeningHours",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
+                    Id = table.Column<long>(type: "bigint", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    PlaceId = table.Column<string>(type: "text", nullable: false),
-                    Name = table.Column<string>(type: "text", nullable: false),
+                    DayOfWeek = table.Column<int>(type: "integer", nullable: false),
+                    OpenMinutes = table.Column<int>(type: "integer", nullable: false),
+                    CloseMinutes = table.Column<int>(type: "integer", nullable: false),
+                    PlaceId = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PlaceOpeningHours", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PlaceOpeningHours_Places_PlaceId",
+                        column: x => x.PlaceId,
+                        principalTable: "Places",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "TripPlaces",
+                columns: table => new
+                {
+                    SelectedPlacesId = table.Column<long>(type: "bigint", nullable: false),
                     TripId = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_SelectedAttraction", x => x.Id);
+                    table.PrimaryKey("PK_TripPlaces", x => new { x.SelectedPlacesId, x.TripId });
                     table.ForeignKey(
-                        name: "FK_SelectedAttraction_Trips_TripId",
+                        name: "FK_TripPlaces_Places_SelectedPlacesId",
+                        column: x => x.SelectedPlacesId,
+                        principalTable: "Places",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_TripPlaces_Trips_TripId",
                         column: x => x.TripId,
                         principalTable: "Trips",
                         principalColumn: "Id",
@@ -191,6 +244,11 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
+            migrationBuilder.InsertData(
+                table: "Cities",
+                columns: new[] { "Id", "CityCode", "CityName", "IsAllowed" },
+                values: new object[] { 1L, "madrid", "Madrid", true });
+
             migrationBuilder.CreateIndex(
                 name: "IX_AfternoonActivities_DayPlanId",
                 table: "AfternoonActivities",
@@ -218,8 +276,24 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 column: "DayPlanId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_SelectedAttraction_TripId",
-                table: "SelectedAttraction",
+                name: "IX_PlaceOpeningHours_PlaceId",
+                table: "PlaceOpeningHours",
+                column: "PlaceId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Places_CityId",
+                table: "Places",
+                column: "CityId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Places_ProviderReferenceId",
+                table: "Places",
+                column: "ProviderReferenceId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TripPlaces_TripId",
+                table: "TripPlaces",
                 column: "TripId");
         }
 
@@ -230,22 +304,28 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 name: "AfternoonActivities");
 
             migrationBuilder.DropTable(
-                name: "Cities");
-
-            migrationBuilder.DropTable(
                 name: "EveningActivities");
 
             migrationBuilder.DropTable(
                 name: "MorningActivities");
 
             migrationBuilder.DropTable(
-                name: "SelectedAttraction");
+                name: "PlaceOpeningHours");
+
+            migrationBuilder.DropTable(
+                name: "TripPlaces");
 
             migrationBuilder.DropTable(
                 name: "DayPlan");
 
             migrationBuilder.DropTable(
+                name: "Places");
+
+            migrationBuilder.DropTable(
                 name: "Trips");
+
+            migrationBuilder.DropTable(
+                name: "Cities");
         }
     }
 }

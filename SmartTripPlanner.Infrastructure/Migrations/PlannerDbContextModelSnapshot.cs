@@ -22,6 +22,21 @@ namespace SmartTripPlanner.Infrastructure.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("PlaceTrip", b =>
+                {
+                    b.Property<long>("SelectedPlacesId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("TripId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("SelectedPlacesId", "TripId");
+
+                    b.HasIndex("TripId");
+
+                    b.ToTable("TripPlaces", (string)null);
+                });
+
             modelBuilder.Entity("SmartTripPlanner.Domain.AggregatesModel.City", b =>
                 {
                     b.Property<long>("Id")
@@ -49,6 +64,15 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("Cities");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1L,
+                            CityCode = "madrid",
+                            CityName = "Madrid",
+                            IsAllowed = true
+                        });
                 });
 
             modelBuilder.Entity("SmartTripPlanner.Domain.AggregatesModel.Place", b =>
@@ -59,10 +83,8 @@ namespace SmartTripPlanner.Infrastructure.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
 
-                    b.Property<string>("CityId")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)");
+                    b.Property<long>("CityId")
+                        .HasColumnType("bigint");
 
                     b.Property<bool>("IsFamilyFriendly")
                         .ValueGeneratedOnAdd()
@@ -79,7 +101,10 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<string>("PlaceId")
+                    b.Property<int>("Provider")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ProviderReferenceId")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -93,7 +118,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
 
                     b.HasIndex("CityId");
 
-                    b.HasIndex("PlaceId")
+                    b.HasIndex("ProviderReferenceId")
                         .IsUnique();
 
                     b.ToTable("Places");
@@ -125,12 +150,26 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     b.ToTable("Trips");
                 });
 
+            modelBuilder.Entity("PlaceTrip", b =>
+                {
+                    b.HasOne("SmartTripPlanner.Domain.AggregatesModel.Place", null)
+                        .WithMany()
+                        .HasForeignKey("SelectedPlacesId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SmartTripPlanner.Domain.AggregatesModel.Trip", null)
+                        .WithMany()
+                        .HasForeignKey("TripId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SmartTripPlanner.Domain.AggregatesModel.Place", b =>
                 {
                     b.HasOne("SmartTripPlanner.Domain.AggregatesModel.City", "City")
                         .WithMany("Places")
                         .HasForeignKey("CityId")
-                        .HasPrincipalKey("CityCode")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
@@ -557,41 +596,10 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                                 .HasForeignKey("TripId");
                         });
 
-                    b.OwnsMany("SmartTripPlanner.Domain.AggregatesModel.SelectedAttraction", "SelectedAttractions", b1 =>
-                        {
-                            b1.Property<int>("Id")
-                                .ValueGeneratedOnAdd()
-                                .HasColumnType("integer");
-
-                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<int>("Id"));
-
-                            b1.Property<string>("Name")
-                                .IsRequired()
-                                .HasColumnType("text");
-
-                            b1.Property<string>("PlaceId")
-                                .IsRequired()
-                                .HasColumnType("text");
-
-                            b1.Property<long>("TripId")
-                                .HasColumnType("bigint");
-
-                            b1.HasKey("Id");
-
-                            b1.HasIndex("TripId");
-
-                            b1.ToTable("SelectedAttraction");
-
-                            b1.WithOwner()
-                                .HasForeignKey("TripId");
-                        });
-
                     b.Navigation("BaseHotel")
                         .IsRequired();
 
                     b.Navigation("Days");
-
-                    b.Navigation("SelectedAttractions");
                 });
 
             modelBuilder.Entity("SmartTripPlanner.Domain.AggregatesModel.City", b =>

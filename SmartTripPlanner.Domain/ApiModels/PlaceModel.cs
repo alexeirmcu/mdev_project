@@ -1,9 +1,9 @@
 namespace SmartTripPlanner.Domain.ApiModels;
 
 public record PlaceModel(
-    string PlaceId,
+    string ProviderReferenceId,
     string Name,
-    string CityId,
+    long CityId,
     PlaceLocationModel Location,
     int TypicalDurationMinutes,
     bool IsIndoor,

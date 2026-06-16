@@ -14,10 +14,10 @@ internal sealed class CityRepository : ICityRepository
         _dbContext = dbContext;
     }
 
-    public async Task<City?> GetByIdAsync(string cityId)
+    public async Task<City?> GetByCodeAsync(string cityCode)
     {
         return await _dbContext.Cities
-            .FirstOrDefaultAsync(c => c.CityCode == cityId && c.IsAllowed);
+            .FirstOrDefaultAsync(c => c.CityCode == cityCode && c.IsAllowed);
     }
 
     public IUnitOfWork UnitOfWork => _dbContext;

@@ -7,7 +7,11 @@ using SmartTripPlanner.Domain.Repository;
 
 namespace SmartTripPlanner.ApplicationServices.Handlers;
 
-public class SearchPlacesHandler(IPlaceRepository repository, IPlaceExternalService externalService, IMapper mapper)
+public class SearchPlacesHandler(
+    IPlaceRepository repository,
+    IPlaceExternalService externalService,
+    ICityRepository cityRepo,
+    IMapper mapper)
     : IRequestHandler<SearchPlacesRequest, SearchPlacesResponse>
 {
     public async Task<SearchPlacesResponse> Handle(
@@ -16,7 +20,7 @@ public class SearchPlacesHandler(IPlaceRepository repository, IPlaceExternalServ
         var sr = request.SearchRequest;
         var maxResults = sr.MaxResults ?? request.DefaultMaxResults;
 
-        // Paso A: buscar en BD local
+        #region LocalSearch
         var places = await repository.SearchAsync(sr.Query, sr.CityCode, maxResults);
 
         if (places.Count > 0)
@@ -24,11 +28,16 @@ public class SearchPlacesHandler(IPlaceRepository repository, IPlaceExternalServ
             var models = mapper.Map<List<PlaceModel>>(places);
             return new SearchPlacesResponse(models.AsReadOnly());
         }
+        #endregion
 
-        // Paso B: si no hay datos locales, llamar al servicio externo
+        #region ExternalSearch
+        var city = await cityRepo.GetByCodeAsync(sr.CityCode);
+        if (city is null)
+            return new SearchPlacesResponse(new List<PlaceModel>().AsReadOnly());
+
         try
         {
-            places = await externalService.SearchPlacesAsync(sr.Query, sr.CityCode, maxResults);
+            places = await externalService.SearchPlacesAsync(sr.Query, sr.CityCode, city.Id, maxResults);
         }
         catch (HttpRequestException)
         {
@@ -37,10 +46,13 @@ public class SearchPlacesHandler(IPlaceRepository repository, IPlaceExternalServ
 
         if (places.Count == 0)
             return new SearchPlacesResponse(new List<PlaceModel>().AsReadOnly());
+        #endregion
 
+        #region SaveToLocalDatabase
         // Paso C: guardar los resultados en BD local para futuras búsquedas
         await repository.AddRangeAsync(places);
         await repository.UnitOfWork.SaveChangesAsync(cancellationToken);
+        #endregion
 
         var resultModels = mapper.Map<List<PlaceModel>>(places);
         return new SearchPlacesResponse(resultModels.AsReadOnly());

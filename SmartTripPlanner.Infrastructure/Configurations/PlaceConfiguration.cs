@@ -11,15 +11,15 @@ public class PlaceConfiguration : IEntityTypeConfiguration<Place>
         builder.HasKey(p => p.Id);
         builder.Property(p => p.Id).ValueGeneratedOnAdd();
 
-        builder.HasIndex(p => p.PlaceId).IsUnique();
-        builder.Property(p => p.PlaceId).IsRequired().HasMaxLength(100);
+        builder.HasIndex(p => p.ProviderReferenceId).IsUnique();
+        builder.Property(p => p.ProviderReferenceId).IsRequired().HasMaxLength(100);
+        builder.Property(p => p.Provider).IsRequired();
         builder.Property(p => p.Name).IsRequired().HasMaxLength(200);
-        builder.Property(p => p.CityId).IsRequired().HasMaxLength(50);
+        builder.Property(p => p.CityId).IsRequired();
 
         builder.HasOne(p => p.City)
             .WithMany(c => c.Places)
-            .HasForeignKey(p => p.CityId)
-            .HasPrincipalKey(c => c.CityCode);
+            .HasForeignKey(p => p.CityId);
 
         builder.OwnsOne(p => p.Location, loc =>
         {

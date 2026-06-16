@@ -16,20 +16,21 @@ public class PlaceRepository : IPlaceRepository
 
     public IUnitOfWork UnitOfWork => _context;
 
-    public async Task<List<Place>> SearchAsync(string query, string cityId, int maxResults = 20)
+    public async Task<List<Place>> SearchAsync(string query, string cityCode, int maxResults = 20)
     {
         return await _context.Places
             .Include(p => p.OpeningHours)
-            .Where(p => p.Name.Contains(query) && p.CityId == cityId)
+            .Include(p => p.City)
+            .Where(p => p.Name.Contains(query) && p.City.CityCode == cityCode)
             .Take(maxResults)
             .ToListAsync();
     }
 
-    public async Task<Place?> GetByPlaceIdAsync(string placeId)
+    public async Task<Place?> GetByProviderReferenceIdAsync(string providerReferenceId)
     {
         return await _context.Places
             .Include(p => p.OpeningHours)
-            .FirstOrDefaultAsync(p => p.PlaceId == placeId);
+            .FirstOrDefaultAsync(p => p.ProviderReferenceId == providerReferenceId);
     }
 
     public async Task AddRangeAsync(IEnumerable<Place> places)

@@ -56,15 +56,15 @@ public sealed class FoursquarePlaceServiceTests
         var service = new FoursquarePlaceService(mockClient.Object);
 
         // Act
-        var results = await service.SearchPlacesAsync("Museum", "madrid-es", 20);
+        var results = await service.SearchPlacesAsync("Museum", "madrid-es", 1L, 20);
 
         // Assert
         Assert.AreEqual(2, results.Count);
 
         var first = results[0];
-        Assert.AreEqual("fsq_museum_1", first.PlaceId);
+        Assert.AreEqual("fsq_museum_1", first.ProviderReferenceId);
         Assert.AreEqual("Museo del Prado", first.Name);
-        Assert.AreEqual("madrid-es", first.CityId);
+        Assert.AreEqual(1L, first.CityId);
         Assert.AreEqual(40.4168, first.Location.Latitude);
         Assert.AreEqual(-3.7038, first.Location.Longitude);
         Assert.AreEqual(120, first.TypicalDurationMinutes);
@@ -72,7 +72,7 @@ public sealed class FoursquarePlaceServiceTests
         Assert.IsTrue(first.IsFamilyFriendly);
 
         var second = results[1];
-        Assert.AreEqual("fsq_night_1", second.PlaceId);
+        Assert.AreEqual("fsq_night_1", second.ProviderReferenceId);
         Assert.AreEqual("Teatro de la Luz", second.Name);
         Assert.AreEqual(60, second.TypicalDurationMinutes);
         Assert.IsFalse(second.IsFamilyFriendly);
@@ -101,7 +101,7 @@ public sealed class FoursquarePlaceServiceTests
         var service = new FoursquarePlaceService(mockClient.Object);
 
         // Act
-        var results = await service.SearchPlacesAsync("NoGeo", "madrid-es", 20);
+        var results = await service.SearchPlacesAsync("NoGeo", "madrid-es", 1L, 20);
 
         // Assert
         Assert.AreEqual(1, results.Count);
@@ -121,7 +121,7 @@ public sealed class FoursquarePlaceServiceTests
         var service = new FoursquarePlaceService(mockClient.Object);
 
         // Act
-        var results = await service.SearchPlacesAsync("Museum", "madrid-es", 20);
+        var results = await service.SearchPlacesAsync("Museum", "madrid-es", 1L, 20);
 
         // Assert
         Assert.IsNotNull(results);
@@ -140,7 +140,7 @@ public sealed class FoursquarePlaceServiceTests
         var service = new FoursquarePlaceService(mockClient.Object);
 
         // Act
-        var results = await service.SearchPlacesAsync("Empty", "madrid-es", 20);
+        var results = await service.SearchPlacesAsync("Empty", "madrid-es", 1L, 20);
 
         // Assert
         Assert.IsNotNull(results);

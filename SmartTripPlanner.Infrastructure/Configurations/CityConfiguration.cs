@@ -17,5 +17,7 @@ public class CityConfiguration : IEntityTypeConfiguration<City>
         builder.Property(c => c.IsAllowed).IsRequired().HasDefaultValue(true);
 
         builder.Property(c => c.CityName).IsRequired();
+
+        builder.HasData(new { Id = 1L, CityCode = "madrid", CityName = "Madrid", IsAllowed = true });
     }
 }

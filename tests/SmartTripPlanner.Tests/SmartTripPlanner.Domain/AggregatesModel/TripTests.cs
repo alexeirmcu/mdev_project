@@ -13,30 +13,36 @@ public sealed class TripTests
         BaseHotel = new Location("Hotel", 0, 0)
     };
 
+    private static Place CreatePlace(long id) => new($"fsq-{id}", $"Place {id}", 1L,
+        new PlaceLocation(0, 0));
+
     [TestMethod]
-    public void AddSelectedAttraction_AddsToList()
+    public void SelectPlace_AddsToList()
     {
         var trip = CreateTrip();
-        trip.AddSelectedAttraction("place1", "Eiffel Tower");
-        Assert.HasCount(1, trip.SelectedAttractions);
+        var place = CreatePlace(1);
+        trip.SelectPlace(place);
+        Assert.HasCount(1, trip.SelectedPlaces);
     }
 
     [TestMethod]
-    public void RemoveSelectedAttraction_RemovesFromList()
+    public void UnselectPlace_RemovesFromList()
     {
         var trip = CreateTrip();
-        trip.AddSelectedAttraction("place1", "Eiffel Tower");
-        trip.AddSelectedAttraction("place2", "Louvre");
-        bool removed = trip.RemoveSelectedAttraction("place1");
+        var place1 = CreatePlace(1);
+        var place2 = CreatePlace(2);
+        trip.SelectPlace(place1);
+        trip.SelectPlace(place2);
+        bool removed = trip.UnselectPlace(place1.Id);
         Assert.IsTrue(removed);
-        Assert.HasCount(1, trip.SelectedAttractions);
+        Assert.HasCount(1, trip.SelectedPlaces);
     }
 
     [TestMethod]
-    public void RemoveSelectedAttraction_ReturnsFalseWhenNotFound()
+    public void UnselectPlace_ReturnsFalseWhenNotFound()
     {
         var trip = CreateTrip();
-        bool removed = trip.RemoveSelectedAttraction("nonexistent");
+        bool removed = trip.UnselectPlace(999);
         Assert.IsFalse(removed);
     }
 

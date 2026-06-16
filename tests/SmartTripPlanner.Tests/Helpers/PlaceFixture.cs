@@ -7,7 +7,7 @@ public static class PlaceFixture
     public static Place CreatePopulatedPlace()
     {
         var location = new PlaceLocation(40.4168, -3.7038);
-        var place = new Place("fsq-prado-123", "Museo del Prado", "madrid-es", location,
+        var place = new Place("fsq-prado-123", "Museo del Prado", 1L, location,
             120, true, false);
 
         place.OpeningHours.Add(new OpeningHoursWindow(DayOfWeek.Monday, 600, 1200));

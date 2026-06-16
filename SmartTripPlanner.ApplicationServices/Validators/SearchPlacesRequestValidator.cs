@@ -24,7 +24,7 @@ public class SearchPlacesRequestValidator : AbstractValidator<SearchPlacesReques
                 .WithMessage("CityCode is required.")
             .MustAsync(async (cityCode, cancellationToken) =>
             {
-                var city = await cityRepo.GetByIdAsync(cityCode);
+                var city = await cityRepo.GetByCodeAsync(cityCode);
                 return city is not null && city.IsAllowed;
             })
             .WithErrorCode(nameof(ErrorCode.INVALID_CITY))

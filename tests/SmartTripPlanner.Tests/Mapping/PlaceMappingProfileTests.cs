@@ -29,7 +29,7 @@ public sealed class PlaceMappingProfileTests
 
         var model = mapper.Map<PlaceModel>(place);
 
-        Assert.AreEqual(place.PlaceId, model.PlaceId);
+        Assert.AreEqual(place.ProviderReferenceId, model.ProviderReferenceId);
         Assert.AreEqual(place.Name, model.Name);
         Assert.AreEqual(place.CityId, model.CityId);
         Assert.AreEqual(place.TypicalDurationMinutes, model.TypicalDurationMinutes);

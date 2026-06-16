@@ -15,6 +15,7 @@ public sealed class SearchPlacesHandlerTests
 {
     private readonly Mock<IPlaceRepository> _repositoryMock = new();
     private readonly Mock<IPlaceExternalService> _externalServiceMock = new();
+    private readonly Mock<ICityRepository> _cityRepoMock = new();
     private readonly Mock<IMapper> _mapperMock = new();
     private readonly Mock<IUnitOfWork> _unitOfWorkMock = new();
     private readonly SearchPlacesHandler _handler;
@@ -23,7 +24,7 @@ public sealed class SearchPlacesHandlerTests
     {
         _repositoryMock.Setup(r => r.UnitOfWork).Returns(_unitOfWorkMock.Object);
         _handler = new SearchPlacesHandler(
-            _repositoryMock.Object, _externalServiceMock.Object, _mapperMock.Object);
+            _repositoryMock.Object, _externalServiceMock.Object, _cityRepoMock.Object, _mapperMock.Object);
     }
 
     private void SetupEmptyMapper()
@@ -31,6 +32,13 @@ public sealed class SearchPlacesHandlerTests
         _mapperMock
             .Setup(m => m.Map<List<PlaceModel>>(It.IsAny<List<Place>>()))
             .Returns([]);
+    }
+
+    private void SetUpCityRepo(string cityCode, bool allowed = true)
+    {
+        _cityRepoMock
+            .Setup(r => r.GetByCodeAsync(cityCode))
+            .ReturnsAsync(new City(cityCode, cityCode, allowed));
     }
 
     private static List<Place> CreateThreePlaces()
@@ -41,9 +49,9 @@ public sealed class SearchPlacesHandlerTests
 
         return
         [
-            new Place("fsq-prado-123", "Museo del Prado", "madrid-es", loc1, 120, true, false),
-            new Place("fsq-louvre-456", "Musée du Louvre", "paris-fr", loc2, 180, true, true),
-            new Place("fsq-colosseum-789", "Colosseum", "rome-it", loc3, 90, false, true),
+            new Place("fsq-prado-123", "Museo del Prado", 1L, loc1, 120, true, false),
+            new Place("fsq-louvre-456", "Musée du Louvre", 2L, loc2, 180, true, true),
+            new Place("fsq-colosseum-789", "Colosseum", 3L, loc3, 90, false, true),
         ];
     }
 
@@ -59,11 +67,11 @@ public sealed class SearchPlacesHandlerTests
 
         var mappedModels = new List<PlaceModel>
         {
-            new("fsq-prado-123", "Museo del Prado", "madrid-es",
+            new("fsq-prado-123", "Museo del Prado", 1L,
                 new PlaceLocationModel(40.4168, -3.7038), 120, true, false, []),
-            new("fsq-louvre-456", "Musée du Louvre", "paris-fr",
+            new("fsq-louvre-456", "Musée du Louvre", 2L,
                 new PlaceLocationModel(48.8566, 2.3522), 180, true, true, []),
-            new("fsq-colosseum-789", "Colosseum", "rome-it",
+            new("fsq-colosseum-789", "Colosseum", 3L,
                 new PlaceLocationModel(41.9028, 12.4964), 90, false, true, []),
         };
 
@@ -76,12 +84,10 @@ public sealed class SearchPlacesHandlerTests
         Assert.IsNotNull(result);
         Assert.AreEqual(3, result.Results.Count);
 
-        // External service NOT called when local results exist
         _externalServiceMock.Verify(
-            s => s.SearchPlacesAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>()),
+            s => s.SearchPlacesAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<int>()),
             Times.Never);
 
-        // No save to local DB
         _repositoryMock.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
     }
 
@@ -97,7 +103,7 @@ public sealed class SearchPlacesHandlerTests
 
         var mappedModels = new List<PlaceModel>
         {
-            new("fsq-prado-123", "Museo del Prado", "madrid-es",
+            new("fsq-prado-123", "Museo del Prado", 1L,
                 new PlaceLocationModel(40.4168, -3.7038), 120, true, false, []),
         };
 
@@ -109,7 +115,7 @@ public sealed class SearchPlacesHandlerTests
 
         Assert.IsNotNull(result);
         Assert.AreEqual(1, result.Results.Count);
-        Assert.AreEqual("fsq-prado-123", result.Results[0].PlaceId);
+        Assert.AreEqual("fsq-prado-123", result.Results[0].ProviderReferenceId);
         _repositoryMock.Verify(r => r.SearchAsync("Museum", "madrid-es", 10), Times.Once);
     }
 
@@ -118,7 +124,7 @@ public sealed class SearchPlacesHandlerTests
     {
         var externalPlaces = new List<Place>
         {
-            new("fsq-api-1", "Museo del Prado", "madrid-es",
+            new("fsq-api-1", "Museo del Prado", 1L,
                 new PlaceLocation(40.4168, -3.7038), 120, true, true)
         };
         var request = new SearchPlacesRequest(new PlaceSearchRequest("Museo", "madrid-es", 5));
@@ -127,13 +133,15 @@ public sealed class SearchPlacesHandlerTests
             .Setup(r => r.SearchAsync("Museo", "madrid-es", 5))
             .ReturnsAsync([]);
 
+        SetUpCityRepo("madrid-es");
+
         _externalServiceMock
-            .Setup(s => s.SearchPlacesAsync("Museo", "madrid-es", 5))
+            .Setup(s => s.SearchPlacesAsync("Museo", "madrid-es", It.IsAny<long>(), 5))
             .ReturnsAsync(externalPlaces);
 
         var mappedModels = new List<PlaceModel>
         {
-            new("fsq-api-1", "Museo del Prado", "madrid-es",
+            new("fsq-api-1", "Museo del Prado", 1L,
                 new PlaceLocationModel(40.4168, -3.7038), 120, true, true, [])
         };
 
@@ -145,9 +153,8 @@ public sealed class SearchPlacesHandlerTests
 
         Assert.IsNotNull(result);
         Assert.AreEqual(1, result.Results.Count);
-        Assert.AreEqual("fsq-api-1", result.Results[0].PlaceId);
+        Assert.AreEqual("fsq-api-1", result.Results[0].ProviderReferenceId);
 
-        // Saved to local DB
         _repositoryMock.Verify(r => r.AddRangeAsync(externalPlaces), Times.Once);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -161,8 +168,10 @@ public sealed class SearchPlacesHandlerTests
             .Setup(r => r.SearchAsync("Museo", "madrid-es", 5))
             .ReturnsAsync([]);
 
+        SetUpCityRepo("madrid-es");
+
         _externalServiceMock
-            .Setup(s => s.SearchPlacesAsync("Museo", "madrid-es", 5))
+            .Setup(s => s.SearchPlacesAsync("Museo", "madrid-es", It.IsAny<long>(), 5))
             .ThrowsAsync(new HttpRequestException("API down"));
 
         var result = await _handler.Handle(request, CancellationToken.None);
@@ -170,7 +179,6 @@ public sealed class SearchPlacesHandlerTests
         Assert.IsNotNull(result);
         Assert.AreEqual(0, result.Results.Count);
 
-        // No save when external fails
         _repositoryMock.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
         _unitOfWorkMock.Verify(u => u.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -184,8 +192,10 @@ public sealed class SearchPlacesHandlerTests
             .Setup(r => r.SearchAsync("Museo", "madrid-es", 5))
             .ReturnsAsync([]);
 
+        SetUpCityRepo("madrid-es");
+
         _externalServiceMock
-            .Setup(s => s.SearchPlacesAsync("Museo", "madrid-es", 5))
+            .Setup(s => s.SearchPlacesAsync("Museo", "madrid-es", It.IsAny<long>(), 5))
             .ReturnsAsync([]);
 
         var result = await _handler.Handle(request, CancellationToken.None);
@@ -193,7 +203,6 @@ public sealed class SearchPlacesHandlerTests
         Assert.IsNotNull(result);
         Assert.AreEqual(0, result.Results.Count);
 
-        // No save when external returns empty
         _repositoryMock.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
     }
 
@@ -211,10 +220,9 @@ public sealed class SearchPlacesHandlerTests
 
         await _handler.Handle(request, CancellationToken.None);
 
-        // No save when results are local
         _repositoryMock.Verify(r => r.AddRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
         _externalServiceMock.Verify(
-            s => s.SearchPlacesAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<int>()),
+            s => s.SearchPlacesAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<int>()),
             Times.Never);
     }
 
@@ -227,9 +235,9 @@ public sealed class SearchPlacesHandlerTests
             .Setup(r => r.SearchAsync("NonExistent", "nowhere", 10))
             .ReturnsAsync([]);
 
-        _externalServiceMock
-            .Setup(s => s.SearchPlacesAsync("NonExistent", "nowhere", 10))
-            .ReturnsAsync([]);
+        _cityRepoMock
+            .Setup(r => r.GetByCodeAsync("nowhere"))
+            .ReturnsAsync((City?)null);
 
         SetupEmptyMapper();
 
@@ -248,8 +256,10 @@ public sealed class SearchPlacesHandlerTests
             .Setup(r => r.SearchAsync(null, "madrid-es", 5))
             .ReturnsAsync([]);
 
+        SetUpCityRepo("madrid-es");
+
         _externalServiceMock
-            .Setup(s => s.SearchPlacesAsync(null, "madrid-es", 5))
+            .Setup(s => s.SearchPlacesAsync(null, "madrid-es", It.IsAny<long>(), 5))
             .ReturnsAsync([]);
 
         SetupEmptyMapper();
@@ -268,8 +278,10 @@ public sealed class SearchPlacesHandlerTests
             .Setup(r => r.SearchAsync("Cafe", "madrid-es", 10))
             .ReturnsAsync([]);
 
+        SetUpCityRepo("madrid-es");
+
         _externalServiceMock
-            .Setup(s => s.SearchPlacesAsync("Cafe", "madrid-es", 10))
+            .Setup(s => s.SearchPlacesAsync("Cafe", "madrid-es", It.IsAny<long>(), 10))
             .ReturnsAsync([]);
 
         SetupEmptyMapper();

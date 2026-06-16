@@ -14,11 +14,11 @@ internal sealed class FoursquarePlaceService : IPlaceExternalService
         _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
     }
 
-    public async Task<List<Place>> SearchPlacesAsync(string query, string cityId, int maxResults = 20)
+    public async Task<List<Place>> SearchPlacesAsync(string query, string cityCode, long cityId, int maxResults = 20)
     {
         try
         {
-            var apiResults = await _apiClient.SearchPlacesAsync(query, cityId, maxResults);
+            var apiResults = await _apiClient.SearchPlacesAsync(query, cityCode, maxResults);
             return apiResults.Select(p => MapToPlace(p, cityId)).ToList();
         }
         catch (HttpRequestException)
@@ -27,7 +27,7 @@ internal sealed class FoursquarePlaceService : IPlaceExternalService
         }
     }
 
-    private static Place MapToPlace(FoursquarePlace apiPlace, string cityId)
+    private static Place MapToPlace(FoursquarePlace apiPlace, long cityId)
     {
         var location = new PlaceLocation(apiPlace.Latitude, apiPlace.Longitude);
 
@@ -37,6 +37,7 @@ internal sealed class FoursquarePlaceService : IPlaceExternalService
         return new Place(
             apiPlace.FsqPlaceId,
             apiPlace.Name,
-            cityId, location, duration, isIndoor, isFamilyFriendly);
+            cityId, location, duration, isIndoor, isFamilyFriendly,
+            Domain.Enums.Provider.Foursquare);
     }
 }

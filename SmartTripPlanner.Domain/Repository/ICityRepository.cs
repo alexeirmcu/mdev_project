@@ -5,5 +5,5 @@ namespace SmartTripPlanner.Domain.Repository;
 
 public interface ICityRepository : IRepository<City>
 {
-    Task<City?> GetByIdAsync(string cityId);
+    Task<City?> GetByCodeAsync(string cityCode);
 }
