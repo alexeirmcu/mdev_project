@@ -2,7 +2,7 @@ namespace SmartTripPlanner.Domain.Enums;
 
 public enum Priority
 {
-    HIGH,
-    MEDIUM,
-    LOW
+    High,
+    Medium,
+    Low
 }

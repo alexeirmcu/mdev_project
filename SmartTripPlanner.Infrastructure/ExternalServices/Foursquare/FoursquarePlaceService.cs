@@ -51,6 +51,10 @@ internal sealed class FoursquarePlaceService : IPlaceExternalService
                 place.AddAttribute(new PlaceAttribute("foursquare", "chain", chain.Name));
         }
 
+        // Inject default opening hours for solver compatibility
+        foreach (var day in Enum.GetValues<DayOfWeek>())
+            place.OpeningHours.Add(new OpeningHoursWindow(day, 540, 1080)); // 09:00-18:00
+
         return place;
     }
 }

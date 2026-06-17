@@ -17,4 +17,22 @@ public class DayPlan : Entity
     {
         StartTime = newStart;
     }
+
+    private BlockTimeline GetBlock(BlockType blockType) => blockType switch
+    {
+        BlockType.Morning => Morning,
+        BlockType.Afternoon => Afternoon,
+        BlockType.Evening => Evening,
+        _ => throw new ArgumentOutOfRangeException(nameof(blockType), blockType, null)
+    };
+
+    public void AddActivity(BlockType blockType, ActivityNode activity)
+    {
+        GetBlock(blockType).AddActivity(activity);
+    }
+
+    public void RemoveActivity(BlockType blockType, ActivityNode activity)
+    {
+        GetBlock(blockType).RemoveActivity(activity);
+    }
 }

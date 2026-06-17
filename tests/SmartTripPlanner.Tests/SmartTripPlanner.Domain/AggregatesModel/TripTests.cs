@@ -1,4 +1,5 @@
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.Enums;
 
 namespace SmartTripPlanner.Tests.Domain.AggregatesModel;
 
@@ -51,5 +52,48 @@ public sealed class TripTests
     {
         var trip = CreateTrip();
         Assert.AreEqual(new TimeOnly(9, 0), trip.DefaultStartTime);
+    }
+
+    [TestMethod]
+    public void GenerateDays_CreatesCorrectNumberOfDayPlans()
+    {
+        var trip = CreateTrip(); // June 1 to June 3 = 3 days
+        trip.GenerateDays();
+        Assert.AreEqual(3, trip.Days.Count);
+        Assert.AreEqual(new DateOnly(2026, 6, 1), trip.Days[0].Date);
+        Assert.AreEqual(new DateOnly(2026, 6, 2), trip.Days[1].Date);
+        Assert.AreEqual(new DateOnly(2026, 6, 3), trip.Days[2].Date);
+    }
+
+    [TestMethod]
+    public void GenerateDays_ClearsExistingDays()
+    {
+        var trip = CreateTrip();
+        trip.GenerateDays();
+        Assert.AreEqual(3, trip.Days.Count);
+
+        // Call GenerateDays again — must clear and regenerate
+        trip.GenerateDays();
+        Assert.AreEqual(3, trip.Days.Count);
+    }
+
+    [TestMethod]
+    public void GenerateDays_SetsCorrectBlockTypes()
+    {
+        var trip = CreateTrip();
+        trip.GenerateDays();
+        var day = trip.Days[0];
+        Assert.AreEqual(BlockType.Morning, day.Morning.BlockType);
+        Assert.AreEqual(BlockType.Afternoon, day.Afternoon.BlockType);
+        Assert.AreEqual(BlockType.Evening, day.Evening.BlockType);
+    }
+
+    [TestMethod]
+    public void GenerateDays_SetsDayIndexSequentially()
+    {
+        var trip = CreateTrip();
+        trip.GenerateDays();
+        for (int i = 0; i < trip.Days.Count; i++)
+            Assert.AreEqual(i, trip.Days[i].DayIndex);
     }
 }

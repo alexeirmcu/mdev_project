@@ -8,16 +8,34 @@ public sealed class ActivityNodeTests
 {
     private static ActivityNode CreateNode() => new()
     {
-        PlaceId = "place1",
+        PlaceId = 1L,
         Name = "Test Activity",
-        SequenceOrder = 1
+        SequenceOrder = 1,
+        DurationMinutes = 60,
+        IsIndoor = false
     };
+
+    [TestMethod]
+    public void Constructor_WithLongPlaceId_CreatesActivity()
+    {
+        var node = new ActivityNode(
+            placeId: 42,
+            name: "Eiffel Tower",
+            sequenceOrder: 1,
+            durationMinutes: 90,
+            isIndoor: false);
+
+        Assert.AreEqual(42L, node.PlaceId);
+        Assert.AreEqual("Eiffel Tower", node.Name);
+        Assert.AreEqual(1, node.SequenceOrder);
+        Assert.AreEqual(90, node.DurationMinutes);
+    }
 
     [TestMethod]
     public void Priority_DefaultIsMedium()
     {
         var node = CreateNode();
-        Assert.AreEqual(Priority.MEDIUM, node.Priority);
+        Assert.AreEqual(Priority.Medium, node.Priority);
     }
 
     [TestMethod]

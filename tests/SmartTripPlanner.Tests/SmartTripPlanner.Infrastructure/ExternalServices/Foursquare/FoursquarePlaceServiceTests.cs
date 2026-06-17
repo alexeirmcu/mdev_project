@@ -237,4 +237,35 @@ public sealed class FoursquarePlaceServiceTests
         Assert.AreEqual(1, results[0].Attributes.Count);
         Assert.AreEqual("category", results[0].Attributes[0].Key);
     }
+
+    [TestMethod]
+    public async Task SearchPlacesAsync_WithValidPlace_InjectsDefaultOpeningHours()
+    {
+        // Arrange
+        var mockClient = new Mock<IFoursquareApiClient>();
+        var apiPlaces = new List<FoursquarePlace> { CreateMuseumPlace() };
+        mockClient
+            .Setup(c => c.SearchPlacesAsync("OpeningHours", "madrid-es", 20))
+            .ReturnsAsync(apiPlaces);
+
+        var service = new FoursquarePlaceService(mockClient.Object);
+
+        // Act
+        var results = await service.SearchPlacesAsync("OpeningHours", "madrid-es", 1L, 20);
+
+        // Assert
+        Assert.AreEqual(1, results.Count);
+        var place = results[0];
+        Assert.AreEqual(7, place.OpeningHours.Count);
+
+        var expectedDays = new[] { DayOfWeek.Sunday, DayOfWeek.Monday, DayOfWeek.Tuesday,
+            DayOfWeek.Wednesday, DayOfWeek.Thursday, DayOfWeek.Friday, DayOfWeek.Saturday };
+
+        for (int i = 0; i < 7; i++)
+        {
+            Assert.AreEqual(expectedDays[i], place.OpeningHours[i].DayOfWeek);
+            Assert.AreEqual(540, place.OpeningHours[i].OpenMinutes);
+            Assert.AreEqual(1080, place.OpeningHours[i].CloseMinutes);
+        }
+    }
 }
