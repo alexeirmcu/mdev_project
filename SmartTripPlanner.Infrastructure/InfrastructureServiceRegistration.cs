@@ -20,6 +20,7 @@ public static class InfrastructureServiceRegistration
 
         services.AddScoped<ICityRepository, CityRepository>();
         services.AddScoped<IPlaceRepository, PlaceRepository>();
+        services.AddScoped<ITripRepository, TripRepository>();
 
         services.AddOptions<FoursquareApiOptions>()
             .BindConfiguration(FoursquareApiOptions.SectionName);
