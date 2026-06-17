@@ -35,8 +35,14 @@ public class BlockResponse
 
 public class ActivityResponse
 {
+    public long PlaceId { get; set; }
     public string PlaceName { get; set; } = string.Empty;
     public int DurationMinutes { get; set; }
+    public int SequenceOrder { get; set; }
+    public bool IsIndoor { get; set; }
+    public string Priority { get; set; } = string.Empty;
     public string TransportMode { get; set; } = string.Empty;
     public int TransitDurationMinutes { get; set; }
+    public int BufferMinutes { get; set; }
+    public bool FrictionAlert { get; set; }
 }

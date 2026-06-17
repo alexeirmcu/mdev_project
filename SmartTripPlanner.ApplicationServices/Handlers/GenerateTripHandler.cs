@@ -168,18 +168,24 @@ public class GenerateTripHandler(
         {
             BlockType = block.BlockType.ToString(),
             TotalDurationMinutes = block.BlockTotalDurationMinutes,
-            Activities = block.Activities.Select(MapActivity).ToList()
+            Activities = block.Activities.Select((a, i) => MapActivity(a, i)).ToList()
         };
     }
 
-    private static ActivityResponse MapActivity(ActivityNode activity)
+    private static ActivityResponse MapActivity(ActivityNode activity, int sequenceOrder)
     {
         return new ActivityResponse
         {
+            PlaceId = activity.PlaceId,
             PlaceName = activity.Name,
             DurationMinutes = activity.DurationMinutes,
+            SequenceOrder = sequenceOrder,
+            IsIndoor = activity.IsIndoor,
+            Priority = activity.Priority.ToString(),
             TransportMode = activity.TransitToNext?.TransportMode.ToString() ?? string.Empty,
-            TransitDurationMinutes = activity.TransitToNext?.DurationMinutes ?? 0
+            TransitDurationMinutes = activity.TransitToNext?.DurationMinutes ?? 0,
+            BufferMinutes = activity.TransitToNext?.BufferMinutes ?? 0,
+            FrictionAlert = activity.TransitToNext?.FrictionAlert ?? false
         };
     }
 }
