@@ -61,11 +61,11 @@ public class Trip : Entity, IAggregateRoot
             {
                 DayIndex = dayIndex++,
                 Date = date,
-                WeatherSummary = WeatherCondition.Clear,
                 Morning = new BlockTimeline { BlockType = BlockType.Morning },
                 Afternoon = new BlockTimeline { BlockType = BlockType.Afternoon },
                 Evening = new BlockTimeline { BlockType = BlockType.Evening }
             };
+            day.SetWeather(WeatherCondition.Clear);
             day.UpdateStartTime(DefaultStartTime);
             _days.Add(day);
         }

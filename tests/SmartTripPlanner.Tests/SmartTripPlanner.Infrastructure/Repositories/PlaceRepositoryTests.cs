@@ -320,4 +320,75 @@ public sealed class PlaceRepositoryTests
         var chain = saved.Attributes.First(a => a.Key == "chain");
         Assert.AreEqual("Iberostar", chain.Value);
     }
+
+    [TestMethod]
+    public async Task GetManyByCityIdAsync_ReturnsPlacesForCity()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        var paris = new City("paris-fr", "Paris", true);
+        db.Cities.AddRange(madrid, paris);
+        await db.SaveChangesAsync();
+
+        db.Places.Add(new Place("f1", "Museo del Prado", madrid.Id, new PlaceLocation(40.4168, -3.7038)));
+        db.Places.Add(new Place("f2", "Louvre Museum", paris.Id, new PlaceLocation(48.8606, 2.3376)));
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var results = await repo.GetManyByCityIdAsync(madrid.Id);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Museo del Prado", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task GetManyByCityIdAsync_ReturnsEmptyForUnknownCity()
+    {
+        using var db = CreateDbContext();
+        var repo = CreateRepository(db);
+
+        var results = await repo.GetManyByCityIdAsync(999);
+
+        Assert.AreEqual(0, results.Count);
+    }
+
+    [TestMethod]
+    public async Task GetManyByCityIdAsync_ReturnsMultiplePlaces()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        db.Places.Add(new Place("f1", "Museo del Prado", madrid.Id, new PlaceLocation(40.4168, -3.7038)));
+        db.Places.Add(new Place("f2", "Reina Sofia", madrid.Id, new PlaceLocation(40.4089, -3.6944)));
+        db.Places.Add(new Place("f3", "Thyssen", madrid.Id, new PlaceLocation(40.4162, -3.6949)));
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var results = await repo.GetManyByCityIdAsync(madrid.Id);
+
+        Assert.AreEqual(3, results.Count);
+    }
+
+    [TestMethod]
+    public async Task GetManyByCityIdAsync_IncludesOpeningHours()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        var place = new Place("fsq_test", "Test Place", madrid.Id, new PlaceLocation(40.4168, -3.7038));
+        place.OpeningHours.Add(new OpeningHoursWindow(DayOfWeek.Monday, 540, 1260));
+        db.Places.Add(place);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var results = await repo.GetManyByCityIdAsync(madrid.Id);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual(1, results[0].OpeningHours.Count);
+        Assert.AreEqual(DayOfWeek.Monday, results[0].OpeningHours[0].DayOfWeek);
+    }
 }

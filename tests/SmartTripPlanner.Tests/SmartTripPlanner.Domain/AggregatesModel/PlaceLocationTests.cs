@@ -83,4 +83,45 @@ public sealed class PlaceLocationTests
         Assert.AreNotEqual(a, b);
         Assert.IsFalse(a.Equals(b));
     }
+
+    [TestMethod]
+    public void DistanceKmTo_SamePoint_ReturnsZero()
+    {
+        var loc = new PlaceLocation(40.4168, -3.7038);
+        var distance = loc.DistanceKmTo(loc);
+        Assert.AreEqual(0, distance, 0.001);
+    }
+
+    [TestMethod]
+    public void DistanceKmTo_PuertaDelSolToPlazaMayor_Approximately0_6km()
+    {
+        // Puerta del Sol, Madrid
+        var sol = new PlaceLocation(40.4168, -3.7038);
+        // Plaza Mayor, Madrid (~0.3 km away)
+        var plazaMayor = new PlaceLocation(40.4154, -3.7074);
+
+        var distance = sol.DistanceKmTo(plazaMayor);
+        Assert.AreEqual(0.3, distance, 0.15);
+    }
+
+    [TestMethod]
+    public void DistanceKmTo_MadridToParis_Approximately1050km()
+    {
+        var madrid = new PlaceLocation(40.4168, -3.7038);
+        var paris = new PlaceLocation(48.8566, 2.3522);
+
+        var distance = madrid.DistanceKmTo(paris);
+        Assert.AreEqual(1050, distance, 50);
+    }
+
+    [TestMethod]
+    public void DistanceKmTo_IsSymmetric()
+    {
+        var a = new PlaceLocation(40.4168, -3.7038);
+        var b = new PlaceLocation(48.8566, 2.3522);
+
+        var distAB = a.DistanceKmTo(b);
+        var distBA = b.DistanceKmTo(a);
+        Assert.AreEqual(distAB, distBA, 0.001);
+    }
 }

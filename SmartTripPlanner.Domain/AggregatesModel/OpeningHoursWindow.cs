@@ -25,6 +25,8 @@ public class OpeningHoursWindow : ValueObject
         CloseMinutes = closeMinutes;
     }
 
+    public bool IsOpenOn(DayOfWeek day) => DayOfWeek == day;
+
     protected override IEnumerable<object> GetEqualityComponents()
     {
         yield return DayOfWeek;

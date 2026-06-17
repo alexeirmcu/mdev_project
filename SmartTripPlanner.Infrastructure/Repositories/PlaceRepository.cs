@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SmartTripPlanner.Domain.AggregatesModel;
 using SmartTripPlanner.Domain.Base;
+using SmartTripPlanner.Domain.Constants;
 using SmartTripPlanner.Domain.Repository;
 
 namespace SmartTripPlanner.Infrastructure.Repositories;
@@ -50,6 +51,16 @@ public class PlaceRepository : IPlaceRepository
             .Include(p => p.OpeningHours)
             .Include(p => p.Attributes)
             .Where(p => placeIds.Contains(p.Id))
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<Place>> GetManyByCityIdAsync(long cityId, CancellationToken ct = default)
+    {
+        return await _context.Places
+            .Include(p => p.OpeningHours)
+            .Include(p => p.Attributes)
+            .Where(p => p.CityId == cityId)
+            .Take(TripPlanningConstants.MaxCandidatesPerCity)
             .ToListAsync(ct);
     }
 

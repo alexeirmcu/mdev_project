@@ -18,4 +18,26 @@ public static class TripPlanningConstants
 
     // Default start hour (minutes from midnight): 09:00 = 540
     public const int DefaultStartHourMinutes = 540;
+
+    // Zone clustering
+    public const double ZoneRadiusKm = 2.0;
+
+    // Transport mode selection
+    public const int CarFasterThresholdMinutes = 20;
+    public const double InterZoneThresholdKm = 10.0;
+
+    // Transit speed constants (km/h)
+    public const double WalkingSpeedKmh = 5.0;
+    public const double PublicTransportSpeedKmh = 15.0;
+    public const double CarSpeedKmh = 30.0;
+
+    // Scoring constants
+    public const double FamilyFriendlyBonus = 15.0;
+    public const double PopularityWeight = 20.0;
+    public const double DistancePenaltyWeight = 5.0;
+    public const double IndoorWeatherBonus = 20.0;
+    public const double OutdoorWeatherPenalty = -20.0;
+
+    // Candidate selection
+    public const int MaxCandidatesPerCity = 50;
 }

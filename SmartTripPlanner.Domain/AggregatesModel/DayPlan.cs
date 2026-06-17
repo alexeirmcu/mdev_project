@@ -7,7 +7,7 @@ public class DayPlan : Entity
 {
     public int DayIndex { get; init; }
     public DateOnly Date { get; init; }
-    public WeatherCondition WeatherSummary { get; init; }
+    public WeatherCondition WeatherSummary { get; private set; }
     public required BlockTimeline Morning { get; init; }
     public required BlockTimeline Afternoon { get; init; }
     public required BlockTimeline Evening { get; init; }
@@ -18,7 +18,12 @@ public class DayPlan : Entity
         StartTime = newStart;
     }
 
-    private BlockTimeline GetBlock(BlockType blockType) => blockType switch
+    public void SetWeather(WeatherCondition weather)
+    {
+        WeatherSummary = weather;
+    }
+
+    internal BlockTimeline GetBlock(BlockType blockType) => blockType switch
     {
         BlockType.Morning => Morning,
         BlockType.Afternoon => Afternoon,

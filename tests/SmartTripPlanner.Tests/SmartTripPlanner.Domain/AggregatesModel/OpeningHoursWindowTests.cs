@@ -71,4 +71,26 @@ public sealed class OpeningHoursWindowTests
         Assert.AreNotEqual(a, b);
         Assert.IsFalse(a.Equals(b));
     }
+
+    [TestMethod]
+    public void IsOpenOn_SameDay_ReturnsTrue()
+    {
+        var oh = new OpeningHoursWindow(DayOfWeek.Monday, 540, 1260);
+        Assert.IsTrue(oh.IsOpenOn(DayOfWeek.Monday));
+    }
+
+    [TestMethod]
+    public void IsOpenOn_DifferentDay_ReturnsFalse()
+    {
+        var oh = new OpeningHoursWindow(DayOfWeek.Monday, 540, 1260);
+        Assert.IsFalse(oh.IsOpenOn(DayOfWeek.Tuesday));
+    }
+
+    [TestMethod]
+    public void IsOpenOn_WeekendCheck_ReturnsCorrectly()
+    {
+        var oh = new OpeningHoursWindow(DayOfWeek.Saturday, 600, 1200);
+        Assert.IsTrue(oh.IsOpenOn(DayOfWeek.Saturday));
+        Assert.IsFalse(oh.IsOpenOn(DayOfWeek.Friday));
+    }
 }

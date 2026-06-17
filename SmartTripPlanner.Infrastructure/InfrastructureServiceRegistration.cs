@@ -6,6 +6,7 @@ using SmartTripPlanner.Domain.Repository;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Configuration;
 using SmartTripPlanner.Infrastructure.Repositories;
+using SmartTripPlanner.Infrastructure.Services;
 
 namespace SmartTripPlanner.Infrastructure;
 
@@ -35,6 +36,9 @@ public static class InfrastructureServiceRegistration
         });
 
         services.AddScoped<IPlaceExternalService, FoursquarePlaceService>();
+
+        services.AddScoped<ITransitCalculator, HaversineTransitCalculator>();
+        services.AddScoped<IWeatherProvider, StubbedWeatherProvider>();
 
         return services;
     }
