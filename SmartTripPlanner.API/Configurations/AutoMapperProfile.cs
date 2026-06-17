@@ -30,10 +30,16 @@ public class AutoMapperProfile : Profile
 
         // Itinerary response mappings
         CreateMap<ActivityNode, ActivityResponse>()
+            .ForMember(dest => dest.PlaceId, opt => opt.MapFrom(src => src.PlaceId))
             .ForMember(dest => dest.PlaceName, opt => opt.MapFrom(src => src.Name))
             .ForMember(dest => dest.DurationMinutes, opt => opt.MapFrom(src => src.DurationMinutes))
+            .ForMember(dest => dest.SequenceOrder, opt => opt.MapFrom(src => src.SequenceOrder))
+            .ForMember(dest => dest.IsIndoor, opt => opt.MapFrom(src => src.IsIndoor))
+            .ForMember(dest => dest.Priority, opt => opt.MapFrom(src => src.Priority.ToString()))
             .ForMember(dest => dest.TransportMode, opt => opt.MapFrom(src => src.TransitToNext != null ? src.TransitToNext.TransportMode.ToString() : string.Empty))
-            .ForMember(dest => dest.TransitDurationMinutes, opt => opt.MapFrom(src => src.TransitToNext != null ? src.TransitToNext.DurationMinutes : 0));
+            .ForMember(dest => dest.TransitDurationMinutes, opt => opt.MapFrom(src => src.TransitToNext != null ? src.TransitToNext.DurationMinutes : 0))
+            .ForMember(dest => dest.BufferMinutes, opt => opt.MapFrom(src => src.TransitToNext != null ? src.TransitToNext.BufferMinutes : 0))
+            .ForMember(dest => dest.FrictionAlert, opt => opt.MapFrom(src => src.TransitToNext != null ? src.TransitToNext.FrictionAlert : false));
 
         CreateMap<BlockTimeline, BlockResponse>()
             .ForMember(dest => dest.BlockType, opt => opt.MapFrom(src => src.BlockType.ToString()))

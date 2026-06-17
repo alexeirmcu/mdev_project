@@ -1,0 +1,265 @@
+# Itinerary Generation Specification
+
+## 1. Summary
+
+Heuristic multi-day itinerary builder for Smart Trip Planner. Generates `DayPlan[]` with 3 blocks per day (Morning/Afternoon/Evening), placing must-sees by priority and pin constraints, filling remaining slots with scored candidates, applying weather and transport heuristics, and enforcing block capacity limits. This is the PRD v1 MVP approach — OR-Tools is deferred.
+
+## 2. Functional Requirements
+
+### FR1: Trip.GenerateDays() creates empty DayPlans with 3 blocks
+
+The system SHALL call `Trip.GenerateDays()` to initialize one `DayPlan` per trip date, each containing `Morning`, `Afternoon`, and `Evening` blocks with default `WeatherSummary = Clear`.
+
+#### Scenario: N-day trip creates N DayPlans
+
+- GIVEN a trip from StartDate to EndDate spanning N days
+- WHEN `GenerateDays()` is called
+- THEN N `DayPlan` entities are created, each with `DayIndex` 0..N-1 and `Date` matching each calendar day
+- AND each `DayPlan` has exactly 3 `BlockTimeline` instances: Morning, Afternoon, Evening
+
+#### Scenario: Blocks start empty with default start time
+
+- GIVEN a newly generated DayPlan
+- WHEN generated
+- THEN each block has zero activities
+- AND the `StartTime` equals `Trip.DefaultStartTime`
+
+### FR2: Pinned must-sees placed at their PinnedDayIndex/PinnedBlock
+
+The system MUST place must-sees with `PinnedDayIndex` and/or `PinnedBlock` into the exact day and block the user specified. Pinned placement MUST happen before any other distribution step.
+
+#### Scenario: Must-see pinned to a specific day and block
+
+- GIVEN a must-see with `PinnedDayIndex = 1`, `PinnedBlock = Afternoon`
+- WHEN itinerary generation runs
+- THEN the must-see appears in `DayPlan[1].Afternoon` activities
+- AND its `SequenceOrder` is assigned contiguously within the block
+
+#### Scenario: Must-see pinned only to a day (no block preference)
+
+- GIVEN a must-see with `PinnedDayIndex = 0`, `PinnedBlock = null`
+- WHEN itinerary generation runs
+- THEN the must-see appears in one of the 3 blocks of `DayPlan[0]`, chosen based on opening hours and capacity
+
+#### Scenario: Pinned must-see conflicts with block capacity
+
+- GIVEN a must-see pinned to `DayPlan[2].Morning` where Morning already has `MaxVisitsPerMorningBlock` (3) visits
+- WHEN itinerary generation tries to place it
+- THEN the system SHALL attempt overflow in adjacent blocks of the same day before falling back (FR8)
+
+### FR3: Unpinned must-sees distributed by zone proximity and opening hours
+
+The system MUST place must-sees without `PinnedDayIndex` using zone-proximity clustering and opening-hours feasibility. Placement MUST respect `OpeningHoursWindow.DayOfWeek` for each must-see's assigned day.
+
+#### Scenario: Unpinned must-see placed on a day it is open
+
+- GIVEN an unpinned must-see that is closed on Mondays and open Tuesday-Sunday
+- AND the trip includes a Monday (DayIndex 0)
+- WHEN itinerary generation runs
+- THEN the must-see is NOT placed on Monday and IS placed on a day it is open
+
+#### Scenario: Zone clustering reduces backtracking
+
+- GIVEN two unpinned must-sees in the same barrio/zone with close proximity
+- WHEN itinerary generation assigns them
+- THEN both SHOULD appear in the same day to minimize transit between zones
+
+### FR4: Candidate places fill remaining block capacity
+
+After all must-sees are placed, the system SHALL fill remaining block slots with candidate places ranked by a composite score: `family-friendly bonus + popularity − distance penalty`. The system MUST use `ICandidateScorer` (Domain port) for score computation.
+
+#### Scenario: Block has 2 of 3 slots filled after must-see placement
+
+- GIVEN Morning block with 2 must-sees (capacity 3)
+- WHEN candidate filling runs
+- THEN 1 scored candidate is added to Morning
+- AND `CanFitActivity()` returns false for additional activities
+
+#### Scenario: No candidates available for a block
+
+- GIVEN all candidate places are already placed or filtered out
+- WHEN candidate filling runs for an empty Evening block
+- THEN the block remains empty with zero activities (not an error)
+
+### FR5: Weather filter per day adjusts activity selection
+
+When `TripPreferences.WeatherAwareEnabled = true` and a day's `WeatherSummary = Bad`, the system MUST deprioritize outdoor (`IsIndoor = false`) activities and prefer indoor candidates.
+
+#### Scenario: Rainy day prefers indoor activities
+
+- GIVEN a day with `WeatherSummary = Bad`
+- AND candidates include both indoor and outdoor places
+- WHEN candidate scoring runs
+- THEN indoor candidates receive a scoring bonus over outdoor ones
+- AND outdoor must-sees still appear (priority overrides weather)
+
+#### Scenario: Weather-aware disabled by preference
+
+- GIVEN `TripPreferences.WeatherAwareEnabled = false`
+- WHEN itinerary generation runs on a rainy day
+- THEN no weather-based reordering or filtering occurs
+
+### FR6: Transport mode assignment per leg
+
+The system MUST assign `TransportMode` per transit leg between activities using `ITransitCalculator` (Domain port). Default: `WALK_AND_PUBLIC_TRANSPORT`. Switch to `CAR` when car is available and either: (a) PT+walk exceeds 20 minutes longer than car, or (b) the trip involves long-distance inter-zone transit.
+
+#### Scenario: PT+Walking is reasonably fast
+
+- GIVEN `TripPreferences.CarAvailable = false`
+- AND PT+walk transit between two consecutive activities takes 15 min
+- WHEN transit is assigned
+- THEN `TransitDetails.TransportMode = WALK_AND_PUBLIC_TRANSPORT`
+
+#### Scenario: Car significantly faster than PT+walk
+
+- GIVEN `TripPreferences.CarAvailable = true`
+- AND PT+walk takes 45 min while car takes 15 min (30+ min difference)
+- WHEN transit is assigned
+- THEN `TransitDetails.TransportMode = CAR`
+
+#### Scenario: Short walking distance within zone
+
+- GIVEN two activities in the same zone with 8 min walk
+- AND `TripPreferences.CarAvailable = true`
+- WHEN transit is assigned
+- THEN `TransitDetails.TransportMode = WALK_AND_PUBLIC_TRANSPORT` (car is not justified)
+
+### FR7: Block capacity validation
+
+The system MUST enforce `TripPlanningConstants` capacity limits per block type. `BlockTimeline.CanFitActivity()` and `BlockTimeline.AddActivity()` already validate these constraints.
+
+| Block | Max Visits | Max Duration |
+|-------|-----------|-------------|
+| Morning | 3 | 210 min |
+| Afternoon | 3 | 180 min |
+| Evening | 2 | 105 min |
+
+#### Scenario: Activity fits within block capacity
+
+- GIVEN an Evening block with 1 activity (60 min)
+- WHEN adding a 30-min activity with 15-min transit
+- THEN the activity is accepted (1+1 visits ≤ 2, 60+30+15 ≤ 105)
+
+#### Scenario: Block capacity exceeded — overflow trimming
+
+- GIVEN a Morning block at max visits (3)
+- WHEN the heuristic attempts to add a 4th activity
+- THEN the activity is not added; the generator skips to next candidate or next block
+
+### FR8: Fallback by priority on capacity overflow
+
+When not all places fit, the system MUST drop in priority order: first `Low`, then `Medium`. If a `High` priority must-see cannot be placed, the system SHALL throw `OverConstrainedRouteException` with the conflicting place IDs.
+
+#### Scenario: Low-priority candidate dropped to fit must-sees
+
+- GIVEN a Morning block at capacity with 1 High and 2 Medium must-sees
+- AND a Low-priority candidate also targets Morning
+- WHEN overflow trimming runs
+- THEN the Low-priority candidate is removed first
+
+#### Scenario: Medium must-see dropped when Low already gone
+
+- GIVEN only Medium and High must-sees remain, and capacity is insufficient
+- WHEN overflow trimming runs
+- THEN Medium-priority items are dropped before High-priority items
+
+#### Scenario: High must-see cannot fit — exception
+
+- GIVEN a High-priority must-see that cannot fit in any block on any day
+- WHEN fallback has already dropped all Low and Medium candidates
+- THEN `OverConstrainedRouteException` is thrown with the High must-see's `PlaceId` in `ConflictingPlaceIds`
+
+### FR9: GenerateTripHandler invokes itinerary generation after persistence
+
+The `GenerateTripHandler` SHALL call `IItineraryGenerator.GenerateAsync(trip, weatherData, ct)` after step 6 (persistence) and before step 7 (response mapping). The generator populates `Trip.Days` with activities and transit, and the handler saves the updated trip.
+
+#### Scenario: Successful itinerary generation after trip creation
+
+- GIVEN a valid `GenerateTrip` command with must-sees and dates
+- WHEN the handler processes the command
+- THEN after `tripRepository.AddAsync()`, it calls `itineraryGenerator.GenerateAsync()`
+- AND the trip status is updated to `GENERATED`
+- AND the response includes the filled `DayPlan[]`
+
+#### Scenario: Itinerary generation fails gracefully
+
+- GIVEN `IItineraryGenerator.GenerateAsync()` throws `OverConstrainedRouteException`
+- WHEN the handler catches it
+- THEN the exception propagates to the API layer (no silent swallow)
+
+### FR10: Response includes full DayPlan[] with blocks, activities, transit
+
+The `TripPlanResponse` SHALL include the itinerary data: `DayPlan[]` with blocks, `ActivityNode[]` per block, and `TransitDetails` per leg. This requires extending the current response DTO.
+
+#### Scenario: API response contains full itinerary
+
+- GIVEN a generated trip with 3 days
+- WHEN the client receives `TripPlanResponse`
+- THEN the response includes each day's Morning, Afternoon, and Evening blocks
+- AND each block contains its `ActivityNode` list with `SequenceOrder`, `PlaceId`, `Name`, `DurationMinutes`, `IsIndoor`, `Priority`
+- AND each activity with a next-activity has `TransitToNext` with `TransportMode`, `DurationMinutes`, `BufferMinutes`
+
+## 3. Acceptance Criteria
+
+| ID | Criterion |
+|----|-----------|
+| AC1 | Pinned must-sees appear in the correct day and block per their `PinnedDayIndex` and `PinnedBlock` |
+| AC2 | Unpinned must-sees respect `OpeningHoursWindow.DayOfWeek` for the day they are assigned |
+| AC3 | Zone clustering minimizes backtracking: consecutive activities in the same block have geographically close locations |
+| AC4 | When `WeatherSummary = Bad` and `WeatherAwareEnabled = true`, outdoor activities are deprioritized in scoring |
+| AC5 | Transport mode follows rules: default `WALK_AND_PUBLIC_TRANSPORT`; switch to `CAR` when car available and PT+walk > 20 min slower |
+| AC6 | Block capacity limits enforced per `TripPlanningConstants`: Morning 3/210min, Afternoon 3/180min, Evening 2/105min |
+| AC7 | `OverConstrainedRouteException` thrown when a `High` priority must-see cannot fit after dropping all `Low` and `Medium` items |
+| AC8 | `TripPlanResponse` includes `DayPlan[]` with blocks, activities, transit details, duration estimates |
+| AC9 | All must-sees are included in the itinerary unless physically impossible (reason surfaced in exception) |
+| AC10 | All 172+ existing tests continue passing after the change |
+
+## 4. Non-Functional Requirements
+
+- **NFR1**: No database-specific syntax in domain services or ports (`IItineraryGenerator`, `ICandidateScorer`, `ITransitCalculator` are Domain-layer interfaces with no EF Core or SQL dependencies)
+- **NFR2**: Domain-agnostic ports — `ICandidateScorer` and `ITransitCalculator` are injectable ports; implementations live in Infrastructure
+- **NFR3**: All heuristic logic is unit-testable without external API calls (no HTTP clients in domain logic)
+- **NFR4**: Heuristic algorithm runs synchronously within the handler; no background jobs for MVP
+- **NFR5**: `IItineraryGenerator` is swappable — future OR-Tools implementation can be injected without changing the handler
+
+## 5. Integration Points
+
+| Integration Point | Direction | Description |
+|-------------------|-----------|-------------|
+| `IItineraryGenerator` (new Domain port) | ApplicationServices → Domain | Called by `GenerateTripHandler` after persistence |
+| `ICandidateScorer` (new Domain port) | Domain → Infrastructure | Scores candidate places for slot filling |
+| `ITransitCalculator` (new Domain port) | Domain → Infrastructure | Estimates transit duration/mode between places |
+| `IWeatherProvider` (new Domain port) | Domain → Infrastructure | Provides weather forecast per date (stubbed for MVP) |
+| `IPlaceRepository.GetManyByCityIdAsync` (new method) | Domain → Infrastructure | Fetches candidate places for a city |
+| `GenerateTripHandler` (modified) | ApplicationServices | Adds itinerary generation call after `AddAsync` |
+| `TripPlanResponse` (modified) | Domain → API | Adds `DayPlan[]` to response DTO |
+| `Trip.GenerateDays(IEnumerable<DayPlan>)` (existing) | Domain | Already accepts pre-built days; generator uses this |
+
+## 6. Out of Scope
+
+- Google OR-Tools VRP solver (explicitly deferred to post-MVP)
+- Real-time routing API integration (Google Maps, HERE, etc.)
+- Exact per-visit start times (only sequence order + duration)
+- Multi-city / hotel-switch trips
+- Automatic replanning engine
+- User preference learning / ML-based scoring
+- Budget or cost optimization
+- Restaurant / meal slot management
+
+## 7. Risks & Assumptions
+
+| Risk | Likelihood | Mitigation |
+|------|-----------|------------|
+| Transit time estimates inaccurate without real routing API | Medium | Use buffered heuristic estimates; document as known MVP limitation |
+| Zone clustering produces suboptimal groupings | Medium | Start with simple lat/lng distance threshold; iterate based on user feedback |
+| Candidate place source may lack coverage | High | Use Place repository seeded with Madrid data; Foursquare fallback for gaps |
+| Opening hours edge cases (closed days, seasonality) cause empty blocks | Low | Validate must-see feasibility before generation; surface clear error messages |
+| Heuristic performance on long trips (14 days) | Low | Complexity is O(n·d) where n=places, d=days; fast enough for MVP |
+
+**Assumptions**:
+
+- `Place.OpeningHours` is populated for must-sees and candidates (even if approximate)
+- Weather data is available as `Dictionary<DateOnly, WeatherCondition>` (stubbed for MVP)
+- Zone/barrio can be derived from `PlaceLocation` proximity (simple lat/lng distance)
+- `TripPreferences.CarAvailable` and `MaxWalkingMinutes` are provided in the request
+- The existing 172+ test suite covers domain invariants thoroughly
