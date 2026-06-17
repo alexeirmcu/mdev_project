@@ -7,6 +7,7 @@ using SmartTripPlanner.Domain.AggregatesModel;
 using SmartTripPlanner.Domain.ApiModels;
 using SmartTripPlanner.Domain.Enums;
 using SmartTripPlanner.Domain.Exceptions;
+using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Domain.Repository;
 
 namespace SmartTripPlanner.ApplicationServices.Handlers;
@@ -16,6 +17,8 @@ public class GenerateTripHandler(
     ICityRepository cityRepository,
     IPlaceRepository placeRepository,
     ITripCodeGenerator tripCodeGenerator,
+    IItineraryGenerator itineraryGenerator,
+    IWeatherProvider weatherProvider,
     IMapper mapper,
     ILogger<GenerateTripHandler> logger)
     : IRequestHandler<GenerateTrip, TripPlanResponse>
@@ -102,8 +105,15 @@ public class GenerateTripHandler(
                 mustSeeInput.PinnedBlock));
         }
 
-        // 6. Persist
+        // 6. Persist trip
         await tripRepository.AddAsync(trip, ct);
+
+        // 6.5 — Generate itinerary
+        var candidatePlaces = await placeRepository.GetManyByCityIdAsync(city.Id, ct);
+        var weatherData = await weatherProvider.GetWeatherAsync(city.Id, trip.StartDate, trip.EndDate, ct);
+        await itineraryGenerator.GenerateAsync(trip, candidatePlaces, weatherData, ct);
+        trip.UpdateStatus(TripStatus.GENERATED);
+        await tripRepository.UpdateAsync(trip, ct);
 
         // 7. Map to response
         var response = new TripPlanResponse(
@@ -125,10 +135,51 @@ public class GenerateTripHandler(
             )).ToList(),
             trip.Status.ToString(),
             trip.DefaultStartTime.ToString("HH:mm")
-        );
+        )
+        {
+            Days = trip.Days.Select(MapDayPlan).ToList()
+        };
 
-        logger.LogInformation("Trip {TripId} created with code {TripCode}", trip.TripId, trip.TripCode);
+        logger.LogInformation("Trip {TripId} created with code {TripCode} ({DayCount} days)",
+            trip.TripId, trip.TripCode, trip.Days.Count);
 
         return response;
+    }
+
+    private static DayPlanResponse MapDayPlan(DayPlan dayPlan)
+    {
+        return new DayPlanResponse
+        {
+            DayIndex = dayPlan.DayIndex,
+            Date = dayPlan.Date,
+            WeatherSummary = dayPlan.WeatherSummary.ToString(),
+            Blocks = new List<BlockResponse>
+            {
+                MapBlock(dayPlan.Morning),
+                MapBlock(dayPlan.Afternoon),
+                MapBlock(dayPlan.Evening)
+            }
+        };
+    }
+
+    private static BlockResponse MapBlock(BlockTimeline block)
+    {
+        return new BlockResponse
+        {
+            BlockType = block.BlockType.ToString(),
+            TotalDurationMinutes = block.BlockTotalDurationMinutes,
+            Activities = block.Activities.Select(MapActivity).ToList()
+        };
+    }
+
+    private static ActivityResponse MapActivity(ActivityNode activity)
+    {
+        return new ActivityResponse
+        {
+            PlaceName = activity.Name,
+            DurationMinutes = activity.DurationMinutes,
+            TransportMode = activity.TransitToNext?.TransportMode.ToString() ?? string.Empty,
+            TransitDurationMinutes = activity.TransitToNext?.DurationMinutes ?? 0
+        };
     }
 }

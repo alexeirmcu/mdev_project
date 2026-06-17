@@ -8,6 +8,7 @@ using SmartTripPlanner.Domain.AggregatesModel;
 using SmartTripPlanner.Domain.ApiModels;
 using SmartTripPlanner.Domain.Enums;
 using SmartTripPlanner.Domain.Exceptions;
+using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Domain.Repository;
 
 namespace SmartTripPlanner.Tests.ApplicationServices.Handlers;
@@ -19,16 +20,32 @@ public sealed class GenerateTripHandlerTests
     private readonly Mock<ICityRepository> _cityRepoMock = new();
     private readonly Mock<IPlaceRepository> _placeRepoMock = new();
     private readonly Mock<ITripCodeGenerator> _codeGenMock = new();
+    private readonly Mock<IItineraryGenerator> _itineraryGenMock = new();
+    private readonly Mock<IWeatherProvider> _weatherProviderMock = new();
     private readonly Mock<IMapper> _mapperMock = new();
     private readonly GenerateTripHandler _handler;
 
     public GenerateTripHandlerTests()
     {
+        _weatherProviderMock
+            .Setup(w => w.GetWeatherAsync(It.IsAny<long>(), It.IsAny<DateOnly>(), It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new Dictionary<DateOnly, WeatherCondition>());
+
+        _itineraryGenMock
+            .Setup(g => g.GenerateAsync(It.IsAny<Trip>(), It.IsAny<IReadOnlyList<Place>>(), It.IsAny<Dictionary<DateOnly, WeatherCondition>>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        _tripRepoMock
+            .Setup(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
         _handler = new GenerateTripHandler(
             _tripRepoMock.Object,
             _cityRepoMock.Object,
             _placeRepoMock.Object,
             _codeGenMock.Object,
+            _itineraryGenMock.Object,
+            _weatherProviderMock.Object,
             _mapperMock.Object,
             Mock.Of<ILogger<GenerateTripHandler>>());
     }
@@ -87,9 +104,10 @@ public sealed class GenerateTripHandlerTests
         Assert.AreEqual(2, result.Travelers.Adults);
         Assert.AreEqual(1, result.Travelers.Children);
         Assert.AreEqual(2, result.MustSees.Count);
-        Assert.AreEqual("CREATED", result.Status);
+        Assert.AreEqual("GENERATED", result.Status);
 
         _tripRepoMock.Verify(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Once);
+        _tripRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [TestMethod]
