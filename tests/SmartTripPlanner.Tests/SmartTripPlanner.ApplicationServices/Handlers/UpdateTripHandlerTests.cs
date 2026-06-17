@@ -90,7 +90,7 @@ public sealed class UpdateTripHandlerTests
             .ReturnsAsync(city);
 
         var request = new UpdateTrip(tripId, new TripUpdateRequest(
-            MustSeesToAdd: new List<MustSeeInput> { new(42L, Priority.HIGH) }));
+            MustSeesToAdd: new List<MustSeeInput> { new(42L, Priority.High) }));
 
         await _handler.Handle(request, CancellationToken.None);
 
@@ -122,7 +122,7 @@ public sealed class UpdateTripHandlerTests
     public async Task Handle_RemoveMustSee_Existing_Succeeds()
     {
         var trip = CreateTrip();
-        trip.AddMustSee(new MustSee(42L, Priority.HIGH));
+        trip.AddMustSee(new MustSee(42L, Priority.High));
         var tripId = trip.TripId;
 
         _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))

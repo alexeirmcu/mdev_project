@@ -33,8 +33,8 @@ public sealed class UpdateTripValidatorTests
         var request = new UpdateTrip(Guid.NewGuid(), new TripUpdateRequest(
             MustSeesToAdd: new List<MustSeeInput>
             {
-                new(1L, Priority.HIGH),
-                new(1L, Priority.LOW)
+                new(1L, Priority.High),
+                new(1L, Priority.Low)
             }));
         var result = await _sut.TestValidateAsync(request);
         result.ShouldHaveValidationErrorFor(x => x.Payload.MustSeesToAdd);
@@ -46,8 +46,8 @@ public sealed class UpdateTripValidatorTests
         var request = new UpdateTrip(Guid.NewGuid(), new TripUpdateRequest(
             MustSeesToAdd: new List<MustSeeInput>
             {
-                new(1L, Priority.HIGH),
-                new(2L, Priority.LOW)
+                new(1L, Priority.High),
+                new(2L, Priority.Low)
             }));
         var result = await _sut.TestValidateAsync(request);
         result.ShouldNotHaveValidationErrorFor(x => x.Payload.MustSeesToAdd);

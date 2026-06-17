@@ -16,7 +16,7 @@ public sealed class GenerateTripValidatorTests
         new DateOnly(2026, 7, 1),
         new DateOnly(2026, 7, 3),
         new LocationModel("Hotel Central", 40.4168, -3.7038),
-        new List<MustSeeInput> { new(1L, Priority.HIGH) },
+        new List<MustSeeInput> { new(1L, Priority.High) },
         new TravelersInput(2, 0, 0),
         new TripPreferencesInput(false, 30, true),
         "09:00"));
@@ -37,7 +37,7 @@ public sealed class GenerateTripValidatorTests
             Payload = new TripGenerationRequest(
                 "", DateOnly.MaxValue, DateOnly.MaxValue,
                 new LocationModel("H", 0, 0),
-                new List<MustSeeInput> { new(1L, Priority.HIGH) })
+                new List<MustSeeInput> { new(1L, Priority.High) })
         };
         var result = await _sut.TestValidateAsync(request);
         result.ShouldHaveValidationErrorFor(x => x.Payload.CityCode);
@@ -51,7 +51,7 @@ public sealed class GenerateTripValidatorTests
             Payload = new TripGenerationRequest(
                 "madrid-es", new DateOnly(2020, 1, 1), new DateOnly(2020, 1, 3),
                 new LocationModel("H", 0, 0),
-                new List<MustSeeInput> { new(1L, Priority.HIGH) })
+                new List<MustSeeInput> { new(1L, Priority.High) })
         };
         var result = await _sut.TestValidateAsync(request);
         result.ShouldHaveValidationErrorFor(x => x.Payload.StartDate);
@@ -65,7 +65,7 @@ public sealed class GenerateTripValidatorTests
             Payload = new TripGenerationRequest(
                 "madrid-es", new DateOnly(2026, 7, 3), new DateOnly(2026, 7, 1),
                 new LocationModel("H", 0, 0),
-                new List<MustSeeInput> { new(1L, Priority.HIGH) })
+                new List<MustSeeInput> { new(1L, Priority.High) })
         };
         var result = await _sut.TestValidateAsync(request);
         result.ShouldHaveValidationErrorFor(x => x.Payload.EndDate);
@@ -93,7 +93,7 @@ public sealed class GenerateTripValidatorTests
             Payload = new TripGenerationRequest(
                 "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
                 new LocationModel("H", 0, 0),
-                new List<MustSeeInput> { new(1L, Priority.HIGH), new(1L, Priority.LOW) })
+                new List<MustSeeInput> { new(1L, Priority.High), new(1L, Priority.Low) })
         };
         var result = await _sut.TestValidateAsync(request);
         result.ShouldHaveValidationErrorFor(x => x.Payload.MustSees);
@@ -107,7 +107,7 @@ public sealed class GenerateTripValidatorTests
             Payload = new TripGenerationRequest(
                 "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
                 new LocationModel("H", 0, 0),
-                new List<MustSeeInput> { new(1L, Priority.HIGH) },
+                new List<MustSeeInput> { new(1L, Priority.High) },
                 null, null, "25:00")
         };
         var result = await _sut.TestValidateAsync(request);
@@ -121,7 +121,7 @@ public sealed class GenerateTripValidatorTests
         {
             Payload = new TripGenerationRequest(
                 "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
-                null!, new List<MustSeeInput> { new(1L, Priority.HIGH) })
+                null!, new List<MustSeeInput> { new(1L, Priority.High) })
         };
         var result = await _sut.TestValidateAsync(request);
         result.ShouldHaveValidationErrorFor(x => x.Payload.BaseHotel);

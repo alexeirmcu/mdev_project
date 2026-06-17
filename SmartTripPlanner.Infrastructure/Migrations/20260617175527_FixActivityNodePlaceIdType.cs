@@ -43,29 +43,43 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 nullable: false,
                 defaultValue: 1);
 
-            migrationBuilder.AlterColumn<long>(
+            // Delete all rows because existing text values cannot be cast to bigint
+            migrationBuilder.Sql("DELETE FROM \"MorningActivities\"");
+            migrationBuilder.Sql("DELETE FROM \"EveningActivities\"");
+            migrationBuilder.Sql("DELETE FROM \"AfternoonActivities\"");
+
+            migrationBuilder.DropColumn(
+                name: "PlaceId",
+                table: "MorningActivities");
+
+            migrationBuilder.DropColumn(
+                name: "PlaceId",
+                table: "EveningActivities");
+
+            migrationBuilder.DropColumn(
+                name: "PlaceId",
+                table: "AfternoonActivities");
+
+            migrationBuilder.AddColumn<long>(
                 name: "PlaceId",
                 table: "MorningActivities",
                 type: "bigint",
                 nullable: false,
-                oldClrType: typeof(string),
-                oldType: "text");
+                defaultValue: 0L);
 
-            migrationBuilder.AlterColumn<long>(
+            migrationBuilder.AddColumn<long>(
                 name: "PlaceId",
                 table: "EveningActivities",
                 type: "bigint",
                 nullable: false,
-                oldClrType: typeof(string),
-                oldType: "text");
+                defaultValue: 0L);
 
-            migrationBuilder.AlterColumn<long>(
+            migrationBuilder.AddColumn<long>(
                 name: "PlaceId",
                 table: "AfternoonActivities",
                 type: "bigint",
                 nullable: false,
-                oldClrType: typeof(string),
-                oldType: "text");
+                defaultValue: 0L);
         }
 
         /// <inheritdoc />
@@ -104,29 +118,38 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 nullable: false,
                 defaultValue: 0);
 
-            migrationBuilder.AlterColumn<string>(
+            migrationBuilder.DropColumn(
+                name: "PlaceId",
+                table: "MorningActivities");
+
+            migrationBuilder.DropColumn(
+                name: "PlaceId",
+                table: "EveningActivities");
+
+            migrationBuilder.DropColumn(
+                name: "PlaceId",
+                table: "AfternoonActivities");
+
+            migrationBuilder.AddColumn<string>(
                 name: "PlaceId",
                 table: "MorningActivities",
                 type: "text",
                 nullable: false,
-                oldClrType: typeof(long),
-                oldType: "bigint");
+                defaultValue: "");
 
-            migrationBuilder.AlterColumn<string>(
+            migrationBuilder.AddColumn<string>(
                 name: "PlaceId",
                 table: "EveningActivities",
                 type: "text",
                 nullable: false,
-                oldClrType: typeof(long),
-                oldType: "bigint");
+                defaultValue: "");
 
-            migrationBuilder.AlterColumn<string>(
+            migrationBuilder.AddColumn<string>(
                 name: "PlaceId",
                 table: "AfternoonActivities",
                 type: "text",
                 nullable: false,
-                oldClrType: typeof(long),
-                oldType: "bigint");
+                defaultValue: "");
         }
     }
 }

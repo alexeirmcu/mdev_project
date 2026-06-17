@@ -21,12 +21,17 @@ public class PlaceRepository : IPlaceRepository
 
     public async Task<List<Place>> SearchAsync(string query, string cityCode, int maxResults = 20)
     {
+        // Database-agnostic case-insensitive search using ToLower() on both sides
+        // This works across all SQL providers (PostgreSQL, SQL Server, SQLite, etc.)
+        var lowerQuery = query.ToLowerInvariant();
+
         return await _context.Places
             .Include(p => p.OpeningHours)
             .Include(p => p.Attributes)
             .Include(p => p.City)
             .Where(p => p.City.CityCode == cityCode
-                && (EF.Functions.Like(p.Name, $"%{query}%") || p.Attributes.Any(a => EF.Functions.Like(a.Value, $"%{query}%"))))
+                && (p.Name.ToLower().Contains(lowerQuery)
+                    || p.Attributes.Any(a => a.Value.ToLower().Contains(lowerQuery))))
             .Take(maxResults)
             .ToListAsync();
     }

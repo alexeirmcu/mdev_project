@@ -9,10 +9,10 @@ public sealed class MustSeeTests
     [TestMethod]
     public void Constructor_WithRequiredParameters_SetsProperties()
     {
-        var mustSee = new MustSee(42L, Priority.HIGH);
+        var mustSee = new MustSee(42L, Priority.High);
 
         Assert.AreEqual(42L, mustSee.PlaceId);
-        Assert.AreEqual(Priority.HIGH, mustSee.Priority);
+        Assert.AreEqual(Priority.High, mustSee.Priority);
         Assert.IsNull(mustSee.PinnedDayIndex);
         Assert.IsNull(mustSee.PinnedBlock);
     }
@@ -20,19 +20,19 @@ public sealed class MustSeeTests
     [TestMethod]
     public void Constructor_WithAllParameters_SetsProperties()
     {
-        var mustSee = new MustSee(42L, Priority.MEDIUM, 1, BlockType.MORNING);
+        var mustSee = new MustSee(42L, Priority.Medium, 1, BlockType.Morning);
 
         Assert.AreEqual(42L, mustSee.PlaceId);
-        Assert.AreEqual(Priority.MEDIUM, mustSee.Priority);
+        Assert.AreEqual(Priority.Medium, mustSee.Priority);
         Assert.AreEqual(1, mustSee.PinnedDayIndex);
-        Assert.AreEqual(BlockType.MORNING, mustSee.PinnedBlock);
+        Assert.AreEqual(BlockType.Morning, mustSee.PinnedBlock);
     }
 
     [TestMethod]
     public void Equals_SameValues_ReturnsTrue()
     {
-        var a = new MustSee(42L, Priority.HIGH, 0, BlockType.MORNING);
-        var b = new MustSee(42L, Priority.HIGH, 0, BlockType.MORNING);
+        var a = new MustSee(42L, Priority.High, 0, BlockType.Morning);
+        var b = new MustSee(42L, Priority.High, 0, BlockType.Morning);
 
         Assert.AreEqual(a, b);
         Assert.AreEqual(a.GetHashCode(), b.GetHashCode());
@@ -41,8 +41,8 @@ public sealed class MustSeeTests
     [TestMethod]
     public void Equals_DifferentPlaceId_ReturnsFalse()
     {
-        var a = new MustSee(42L, Priority.HIGH);
-        var b = new MustSee(43L, Priority.HIGH);
+        var a = new MustSee(42L, Priority.High);
+        var b = new MustSee(43L, Priority.High);
 
         Assert.AreNotEqual(a, b);
     }
@@ -50,8 +50,8 @@ public sealed class MustSeeTests
     [TestMethod]
     public void Equals_DifferentPriority_ReturnsFalse()
     {
-        var a = new MustSee(42L, Priority.HIGH);
-        var b = new MustSee(42L, Priority.LOW);
+        var a = new MustSee(42L, Priority.High);
+        var b = new MustSee(42L, Priority.Low);
 
         Assert.AreNotEqual(a, b);
     }
@@ -59,8 +59,8 @@ public sealed class MustSeeTests
     [TestMethod]
     public void Equals_DifferentPinnedDayIndex_ReturnsFalse()
     {
-        var a = new MustSee(42L, Priority.HIGH, 0);
-        var b = new MustSee(42L, Priority.HIGH, 1);
+        var a = new MustSee(42L, Priority.High, 0);
+        var b = new MustSee(42L, Priority.High, 1);
 
         Assert.AreNotEqual(a, b);
     }
@@ -68,8 +68,8 @@ public sealed class MustSeeTests
     [TestMethod]
     public void Equals_NullPinnedDayIndexVsZero_ReturnsFalse()
     {
-        var a = new MustSee(42L, Priority.HIGH, null);
-        var b = new MustSee(42L, Priority.HIGH, 0);
+        var a = new MustSee(42L, Priority.High, null);
+        var b = new MustSee(42L, Priority.High, 0);
 
         Assert.AreNotEqual(a, b);
     }
