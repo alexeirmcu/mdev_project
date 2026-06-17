@@ -1,5 +1,6 @@
 using SmartTripPlanner.Domain.AggregatesModel;
 using SmartTripPlanner.Domain.Enums;
+using SmartTripPlanner.Domain.Exceptions;
 
 namespace SmartTripPlanner.Tests.Domain.AggregatesModel;
 
@@ -8,44 +9,14 @@ public sealed class TripTests
 {
     private static Trip CreateTrip() => new()
     {
-        CityId = "par",
+        TripId = Guid.NewGuid(),
+        TripCode = "MAD-2026-TEST",
+        CityId = 1L,
         StartDate = new DateOnly(2026, 6, 1),
         EndDate = new DateOnly(2026, 6, 3),
-        BaseHotel = new Location("Hotel", 0, 0)
+        BaseHotel = new Location("Hotel", 0, 0),
+        CreatedAt = DateTimeOffset.UtcNow
     };
-
-    private static Place CreatePlace(long id) => new($"fsq-{id}", $"Place {id}", 1L,
-        new PlaceLocation(0, 0));
-
-    [TestMethod]
-    public void SelectPlace_AddsToList()
-    {
-        var trip = CreateTrip();
-        var place = CreatePlace(1);
-        trip.SelectPlace(place);
-        Assert.HasCount(1, trip.SelectedPlaces);
-    }
-
-    [TestMethod]
-    public void UnselectPlace_RemovesFromList()
-    {
-        var trip = CreateTrip();
-        var place1 = CreatePlace(1);
-        var place2 = CreatePlace(2);
-        trip.SelectPlace(place1);
-        trip.SelectPlace(place2);
-        bool removed = trip.UnselectPlace(place1.Id);
-        Assert.IsTrue(removed);
-        Assert.HasCount(1, trip.SelectedPlaces);
-    }
-
-    [TestMethod]
-    public void UnselectPlace_ReturnsFalseWhenNotFound()
-    {
-        var trip = CreateTrip();
-        bool removed = trip.UnselectPlace(999);
-        Assert.IsFalse(removed);
-    }
 
     [TestMethod]
     public void DefaultStartTime_Is09_00()
@@ -95,5 +66,87 @@ public sealed class TripTests
         trip.GenerateDays();
         for (int i = 0; i < trip.Days.Count; i++)
             Assert.AreEqual(i, trip.Days[i].DayIndex);
+    }
+
+    [TestMethod]
+    public void AddMustSee_AddsToList()
+    {
+        var trip = CreateTrip();
+        var mustSee = new MustSee(42L, Priority.High);
+
+        trip.AddMustSee(mustSee);
+
+        Assert.HasCount(1, trip.OriginalMustSees);
+        Assert.AreEqual(42L, trip.OriginalMustSees[0].PlaceId);
+    }
+
+    [TestMethod]
+    public void AddMustSee_DuplicatePlaceId_ThrowsDomainException()
+    {
+        var trip = CreateTrip();
+        var mustSee = new MustSee(42L, Priority.High);
+
+        trip.AddMustSee(mustSee);
+
+        Assert.ThrowsExactly<SmartTripDomainException>(() => trip.AddMustSee(mustSee));
+    }
+
+    [TestMethod]
+    public void RemoveMustSee_Existing_ReturnsTrueAndRemoves()
+    {
+        var trip = CreateTrip();
+        trip.AddMustSee(new MustSee(42L, Priority.High));
+        trip.AddMustSee(new MustSee(43L, Priority.Medium));
+
+        bool removed = trip.RemoveMustSee(42L);
+
+        Assert.IsTrue(removed);
+        Assert.HasCount(1, trip.OriginalMustSees);
+        Assert.AreEqual(43L, trip.OriginalMustSees[0].PlaceId);
+    }
+
+    [TestMethod]
+    public void RemoveMustSee_NonExisting_ReturnsFalse()
+    {
+        var trip = CreateTrip();
+        bool removed = trip.RemoveMustSee(999L);
+        Assert.IsFalse(removed);
+    }
+
+    [TestMethod]
+    public void Status_DefaultIsCreated()
+    {
+        var trip = CreateTrip();
+        Assert.AreEqual(TripStatus.CREATED, trip.Status);
+    }
+
+    [TestMethod]
+    public void UpdateStatus_ChangesStatus()
+    {
+        var trip = CreateTrip();
+        trip.UpdateStatus(TripStatus.COMPLETED);
+        Assert.AreEqual(TripStatus.COMPLETED, trip.Status);
+    }
+
+    [TestMethod]
+    public void TripId_IsNotEmptyGuid()
+    {
+        var trip = CreateTrip();
+        Assert.AreNotEqual(Guid.Empty, trip.TripId);
+    }
+
+    [TestMethod]
+    public void TripCode_IsNotNull()
+    {
+        var trip = CreateTrip();
+        Assert.AreEqual("MAD-2026-TEST", trip.TripCode);
+    }
+
+    [TestMethod]
+    public void CityId_IsLong()
+    {
+        var trip = CreateTrip();
+        Assert.AreEqual(1L, trip.CityId);
+        Assert.IsInstanceOfType(trip.CityId, typeof(long));
     }
 }

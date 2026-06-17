@@ -31,7 +31,7 @@ public sealed class SearchPlacesRequestValidatorTests
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("Museo", "madrid-es", 5));
 
-        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es"))
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new City("madrid-es", "Madrid", true));
 
         var result = await _sut.TestValidateAsync(request);
@@ -81,7 +81,7 @@ public sealed class SearchPlacesRequestValidatorTests
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("Museo", "london-gb", null));
 
-        _cityRepoMock.Setup(r => r.GetByCodeAsync("london-gb"))
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("london-gb", It.IsAny<CancellationToken>()))
             .ReturnsAsync((City?)null);
 
         var result = await _sut.TestValidateAsync(request);
@@ -96,7 +96,7 @@ public sealed class SearchPlacesRequestValidatorTests
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("Museo", "disabled-city", null));
 
-        _cityRepoMock.Setup(r => r.GetByCodeAsync("disabled-city"))
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("disabled-city", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new City("disabled-city", "Disabled", false));
 
         var result = await _sut.TestValidateAsync(request);
@@ -111,7 +111,7 @@ public sealed class SearchPlacesRequestValidatorTests
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("Museo", "madrid-es", 20));
 
-        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es"))
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new City("madrid-es", "Madrid", true));
 
         var result = await _sut.TestValidateAsync(request);
@@ -126,7 +126,7 @@ public sealed class SearchPlacesRequestValidatorTests
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("Museo", "madrid-es", 5));
 
-        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es"))
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new City("madrid-es", "Madrid", true));
 
         var result = await _sut.TestValidateAsync(request);
@@ -140,7 +140,7 @@ public sealed class SearchPlacesRequestValidatorTests
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("Museo", "madrid-es", null));
 
-        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es"))
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
             .ReturnsAsync(new City("madrid-es", "Madrid", true));
 
         var result = await _sut.TestValidateAsync(request);

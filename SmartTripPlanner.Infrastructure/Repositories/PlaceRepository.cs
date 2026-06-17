@@ -39,6 +39,15 @@ public class PlaceRepository : IPlaceRepository
             .FirstOrDefaultAsync(p => p.ProviderReferenceId == providerReferenceId);
     }
 
+    public async Task<IEnumerable<Place>> GetManyByIdsAsync(IEnumerable<long> placeIds, CancellationToken ct)
+    {
+        return await _context.Places
+            .Include(p => p.OpeningHours)
+            .Include(p => p.Attributes)
+            .Where(p => placeIds.Contains(p.Id))
+            .ToListAsync(ct);
+    }
+
     public async Task AddRangeAsync(IEnumerable<Place> places)
     {
         await _context.Places.AddRangeAsync(places);

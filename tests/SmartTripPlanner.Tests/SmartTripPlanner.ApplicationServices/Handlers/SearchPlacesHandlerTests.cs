@@ -37,7 +37,7 @@ public sealed class SearchPlacesHandlerTests
     private void SetUpCityRepo(string cityCode, bool allowed = true)
     {
         _cityRepoMock
-            .Setup(r => r.GetByCodeAsync(cityCode))
+            .Setup(r => r.GetByCodeAsync(cityCode, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new City(cityCode, cityCode, allowed));
     }
 
@@ -236,7 +236,7 @@ public sealed class SearchPlacesHandlerTests
             .ReturnsAsync([]);
 
         _cityRepoMock
-            .Setup(r => r.GetByCodeAsync("nowhere"))
+            .Setup(r => r.GetByCodeAsync("nowhere", It.IsAny<CancellationToken>()))
             .ReturnsAsync((City?)null);
 
         SetupEmptyMapper();
