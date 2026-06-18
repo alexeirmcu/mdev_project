@@ -1,6 +1,9 @@
 using AutoMapper;
+using AutoMapper.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using SmartTripPlanner.API.Configurations;
 using SmartTripPlanner.ApplicationServices.Commands;
 using SmartTripPlanner.ApplicationServices.Configurations;
 using SmartTripPlanner.ApplicationServices.Handlers;
@@ -22,7 +25,7 @@ public sealed class GenerateTripHandlerTests
     private readonly Mock<ITripCodeGenerator> _codeGenMock = new();
     private readonly Mock<IItineraryGenerator> _itineraryGenMock = new();
     private readonly Mock<IWeatherProvider> _weatherProviderMock = new();
-    private readonly Mock<IMapper> _mapperMock = new();
+    private readonly IMapper _mapper;
     private readonly GenerateTripHandler _handler;
 
     public GenerateTripHandlerTests()
@@ -39,6 +42,11 @@ public sealed class GenerateTripHandlerTests
             .Setup(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
+        var expression = new MapperConfigurationExpression();
+        expression.AddProfile<AutoMapperProfile>();
+        var config = new MapperConfiguration(expression, NullLoggerFactory.Instance);
+        _mapper = config.CreateMapper();
+
         _handler = new GenerateTripHandler(
             _tripRepoMock.Object,
             _cityRepoMock.Object,
@@ -46,7 +54,7 @@ public sealed class GenerateTripHandlerTests
             _codeGenMock.Object,
             _itineraryGenMock.Object,
             _weatherProviderMock.Object,
-            _mapperMock.Object,
+            _mapper,
             Mock.Of<ILogger<GenerateTripHandler>>());
     }
 
@@ -241,6 +249,112 @@ public sealed class GenerateTripHandlerTests
         Assert.IsNotNull(exception);
         StringAssert.Contains(exception.Message, "PinnedBlock cannot be set without PinnedDayIndex");
         _tripRepoMock.Verify(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task Handle_WithGenerateItineraryFalse_KeepsStatusCreated()
+    {
+        // Arrange
+        var request = new TripGenerationRequest(
+            "madrid-es",
+            new DateOnly(2026, 7, 1),
+            new DateOnly(2026, 7, 3),
+            new LocationModel("Hotel Central", 40.4168, -3.7038),
+            new List<MustSeeInput>
+            {
+                new(1L, Priority.High),
+                new(2L, Priority.Medium)
+            },
+            new TravelersInput(2, 1, 0),
+            new TripPreferencesInput(false, 30, true),
+            "09:00",
+            GenerateItinerary: false);
+
+        var city = new City("madrid-es", "Madrid", true);
+        SetEntityId(city, 1L);
+
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(city);
+
+        _placeRepoMock.Setup(r => r.GetManyByIdsAsync(
+                It.IsAny<IEnumerable<long>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Place>
+            {
+                CreatePlace(1L),
+                CreatePlace(2L)
+            });
+
+        _codeGenMock.Setup(g => g.GenerateAsync("madrid-es", 2026, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("MAD-2026-NOG");
+
+        // Act
+        var result = await _handler.Handle(new GenerateTrip(request), CancellationToken.None);
+
+        // Assert
+        Assert.IsNotNull(result);
+        Assert.AreEqual("CREATED", result.Status);
+
+        _itineraryGenMock.Verify(g => g.GenerateAsync(
+            It.IsAny<Trip>(),
+            It.IsAny<IReadOnlyList<Place>>(),
+            It.IsAny<Dictionary<DateOnly, WeatherCondition>>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+
+        _tripRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
+        _tripRepoMock.Verify(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [TestMethod]
+    public async Task Handle_WithGenerateItineraryTrue_GeneratesItinerary()
+    {
+        // Arrange - explicit GenerateItinerary = true (same as default)
+        var request = new TripGenerationRequest(
+            "madrid-es",
+            new DateOnly(2026, 7, 1),
+            new DateOnly(2026, 7, 3),
+            new LocationModel("Hotel Central", 40.4168, -3.7038),
+            new List<MustSeeInput>
+            {
+                new(1L, Priority.High),
+                new(2L, Priority.Medium)
+            },
+            new TravelersInput(2, 1, 0),
+            new TripPreferencesInput(false, 30, true),
+            "09:00",
+            GenerateItinerary: true);
+
+        var city = new City("madrid-es", "Madrid", true);
+        SetEntityId(city, 1L);
+
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(city);
+
+        _placeRepoMock.Setup(r => r.GetManyByIdsAsync(
+                It.IsAny<IEnumerable<long>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Place>
+            {
+                CreatePlace(1L),
+                CreatePlace(2L)
+            });
+
+        _codeGenMock.Setup(g => g.GenerateAsync("madrid-es", 2026, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("MAD-2026-GEN");
+
+        // Act
+        var result = await _handler.Handle(new GenerateTrip(request), CancellationToken.None);
+
+        // Assert
+        Assert.IsNotNull(result);
+        Assert.AreEqual("GENERATED", result.Status);
+
+        _itineraryGenMock.Verify(g => g.GenerateAsync(
+            It.IsAny<Trip>(),
+            It.IsAny<IReadOnlyList<Place>>(),
+            It.IsAny<Dictionary<DateOnly, WeatherCondition>>(),
+            It.IsAny<CancellationToken>()), Times.Once);
+
+        _tripRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Once);
+        _tripRepoMock.Verify(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     private static void SetEntityId<T>(T entity, long id) where T : class

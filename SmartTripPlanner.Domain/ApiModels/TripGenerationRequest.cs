@@ -8,4 +8,5 @@ public record TripGenerationRequest(
     IReadOnlyList<MustSeeInput> MustSees,
     TravelersInput? Travelers = null,
     TripPreferencesInput? Preferences = null,
-    string DefaultStartHour = "09:00");
+    string DefaultStartHour = "09:00",
+    bool GenerateItinerary = true);

@@ -1,6 +1,9 @@
 using AutoMapper;
+using AutoMapper.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using SmartTripPlanner.API.Configurations;
 using SmartTripPlanner.ApplicationServices.Commands;
 using SmartTripPlanner.ApplicationServices.Configurations;
 using SmartTripPlanner.ApplicationServices.Handlers;
@@ -24,7 +27,7 @@ public sealed class GenerateTripHandlerItineraryTests
     private readonly Mock<ITripCodeGenerator> _codeGenMock = new();
     private readonly Mock<IWeatherProvider> _weatherProviderMock = new();
     private readonly Mock<ITransitCalculator> _transitMock = new();
-    private readonly Mock<IMapper> _mapperMock = new();
+    private readonly IMapper _mapper;
     private readonly Mock<ILogger<GenerateTripHandler>> _loggerMock = new();
     private readonly HeuristicItineraryGenerator _realGenerator;
     private readonly GenerateTripHandler _handler;
@@ -63,9 +66,10 @@ public sealed class GenerateTripHandlerItineraryTests
             .Setup(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
 
-        _mapperMock
-            .Setup(m => m.Map<LocationModel>(It.IsAny<Location>()))
-            .Returns((Location loc) => new LocationModel(loc.Name, loc.Latitude, loc.Longitude));
+        var expression = new MapperConfigurationExpression();
+        expression.AddProfile<AutoMapperProfile>();
+        var config = new MapperConfiguration(expression, NullLoggerFactory.Instance);
+        _mapper = config.CreateMapper();
 
         _handler = new GenerateTripHandler(
             _tripRepoMock.Object,
@@ -74,7 +78,7 @@ public sealed class GenerateTripHandlerItineraryTests
             _codeGenMock.Object,
             _realGenerator,
             _weatherProviderMock.Object,
-            _mapperMock.Object,
+            _mapper,
             _loggerMock.Object);
     }
 

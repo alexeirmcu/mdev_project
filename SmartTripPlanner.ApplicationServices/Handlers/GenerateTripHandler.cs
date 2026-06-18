@@ -46,7 +46,10 @@ public class GenerateTripHandler(
 
         await tripRepository.AddAsync(trip, ct);
 
-        await GenerateItineraryAsync(trip, city, ct);
+        if (payload.GenerateItinerary)
+        {
+            await GenerateItineraryAsync(trip, city, ct);
+        }
 
         var response = MapResponse(trip, city);
 

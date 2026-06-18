@@ -6,6 +6,7 @@ using SmartTripPlanner.Domain.AggregatesModel;
 using SmartTripPlanner.Domain.ApiModels;
 using SmartTripPlanner.Domain.Enums;
 using SmartTripPlanner.Domain.Exceptions;
+using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Domain.Repository;
 
 namespace SmartTripPlanner.ApplicationServices.Handlers;
@@ -14,6 +15,8 @@ public class UpdateTripHandler(
     ITripRepository tripRepository,
     ICityRepository cityRepository,
     IPlaceRepository placeRepository,
+    IItineraryGenerator itineraryGenerator,
+    IWeatherProvider weatherProvider,
     IMapper mapper,
     ILogger<UpdateTripHandler> logger)
     : IRequestHandler<UpdateTrip, TripPlanResponse>
@@ -33,6 +36,18 @@ public class UpdateTripHandler(
 
         if (payload.MustSeesToRemove is not null && payload.MustSeesToRemove.Count > 0)
             RemoveMustSees(trip, payload.MustSeesToRemove);
+
+        if (payload.GenerateItinerary)
+        {
+            if (trip.Status == TripStatus.GENERATED)
+            {
+                await RegenerateItineraryAsync(trip, ct);
+            }
+            else if (trip.Status == TripStatus.CREATED && trip.OriginalMustSees.Any())
+            {
+                await GenerateItineraryAsync(trip, ct);
+            }
+        }
 
         await tripRepository.UpdateAsync(trip, ct);
 
@@ -82,6 +97,20 @@ public class UpdateTripHandler(
                 throw new BusinessRuleException(
                     $"Cannot remove must-see with PlaceId {placeId} because it is not in the trip's MustSees list");
         }
+    }
+
+    private async Task GenerateItineraryAsync(Trip trip, CancellationToken ct)
+    {
+        var candidates = await placeRepository.GetManyByCityIdAsync(trip.CityId, ct);
+        var weather = await weatherProvider.GetWeatherAsync(trip.CityId, trip.StartDate, trip.EndDate, ct);
+        await itineraryGenerator.GenerateAsync(trip, candidates, weather, ct);
+        trip.UpdateStatus(TripStatus.GENERATED);
+    }
+
+    private async Task RegenerateItineraryAsync(Trip trip, CancellationToken ct)
+    {
+        trip.GenerateDays();
+        await GenerateItineraryAsync(trip, ct);
     }
 
     private TripPlanResponse MapResponse(Trip trip, City? city)

@@ -53,6 +53,20 @@ public class TripsController : ControllerBase
     }
 
     /// <summary>
+    /// Generates or regenerates the itinerary for a trip.
+    /// </summary>
+    [HttpPost("{tripId:guid}/generate")]
+    [ProducesResponseType(typeof(TripPlanResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> GenerateTripItinerary(Guid tripId, CancellationToken ct)
+    {
+        var command = new GenerateTripItinerary(tripId);
+        var response = await _mediator.Send(command, ct);
+        return Ok(response);
+    }
+
+    /// <summary>
     /// Gets a trip by its TripId. Placeholder for future use.
     /// </summary>
     [HttpGet("{tripId:guid}")]
