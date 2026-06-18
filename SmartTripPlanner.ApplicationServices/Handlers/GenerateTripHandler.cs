@@ -29,16 +29,48 @@ public class GenerateTripHandler(
     {
         var payload = request.Payload;
 
-        // 1. Validate city exists and is allowed
-        var city = await cityRepository.GetByCodeAsync(payload.CityCode, ct);
+        var city = await ValidateCityAsync(payload.CityCode, ct);
+
+        await ValidatePlacesAsync(payload.MustSees.ToList(), ct);
+
+        var tripDuration = payload.EndDate.DayNumber - payload.StartDate.DayNumber + 1;
+        if (tripDuration > MaxTripDurationDays)
+            throw new BusinessRuleException(
+                $"Trip duration ({tripDuration} days) exceeds maximum allowed ({MaxTripDurationDays} days)");
+
+        ValidatePinnedDays(payload.MustSees, tripDuration);
+
+        var tripCode = await tripCodeGenerator.GenerateAsync(city.CityCode, payload.StartDate.Year, ct);
+
+        var trip = CreateTripAggregate(city, payload, tripCode);
+
+        await tripRepository.AddAsync(trip, ct);
+
+        await GenerateItineraryAsync(trip, city, ct);
+
+        var response = MapResponse(trip, city);
+
+        logger.LogInformation("Trip {TripId} created with code {TripCode} ({DayCount} days)",
+            trip.TripId, trip.TripCode, trip.Days.Count);
+
+        return response;
+    }
+
+    private async Task<City> ValidateCityAsync(string cityCode, CancellationToken ct)
+    {
+        var city = await cityRepository.GetByCodeAsync(cityCode, ct);
         if (city is null)
-            throw new CityNotFoundException(payload.CityCode);
+            throw new CityNotFoundException(cityCode);
 
         if (!city.IsAllowed)
-            throw new BusinessRuleException($"City '{payload.CityCode}' is not available for planning");
+            throw new BusinessRuleException($"City '{cityCode}' is not available for planning");
 
-        // 2. Validate PlaceIds exist
-        var placeIds = payload.MustSees.Select(m => m.PlaceId).ToList();
+        return city;
+    }
+
+    private async Task ValidatePlacesAsync(List<MustSeeInput> mustSees, CancellationToken ct)
+    {
+        var placeIds = mustSees.Select(m => m.PlaceId).ToList();
         var existingPlaces = await placeRepository.GetManyByIdsAsync(placeIds, ct);
         var existingIdSet = existingPlaces.Select(p => p.Id).ToHashSet();
         var missingIds = placeIds.Where(id => !existingIdSet.Contains(id)).ToList();
@@ -47,15 +79,11 @@ public class GenerateTripHandler(
             throw new BusinessRuleException(
                 $"Some Must-See places were not found: {string.Join(", ", missingIds)}",
                 missingIds.Cast<object>().ToList().AsReadOnly());
+    }
 
-        // 3. Validate PinnedDay range
-        var tripDuration = payload.EndDate.DayNumber - payload.StartDate.DayNumber + 1;
-
-        if (tripDuration > MaxTripDurationDays)
-            throw new BusinessRuleException(
-                $"Trip duration ({tripDuration} days) exceeds maximum allowed ({MaxTripDurationDays} days)");
-
-        foreach (var mustSee in payload.MustSees)
+    private static void ValidatePinnedDays(IReadOnlyList<MustSeeInput> mustSees, int tripDuration)
+    {
+        foreach (var mustSee in mustSees)
         {
             if (mustSee.PinnedBlock.HasValue && !mustSee.PinnedDayIndex.HasValue)
                 throw new BusinessRuleException(
@@ -68,11 +96,10 @@ public class GenerateTripHandler(
                         $"PinnedDayIndex {mustSee.PinnedDayIndex} is out of range [0, {tripDuration - 1}]");
             }
         }
+    }
 
-        // 4. Generate TripCode
-        var tripCode = await tripCodeGenerator.GenerateAsync(city.CityCode, payload.StartDate.Year, ct);
-
-        // 5. Materialize Trip aggregate
+    private Trip CreateTripAggregate(City city, TripGenerationRequest payload, string tripCode)
+    {
         var trip = new Trip
         {
             TripId = Guid.NewGuid(),
@@ -80,112 +107,32 @@ public class GenerateTripHandler(
             CityId = city.Id,
             StartDate = payload.StartDate,
             EndDate = payload.EndDate,
-            BaseHotel = new Location(
-                payload.BaseHotel.Name,
-                payload.BaseHotel.Latitude,
-                payload.BaseHotel.Longitude),
-            Travelers = new Travelers(
-                payload.Travelers?.Adults ?? 2,
-                payload.Travelers?.Children ?? 0,
-                payload.Travelers?.Infants ?? 0),
-            Preferences = new TripPreferences(
-                payload.Preferences?.CarAvailable ?? false,
-                payload.Preferences?.MaxWalkingMinutes ?? 30,
-                payload.Preferences?.WeatherAwareEnabled ?? true),
+            BaseHotel = mapper.Map<Location>(payload.BaseHotel),
+            Travelers = mapper.Map<Travelers>(payload.Travelers),
+            Preferences = mapper.Map<TripPreferences>(payload.Preferences),
             DefaultStartTime = TimeOnly.Parse(payload.DefaultStartHour),
             CreatedAt = DateTimeOffset.UtcNow
         };
 
         foreach (var mustSeeInput in payload.MustSees)
         {
-            trip.AddMustSee(new MustSee(
-                mustSeeInput.PlaceId,
-                mustSeeInput.Priority,
-                mustSeeInput.PinnedDayIndex,
-                mustSeeInput.PinnedBlock));
+            trip.AddMustSee(mapper.Map<MustSee>(mustSeeInput));
         }
 
-        // 6. Persist trip
-        await tripRepository.AddAsync(trip, ct);
+        return trip;
+    }
 
-        // 6.5 — Generate itinerary
+    private async Task GenerateItineraryAsync(Trip trip, City city, CancellationToken ct)
+    {
         var candidatePlaces = await placeRepository.GetManyByCityIdAsync(city.Id, ct);
         var weatherData = await weatherProvider.GetWeatherAsync(city.Id, trip.StartDate, trip.EndDate, ct);
         await itineraryGenerator.GenerateAsync(trip, candidatePlaces, weatherData, ct);
         trip.UpdateStatus(TripStatus.GENERATED);
         await tripRepository.UpdateAsync(trip, ct);
-
-        // 7. Map to response
-        var response = new TripPlanResponse(
-            trip.TripId,
-            trip.TripCode,
-            trip.CityId,
-            city.CityCode,
-            city.CityName,
-            trip.StartDate,
-            trip.EndDate,
-            mapper.Map<LocationModel>(trip.BaseHotel),
-            new TravelersInput(trip.Travelers.Adults, trip.Travelers.Children, trip.Travelers.Infants),
-            new TripPreferencesInput(trip.Preferences.CarAvailable, trip.Preferences.MaxWalkingMinutes, trip.Preferences.WeatherAwareEnabled),
-            trip.OriginalMustSees.Select(m => new MustSeeResponse(
-                m.PlaceId,
-                m.Priority.ToString(),
-                m.PinnedDayIndex,
-                m.PinnedBlock?.ToString()
-            )).ToList(),
-            trip.Status.ToString(),
-            trip.DefaultStartTime.ToString("HH:mm")
-        )
-        {
-            Days = trip.Days.Select(MapDayPlan).ToList()
-        };
-
-        logger.LogInformation("Trip {TripId} created with code {TripCode} ({DayCount} days)",
-            trip.TripId, trip.TripCode, trip.Days.Count);
-
-        return response;
     }
 
-    private static DayPlanResponse MapDayPlan(DayPlan dayPlan)
+    private TripPlanResponse MapResponse(Trip trip, City city)
     {
-        return new DayPlanResponse
-        {
-            DayIndex = dayPlan.DayIndex,
-            Date = dayPlan.Date,
-            WeatherSummary = dayPlan.WeatherSummary.ToString(),
-            Blocks = new List<BlockResponse>
-            {
-                MapBlock(dayPlan.Morning),
-                MapBlock(dayPlan.Afternoon),
-                MapBlock(dayPlan.Evening)
-            }
-        };
-    }
-
-    private static BlockResponse MapBlock(BlockTimeline block)
-    {
-        return new BlockResponse
-        {
-            BlockType = block.BlockType.ToString(),
-            TotalDurationMinutes = block.BlockTotalDurationMinutes,
-            Activities = block.Activities.Select((a, i) => MapActivity(a, i)).ToList()
-        };
-    }
-
-    private static ActivityResponse MapActivity(ActivityNode activity, int sequenceOrder)
-    {
-        return new ActivityResponse
-        {
-            PlaceId = activity.PlaceId,
-            PlaceName = activity.Name,
-            DurationMinutes = activity.DurationMinutes,
-            SequenceOrder = sequenceOrder,
-            IsIndoor = activity.IsIndoor,
-            Priority = activity.Priority.ToString(),
-            TransportMode = activity.TransitToNext?.TransportMode.ToString() ?? string.Empty,
-            TransitDurationMinutes = activity.TransitToNext?.DurationMinutes ?? 0,
-            BufferMinutes = activity.TransitToNext?.BufferMinutes ?? 0,
-            FrictionAlert = activity.TransitToNext?.FrictionAlert ?? false
-        };
+        return mapper.Map<TripPlanResponse>(trip, opts => opts.Items["City"] = city);
     }
 }

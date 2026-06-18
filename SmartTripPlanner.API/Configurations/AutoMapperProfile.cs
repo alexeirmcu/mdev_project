@@ -22,11 +22,22 @@ public class AutoMapperProfile : Profile
         CreateMap<TripPreferencesInput, TripPreferences>();
         CreateMap<LocationModel, Location>();
 
+        CreateMap<Travelers, TravelersInput>();
+        CreateMap<TripPreferences, TripPreferencesInput>();
+
         CreateMap<MustSee, MustSeeResponse>()
             .ForMember(dest => dest.Priority, opt => opt.MapFrom(src => src.Priority.ToString()))
             .ForMember(dest => dest.PinnedBlock, opt => opt.MapFrom(src => src.PinnedBlock.HasValue ? src.PinnedBlock.ToString() : null));
 
         CreateMap<Location, LocationModel>();
+
+        CreateMap<Trip, TripPlanResponse>()
+            .ForCtorParam("CityCode", opt => opt.MapFrom((src, ctx) => ((City?)ctx.Items["City"])?.CityCode ?? string.Empty))
+            .ForCtorParam("CityName", opt => opt.MapFrom((src, ctx) => ((City?)ctx.Items["City"])?.CityName ?? string.Empty))
+            .ForCtorParam("MustSees", opt => opt.MapFrom(src => src.OriginalMustSees))
+            .ForCtorParam("Status", opt => opt.MapFrom(src => src.Status.ToString()))
+            .ForCtorParam("DefaultStartHour", opt => opt.MapFrom(src => src.DefaultStartTime.ToString("HH:mm")))
+            .ForMember(dest => dest.Days, opt => opt.MapFrom(src => src.Days));
 
         // Itinerary response mappings
         CreateMap<ActivityNode, ActivityResponse>()

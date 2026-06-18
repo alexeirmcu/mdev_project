@@ -26,7 +26,27 @@ public class UpdateTripHandler(
 
         var payload = request.Payload;
 
-        // Enforce status-based restrictions
+        EnforceStatusRestrictions(trip, payload);
+
+        if (payload.MustSeesToAdd is not null && payload.MustSeesToAdd.Count > 0)
+            await AddMustSeesAsync(trip, payload.MustSeesToAdd, ct);
+
+        if (payload.MustSeesToRemove is not null && payload.MustSeesToRemove.Count > 0)
+            RemoveMustSees(trip, payload.MustSeesToRemove);
+
+        await tripRepository.UpdateAsync(trip, ct);
+
+        var city = await cityRepository.GetByIdAsync(trip.CityId, ct);
+
+        var response = MapResponse(trip, city);
+
+        logger.LogInformation("Trip {TripId} updated", trip.TripId);
+
+        return response;
+    }
+
+    private static void EnforceStatusRestrictions(Trip trip, TripUpdateRequest payload)
+    {
         if (trip.Status == TripStatus.GENERATED)
         {
             if (payload.StartDate.HasValue || payload.EndDate.HasValue ||
@@ -34,70 +54,38 @@ public class UpdateTripHandler(
                 throw new BusinessRuleException(
                     "Cannot modify StartDate, EndDate, BaseHotel, or DefaultStartHour when trip status is GENERATED");
         }
+    }
 
-        // Apply updates
-        // Note: For MVP, we only support basic updates. Full DayPlan-aware MustSee
-        // removal is deferred to Flow 2.
-        if (payload.MustSeesToAdd is not null && payload.MustSeesToAdd.Count > 0)
+    private async Task AddMustSeesAsync(Trip trip, List<MustSeeInput> mustSees, CancellationToken ct)
+    {
+        var newPlaceIds = mustSees.Select(m => m.PlaceId).ToList();
+        var existingPlaces = await placeRepository.GetManyByIdsAsync(newPlaceIds, ct);
+        var existingIdSet = existingPlaces.Select(p => p.Id).ToHashSet();
+        var missingIds = newPlaceIds.Where(id => !existingIdSet.Contains(id)).ToList();
+
+        if (missingIds.Any())
+            throw new BusinessRuleException(
+                $"Some Must-See places were not found: {string.Join(", ", missingIds)}",
+                missingIds.Cast<object>().ToList().AsReadOnly());
+
+        foreach (var mustSeeInput in mustSees)
         {
-            var newPlaceIds = payload.MustSeesToAdd.Select(m => m.PlaceId).ToList();
-            var existingPlaces = await placeRepository.GetManyByIdsAsync(newPlaceIds, ct);
-            var existingIdSet = existingPlaces.Select(p => p.Id).ToHashSet();
-            var missingIds = newPlaceIds.Where(id => !existingIdSet.Contains(id)).ToList();
+            trip.AddMustSee(mapper.Map<MustSee>(mustSeeInput));
+        }
+    }
 
-            if (missingIds.Any())
+    private static void RemoveMustSees(Trip trip, List<long> placeIds)
+    {
+        foreach (var placeId in placeIds)
+        {
+            if (!trip.RemoveMustSee(placeId))
                 throw new BusinessRuleException(
-                    $"Some Must-See places were not found: {string.Join(", ", missingIds)}",
-                    missingIds.Cast<object>().ToList().AsReadOnly());
-
-            foreach (var mustSeeInput in payload.MustSeesToAdd)
-            {
-                trip.AddMustSee(new MustSee(
-                    mustSeeInput.PlaceId,
-                    mustSeeInput.Priority,
-                    mustSeeInput.PinnedDayIndex,
-                    mustSeeInput.PinnedBlock));
-            }
+                    $"Cannot remove must-see with PlaceId {placeId} because it is not in the trip's MustSees list");
         }
+    }
 
-        if (payload.MustSeesToRemove is not null && payload.MustSeesToRemove.Count > 0)
-        {
-            foreach (var placeId in payload.MustSeesToRemove)
-            {
-                if (!trip.RemoveMustSee(placeId))
-                    throw new BusinessRuleException(
-                        $"Cannot remove must-see with PlaceId {placeId} because it is not in the trip's MustSees list");
-            }
-        }
-
-        await tripRepository.UpdateAsync(trip, ct);
-
-        // Reload city for response
-        var city = await cityRepository.GetByIdAsync(trip.CityId, ct);
-
-        var response = new TripPlanResponse(
-            trip.TripId,
-            trip.TripCode,
-            trip.CityId,
-            city?.CityCode ?? string.Empty,
-            city?.CityName ?? string.Empty,
-            trip.StartDate,
-            trip.EndDate,
-            mapper.Map<LocationModel>(trip.BaseHotel),
-            new TravelersInput(trip.Travelers.Adults, trip.Travelers.Children, trip.Travelers.Infants),
-            new TripPreferencesInput(trip.Preferences.CarAvailable, trip.Preferences.MaxWalkingMinutes, trip.Preferences.WeatherAwareEnabled),
-            trip.OriginalMustSees.Select(m => new MustSeeResponse(
-                m.PlaceId,
-                m.Priority.ToString(),
-                m.PinnedDayIndex,
-                m.PinnedBlock?.ToString()
-            )).ToList(),
-            trip.Status.ToString(),
-            trip.DefaultStartTime.ToString("HH:mm")
-        );
-
-        logger.LogInformation("Trip {TripId} updated", trip.TripId);
-
-        return response;
+    private TripPlanResponse MapResponse(Trip trip, City? city)
+    {
+        return mapper.Map<TripPlanResponse>(trip, opts => opts.Items["City"] = city);
     }
 }

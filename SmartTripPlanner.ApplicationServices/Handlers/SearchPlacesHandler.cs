@@ -2,6 +2,7 @@ using AutoMapper;
 using MediatR;
 using SmartTripPlanner.ApplicationServices.Commands;
 using SmartTripPlanner.Domain.ApiModels;
+using SmartTripPlanner.Domain.AggregatesModel;
 using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Domain.Repository;
 
@@ -20,41 +21,53 @@ public class SearchPlacesHandler(
         var sr = request.SearchRequest;
         var maxResults = sr.MaxResults ?? request.DefaultMaxResults;
 
-        #region LocalSearch
-        var places = await repository.SearchAsync(sr.Query, sr.CityCode, maxResults);
-
+        var places = await SearchLocalAsync(sr.Query, sr.CityCode, maxResults);
         if (places.Count > 0)
-        {
-            var models = mapper.Map<List<PlaceModel>>(places);
-            return new SearchPlacesResponse(models.AsReadOnly());
-        }
-        #endregion
+            return MapResponse(places);
 
-        #region ExternalSearch
         var city = await cityRepo.GetByCodeAsync(sr.CityCode, cancellationToken);
         if (city is null)
-            return new SearchPlacesResponse(new List<PlaceModel>().AsReadOnly());
+            return MapResponse(new List<Place>().AsReadOnly());
 
+        var externalPlaces = await SearchExternalAsync(sr.Query, sr.CityCode, city.Id, maxResults, cancellationToken);
+        if (externalPlaces is null || externalPlaces.Count == 0)
+            return MapResponse(new List<Place>().AsReadOnly());
+
+        await PersistResultsAsync(externalPlaces.ToList(), cancellationToken);
+        return MapResponse(externalPlaces);
+    }
+
+    private async Task<IReadOnlyList<Place>> SearchLocalAsync(string query, string cityCode, int maxResults)
+    {
+        return await repository.SearchAsync(query, cityCode, maxResults);
+    }
+
+    private async Task<IReadOnlyList<Place>?> SearchExternalAsync(
+        string query, string cityCode, long cityId, int maxResults, CancellationToken ct)
+    {
         try
         {
-            places = await externalService.SearchPlacesAsync(sr.Query, sr.CityCode, city.Id, maxResults);
+            var places = await externalService.SearchPlacesAsync(query, cityCode, cityId, maxResults);
+            return places.Count == 0 ? null : places;
         }
         catch (HttpRequestException)
         {
-            return new SearchPlacesResponse(new List<PlaceModel>().AsReadOnly());
+            return null;
         }
+    }
 
+    private async Task PersistResultsAsync(List<Place> places, CancellationToken ct)
+    {
+        await repository.UpsertRangeAsync(places);
+        await repository.UnitOfWork.SaveChangesAsync(ct);
+    }
+
+    private SearchPlacesResponse MapResponse(IReadOnlyList<Place> places)
+    {
         if (places.Count == 0)
             return new SearchPlacesResponse(new List<PlaceModel>().AsReadOnly());
-        #endregion
 
-        #region SaveToLocalDatabase
-        // Paso C: guardar los resultados en BD local para futuras búsquedas (upsert)
-        await repository.UpsertRangeAsync(places);
-        await repository.UnitOfWork.SaveChangesAsync(cancellationToken);
-        #endregion
-
-        var resultModels = mapper.Map<List<PlaceModel>>(places);
-        return new SearchPlacesResponse(resultModels.AsReadOnly());
+        var models = mapper.Map<List<PlaceModel>>(places);
+        return new SearchPlacesResponse(models.AsReadOnly());
     }
 }
