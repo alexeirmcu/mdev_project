@@ -393,6 +393,57 @@ public sealed class PlaceRepositoryTests
     }
 
     [TestMethod]
+    public async Task GetManyByCityIdAsync_WithInterests_FiltersByCategoryKeyOnly()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        var place1 = new Place("fsq_a", "Museo del Prado", madrid.Id, new PlaceLocation(40.4168, -3.7038));
+        place1.AddAttribute(new PlaceAttribute("foursquare", "category", "Museum"));
+        db.Places.Add(place1);
+
+        var place2 = new Place("fsq_b", "McDonald's", madrid.Id, new PlaceLocation(40.0, -3.0));
+        place2.AddAttribute(new PlaceAttribute("foursquare", "chain", "Food"));
+        db.Places.Add(place2);
+
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var results = await repo.GetManyByCityIdAsync(madrid.Id, interests: new[] { "Food" });
+
+        // "Food" matches the chain attribute, not the category key,
+        // so no places should be returned when filtering by interest.
+        Assert.AreEqual(0, results.Count);
+    }
+
+    [TestMethod]
+    public async Task GetManyByCityIdAsync_WithInterests_MatchesCategoryValue()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        var place1 = new Place("fsq_a", "Museo del Prado", madrid.Id, new PlaceLocation(40.4168, -3.7038));
+        place1.AddAttribute(new PlaceAttribute("foursquare", "category", "Museum"));
+        db.Places.Add(place1);
+
+        var place2 = new Place("fsq_b", "Parque del Retiro", madrid.Id, new PlaceLocation(40.415, -3.684));
+        place2.AddAttribute(new PlaceAttribute("foursquare", "category", "Park"));
+        db.Places.Add(place2);
+
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var results = await repo.GetManyByCityIdAsync(madrid.Id, interests: new[] { "Museum" });
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Museo del Prado", results[0].Name);
+    }
+
+    [TestMethod]
     public async Task SavePlace_PreservesAttributes_AsSeparateEntities()
     {
         using var db = CreateDbContext();
@@ -500,7 +551,7 @@ public sealed class PlaceRepositoryTests
 
         var place2 = new Place("fsq_b", "Place B", madrid.Id, new PlaceLocation(41.0, -4.0));
         place2.AddAttribute(new PlaceAttribute("foursquare", "category", "Museum"));
-        place2.AddAttribute(new PlaceAttribute("foursquare", "chain", "Food"));
+        place2.AddAttribute(new PlaceAttribute("foursquare", "category", "Food"));
         db.Places.Add(place2);
 
         await db.SaveChangesAsync();
@@ -523,5 +574,30 @@ public sealed class PlaceRepositoryTests
         var interests = await repo.GetDistinctInterestsByCityIdAsync(999);
 
         Assert.AreEqual(0, interests.Count);
+    }
+
+    [TestMethod]
+    public async Task GetManyByCityIdAsync_WithInterests_MatchesSubstringInCategoryValue()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        var place1 = new Place("fsq_a", "Museo del Prado", madrid.Id, new PlaceLocation(40.4168, -3.7038));
+        place1.AddAttribute(new PlaceAttribute("foursquare", "category", "Art Museum"));
+        db.Places.Add(place1);
+
+        var place2 = new Place("fsq_b", "Parque del Retiro", madrid.Id, new PlaceLocation(40.415, -3.684));
+        place2.AddAttribute(new PlaceAttribute("foursquare", "category", "Park"));
+        db.Places.Add(place2);
+
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var results = await repo.GetManyByCityIdAsync(madrid.Id, interests: new[] { "Museum" });
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Museo del Prado", results[0].Name);
     }
 }

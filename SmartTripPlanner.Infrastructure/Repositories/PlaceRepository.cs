@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SmartTripPlanner.Domain.AggregatesModel;
@@ -117,8 +118,7 @@ public class PlaceRepository : IPlaceRepository
 
         if (interests != null && interests.Any())
         {
-            var lowerInterests = interests.Select(i => i.ToLower()).ToList();
-            query = query.Where(p => p.Attributes.Any(a => lowerInterests.Contains(a.Value.ToLower())));
+            query = query.Where(BuildInterestPredicate(interests));
         }
 
         return await query
@@ -126,11 +126,56 @@ public class PlaceRepository : IPlaceRepository
             .ToListAsync(ct);
     }
 
+    private static Expression<Func<Place, bool>> BuildInterestPredicate(IEnumerable<string> interests)
+    {
+        var lowerInterests = interests.Select(i => i.ToLowerInvariant()).ToList();
+
+        var placeParam = Expression.Parameter(typeof(Place), "p");
+        var attributesProp = Expression.Property(placeParam, nameof(Place.Attributes));
+
+        var attrParam = Expression.Parameter(typeof(PlaceAttribute), "a");
+        var keyProp = Expression.Property(attrParam, nameof(PlaceAttribute.Key));
+        var valueProp = Expression.Property(attrParam, nameof(PlaceAttribute.Value));
+
+        var toLower = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
+        var contains = typeof(string).GetMethod("Contains", new[] { typeof(string) })!;
+
+        // a.Key.ToLower() == TripPlanningConstants.InterestAttributeKey
+        var keyMatch = Expression.Equal(
+            Expression.Call(keyProp, toLower),
+            Expression.Constant(TripPlanningConstants.InterestAttributeKey));
+
+        // a.Value.ToLower().Contains(i1) || a.Value.ToLower().Contains(i2) || ...
+        Expression? valueMatch = null;
+        foreach (var interest in lowerInterests)
+        {
+            var match = Expression.Call(
+                Expression.Call(valueProp, toLower),
+                contains,
+                Expression.Constant(interest));
+            valueMatch = valueMatch == null ? match : Expression.OrElse(valueMatch, match);
+        }
+
+        var attrLambda = Expression.Lambda<Func<PlaceAttribute, bool>>(
+            Expression.AndAlso(keyMatch, valueMatch!),
+            attrParam);
+
+        // p.Attributes.Any(a => ...)
+        var anyMethod = typeof(Enumerable).GetMethods()
+            .Single(m => m.Name == nameof(Enumerable.Any) && m.IsGenericMethodDefinition && m.GetParameters().Length == 2)
+            .MakeGenericMethod(typeof(PlaceAttribute));
+
+        var anyCall = Expression.Call(anyMethod, attributesProp, attrLambda);
+
+        return Expression.Lambda<Func<Place, bool>>(anyCall, placeParam);
+    }
+
     public async Task<List<string>> GetDistinctInterestsByCityIdAsync(long cityId, CancellationToken ct = default)
     {
         return await _context.Places
             .Where(p => p.CityId == cityId)
             .SelectMany(p => p.Attributes)
+            .Where(a => a.Key.ToLower() == TripPlanningConstants.InterestAttributeKey)
             .Select(a => a.Value)
             .Distinct()
             .OrderBy(v => v)

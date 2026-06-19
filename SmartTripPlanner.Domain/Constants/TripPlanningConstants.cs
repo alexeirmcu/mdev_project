@@ -40,4 +40,7 @@ public static class TripPlanningConstants
 
     // Candidate selection
     public const int MaxCandidatesPerCity = 50;
+
+    // Attribute keys
+    public const string InterestAttributeKey = "category";
 }
