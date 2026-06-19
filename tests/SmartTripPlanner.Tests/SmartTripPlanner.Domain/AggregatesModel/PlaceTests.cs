@@ -124,10 +124,10 @@ public sealed class PlaceTests
 
         place.AddAttribute(attr);
 
-        Assert.AreSame(attr, place.Attributes[0]);
-        Assert.AreEqual("foursquare", place.Attributes[0].Provider);
-        Assert.AreEqual("category", place.Attributes[0].Key);
-        Assert.AreEqual("Museum", place.Attributes[0].Value);
+        Assert.AreSame(attr, place.Attributes.First());
+        Assert.AreEqual("foursquare", place.Attributes.First().Provider);
+        Assert.AreEqual("category", place.Attributes.First().Key);
+        Assert.AreEqual("Museum", place.Attributes.First().Value);
     }
 
     [TestMethod]
@@ -156,7 +156,7 @@ public sealed class PlaceTests
         place.AddAttribute(attr2);
 
         Assert.AreEqual(2, place.Attributes.Count);
-        Assert.AreSame(attr1, place.Attributes[0]);
-        Assert.AreSame(attr2, place.Attributes[1]);
+        Assert.AreSame(attr1, place.Attributes.First());
+        Assert.AreSame(attr2, place.Attributes.ElementAt(1));
     }
 }

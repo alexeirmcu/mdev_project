@@ -17,7 +17,7 @@ public class Place : Entity, IAggregateRoot
     public bool IsFamilyFriendly { get; private set; } = true;
     public bool IsAutoUpdateEnabled { get; private set; } = true;
     public List<OpeningHoursWindow> OpeningHours { get; private set; } = new();
-    public List<PlaceAttribute> Attributes { get; private set; } = new();
+    public ICollection<PlaceAttribute> Attributes { get; private set; } = new List<PlaceAttribute>();
 
     private Place() { ProviderReferenceId = null!; Name = null!; Location = null!; }
 
@@ -60,7 +60,7 @@ public class Place : Entity, IAggregateRoot
 
     public void UpdateFromExternalProvider(string name, PlaceLocation location,
         int typicalDurationMinutes, bool isIndoor, bool isFamilyFriendly,
-        List<PlaceAttribute> attributes)
+        ICollection<PlaceAttribute> attributes)
     {
         if (!IsAutoUpdateEnabled)
             throw new InvalidOperationException("Cannot update a place with auto-update disabled.");

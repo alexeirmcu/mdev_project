@@ -38,17 +38,20 @@ public class PlaceConfiguration : IEntityTypeConfiguration<Place>
             oh.Property(ohw => ohw.CloseMinutes).IsRequired();
         });
 
-        builder.OwnsMany(p => p.Attributes, attr =>
-        {
-            attr.WithOwner().HasForeignKey("PlaceId");
-            attr.ToTable("PlaceAttributes");
-            attr.Property<long>("Id");
-            attr.HasKey("Id");
-            attr.Property(a => a.Provider).IsRequired().HasMaxLength(100);
-            attr.Property(a => a.Key).IsRequired().HasMaxLength(100);
-            attr.Property(a => a.Value).IsRequired().HasMaxLength(500);
-            attr.HasIndex("PlaceId", "Value");
-        });
+        builder.HasMany(p => p.Attributes)
+            .WithMany()
+            .UsingEntity<PlacePlaceAttribute>(
+                j => j.HasOne(pp => pp.PlaceAttribute)
+                    .WithMany()
+                    .HasForeignKey(pp => pp.PlaceAttributeId),
+                j => j.HasOne(pp => pp.Place)
+                    .WithMany()
+                    .HasForeignKey(pp => pp.PlaceId),
+                j =>
+                {
+                    j.ToTable("PlacePlaceAttributes");
+                    j.HasKey(pp => new { pp.PlaceId, pp.PlaceAttributeId });
+                });
 
         builder.Property(p => p.TypicalDurationMinutes).HasDefaultValue(60);
         builder.Property(p => p.IsIndoor).HasDefaultValue(false);

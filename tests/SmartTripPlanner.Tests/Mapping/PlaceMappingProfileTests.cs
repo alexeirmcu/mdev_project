@@ -85,12 +85,10 @@ public sealed class PlaceMappingProfileTests
         Assert.AreEqual(2, model.Attributes.Count);
 
         var first = model.Attributes[0];
-        Assert.AreEqual("foursquare", first.Provider);
         Assert.AreEqual("category", first.Key);
         Assert.AreEqual("Museum", first.Value);
 
         var second = model.Attributes[1];
-        Assert.AreEqual("foursquare", second.Provider);
         Assert.AreEqual("chain", second.Key);
         Assert.AreEqual("Prado", second.Value);
     }

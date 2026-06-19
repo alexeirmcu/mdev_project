@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -28,32 +29,18 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Trips",
+                name: "PlaceAttributes",
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    TripId = table.Column<Guid>(type: "uuid", nullable: false),
-                    TripCode = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
-                    CityId = table.Column<long>(type: "bigint", nullable: false),
-                    StartDate = table.Column<DateOnly>(type: "date", nullable: false),
-                    EndDate = table.Column<DateOnly>(type: "date", nullable: false),
-                    HotelName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    HotelLatitude = table.Column<double>(type: "double precision", nullable: false),
-                    HotelLongitude = table.Column<double>(type: "double precision", nullable: false),
-                    TravelersAdults = table.Column<int>(type: "integer", nullable: false, defaultValue: 2),
-                    TravelersChildren = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
-                    TravelersInfants = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
-                    PrefCarAvailable = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
-                    PrefMaxWalkingMinutes = table.Column<int>(type: "integer", nullable: false, defaultValue: 30),
-                    PrefWeatherAwareEnabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
-                    DefaultStartTime = table.Column<TimeOnly>(type: "time without time zone", nullable: false),
-                    Status = table.Column<string>(type: "text", nullable: false, defaultValue: "CREATED"),
-                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                    Provider = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Key = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Value = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_Trips", x => x.Id);
+                    table.PrimaryKey("PK_PlaceAttributes", x => x.Id);
                 });
 
             migrationBuilder.CreateTable(
@@ -85,6 +72,87 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Trips",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    TripId = table.Column<Guid>(type: "uuid", nullable: false),
+                    TripCode = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    CityId = table.Column<long>(type: "bigint", nullable: false),
+                    StartDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    EndDate = table.Column<DateOnly>(type: "date", nullable: false),
+                    HotelName = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
+                    HotelLatitude = table.Column<double>(type: "double precision", nullable: true),
+                    HotelLongitude = table.Column<double>(type: "double precision", nullable: true),
+                    TravelersAdults = table.Column<int>(type: "integer", nullable: false, defaultValue: 2),
+                    TravelersChildren = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    TravelersInfants = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    PrefCarAvailable = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
+                    PrefMaxWalkingMinutes = table.Column<int>(type: "integer", nullable: false, defaultValue: 30),
+                    PrefWeatherAwareEnabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: true),
+                    Preferences_Interests = table.Column<List<string>>(type: "text[]", nullable: false, defaultValueSql: "ARRAY[]::text[]"),
+                    DefaultStartTime = table.Column<TimeOnly>(type: "time without time zone", nullable: false),
+                    CreatedAt = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Trips", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Trips_Cities_CityId",
+                        column: x => x.CityId,
+                        principalTable: "Cities",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PlaceOpeningHours",
+                columns: table => new
+                {
+                    Id = table.Column<long>(type: "bigint", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    DayOfWeek = table.Column<int>(type: "integer", nullable: false),
+                    OpenMinutes = table.Column<int>(type: "integer", nullable: false),
+                    CloseMinutes = table.Column<int>(type: "integer", nullable: false),
+                    PlaceId = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PlaceOpeningHours", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_PlaceOpeningHours_Places_PlaceId",
+                        column: x => x.PlaceId,
+                        principalTable: "Places",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "PlacePlaceAttributes",
+                columns: table => new
+                {
+                    PlaceId = table.Column<long>(type: "bigint", nullable: false),
+                    PlaceAttributeId = table.Column<long>(type: "bigint", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PlacePlaceAttributes", x => new { x.PlaceId, x.PlaceAttributeId });
+                    table.ForeignKey(
+                        name: "FK_PlacePlaceAttributes_PlaceAttributes_PlaceAttributeId",
+                        column: x => x.PlaceAttributeId,
+                        principalTable: "PlaceAttributes",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_PlacePlaceAttributes_Places_PlaceId",
+                        column: x => x.PlaceId,
+                        principalTable: "Places",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "DayPlan",
                 columns: table => new
                 {
@@ -93,11 +161,11 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     DayIndex = table.Column<int>(type: "integer", nullable: false),
                     Date = table.Column<DateOnly>(type: "date", nullable: false),
                     WeatherSummary = table.Column<int>(type: "integer", nullable: false),
-                    Morning_BlockTotalDurationMinutes = table.Column<int>(type: "integer", nullable: false),
+                    Morning_BlockType = table.Column<int>(type: "integer", nullable: false),
                     Morning_Id = table.Column<long>(type: "bigint", nullable: false),
-                    Afternoon_BlockTotalDurationMinutes = table.Column<int>(type: "integer", nullable: false),
+                    Afternoon_BlockType = table.Column<int>(type: "integer", nullable: false),
                     Afternoon_Id = table.Column<long>(type: "bigint", nullable: false),
-                    Evening_BlockTotalDurationMinutes = table.Column<int>(type: "integer", nullable: false),
+                    Evening_BlockType = table.Column<int>(type: "integer", nullable: false),
                     Evening_Id = table.Column<long>(type: "bigint", nullable: false),
                     StartTime = table.Column<TimeOnly>(type: "time without time zone", nullable: false),
                     TripId = table.Column<long>(type: "bigint", nullable: false)
@@ -137,57 +205,13 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "PlaceAttributes",
-                columns: table => new
-                {
-                    Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Provider = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Key = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    Value = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
-                    PlaceId = table.Column<long>(type: "bigint", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PlaceAttributes", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_PlaceAttributes_Places_PlaceId",
-                        column: x => x.PlaceId,
-                        principalTable: "Places",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
-                name: "PlaceOpeningHours",
-                columns: table => new
-                {
-                    Id = table.Column<long>(type: "bigint", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    DayOfWeek = table.Column<int>(type: "integer", nullable: false),
-                    OpenMinutes = table.Column<int>(type: "integer", nullable: false),
-                    CloseMinutes = table.Column<int>(type: "integer", nullable: false),
-                    PlaceId = table.Column<long>(type: "bigint", nullable: false)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("PK_PlaceOpeningHours", x => x.Id);
-                    table.ForeignKey(
-                        name: "FK_PlaceOpeningHours_Places_PlaceId",
-                        column: x => x.PlaceId,
-                        principalTable: "Places",
-                        principalColumn: "Id",
-                        onDelete: ReferentialAction.Cascade);
-                });
-
-            migrationBuilder.CreateTable(
                 name: "AfternoonActivities",
                 columns: table => new
                 {
                     Id = table.Column<long>(type: "bigint", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     SequenceOrder = table.Column<int>(type: "integer", nullable: false),
-                    PlaceId = table.Column<string>(type: "text", nullable: false),
+                    PlaceId = table.Column<long>(type: "bigint", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     IsCompleted = table.Column<bool>(type: "boolean", nullable: false),
                     EstimatedArrival = table.Column<int>(type: "integer", nullable: false),
@@ -199,6 +223,8 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     TransitToNext_BufferMinutes = table.Column<int>(type: "integer", nullable: true),
                     TransitToNext_FrictionAlert = table.Column<bool>(type: "boolean", nullable: true),
                     Priority = table.Column<int>(type: "integer", nullable: false),
+                    Latitude = table.Column<double>(type: "double precision", nullable: false),
+                    Longitude = table.Column<double>(type: "double precision", nullable: false),
                     DayPlanId = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -219,7 +245,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     Id = table.Column<long>(type: "bigint", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     SequenceOrder = table.Column<int>(type: "integer", nullable: false),
-                    PlaceId = table.Column<string>(type: "text", nullable: false),
+                    PlaceId = table.Column<long>(type: "bigint", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     IsCompleted = table.Column<bool>(type: "boolean", nullable: false),
                     EstimatedArrival = table.Column<int>(type: "integer", nullable: false),
@@ -231,6 +257,8 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     TransitToNext_BufferMinutes = table.Column<int>(type: "integer", nullable: true),
                     TransitToNext_FrictionAlert = table.Column<bool>(type: "boolean", nullable: true),
                     Priority = table.Column<int>(type: "integer", nullable: false),
+                    Latitude = table.Column<double>(type: "double precision", nullable: false),
+                    Longitude = table.Column<double>(type: "double precision", nullable: false),
                     DayPlanId = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -251,7 +279,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     Id = table.Column<long>(type: "bigint", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     SequenceOrder = table.Column<int>(type: "integer", nullable: false),
-                    PlaceId = table.Column<string>(type: "text", nullable: false),
+                    PlaceId = table.Column<long>(type: "bigint", nullable: false),
                     Name = table.Column<string>(type: "text", nullable: false),
                     IsCompleted = table.Column<bool>(type: "boolean", nullable: false),
                     EstimatedArrival = table.Column<int>(type: "integer", nullable: false),
@@ -263,6 +291,8 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     TransitToNext_BufferMinutes = table.Column<int>(type: "integer", nullable: true),
                     TransitToNext_FrictionAlert = table.Column<bool>(type: "boolean", nullable: true),
                     Priority = table.Column<int>(type: "integer", nullable: false),
+                    Latitude = table.Column<double>(type: "double precision", nullable: false),
+                    Longitude = table.Column<double>(type: "double precision", nullable: false),
                     DayPlanId = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -307,15 +337,18 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 table: "MorningActivities",
                 column: "DayPlanId");
 
-            migrationBuilder.CreateIndex(
-                name: "IX_PlaceAttributes_PlaceId_Value",
-                table: "PlaceAttributes",
-                columns: new[] { "PlaceId", "Value" });
+            migrationBuilder.Sql(
+                @"CREATE UNIQUE INDEX ""IX_PlaceAttributes_Provider_Key_Value_CI"" ON ""PlaceAttributes"" (LOWER(""Provider""), LOWER(""Key""), LOWER(""Value""));");
 
             migrationBuilder.CreateIndex(
                 name: "IX_PlaceOpeningHours_PlaceId",
                 table: "PlaceOpeningHours",
                 column: "PlaceId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_PlacePlaceAttributes_PlaceAttributeId",
+                table: "PlacePlaceAttributes",
+                column: "PlaceAttributeId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Places_CityId",
@@ -332,6 +365,11 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 name: "IX_TripMustSees_TripId",
                 table: "TripMustSees",
                 column: "TripId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Trips_CityId",
+                table: "Trips",
+                column: "CityId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Trips_TripCode",
@@ -359,16 +397,22 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                 name: "MorningActivities");
 
             migrationBuilder.DropTable(
-                name: "PlaceAttributes");
+                name: "PlaceOpeningHours");
 
             migrationBuilder.DropTable(
-                name: "PlaceOpeningHours");
+                name: "PlacePlaceAttributes");
 
             migrationBuilder.DropTable(
                 name: "TripMustSees");
 
             migrationBuilder.DropTable(
                 name: "DayPlan");
+
+            migrationBuilder.Sql(
+                @"DROP INDEX IF EXISTS ""IX_PlaceAttributes_Provider_Key_Value_CI"";");
+
+            migrationBuilder.DropTable(
+                name: "PlaceAttributes");
 
             migrationBuilder.DropTable(
                 name: "Places");

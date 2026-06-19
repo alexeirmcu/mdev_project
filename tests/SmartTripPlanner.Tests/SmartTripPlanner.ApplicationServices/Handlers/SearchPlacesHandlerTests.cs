@@ -310,7 +310,7 @@ public sealed class SearchPlacesHandlerTests
             new List<OpeningHoursWindowModel>(),
             new List<PlaceAttributeModel>
             {
-                new("foursquare", "category", "Hotel")
+                new("category", "Hotel")
             });
 
         _mapperMock
@@ -325,7 +325,6 @@ public sealed class SearchPlacesHandlerTests
         var model = result.Results[0];
         Assert.AreEqual("Gran Palace", model.Name);
         Assert.AreEqual(1, model.Attributes.Count);
-        Assert.AreEqual("foursquare", model.Attributes[0].Provider);
         Assert.AreEqual("category", model.Attributes[0].Key);
         Assert.AreEqual("Hotel", model.Attributes[0].Value);
     }

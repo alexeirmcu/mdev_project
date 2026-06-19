@@ -1,3 +1,3 @@
 namespace SmartTripPlanner.Domain.ApiModels;
 
-public record PlaceAttributeModel(string Provider, string Key, string Value);
+public record PlaceAttributeModel(string Key, string Value);

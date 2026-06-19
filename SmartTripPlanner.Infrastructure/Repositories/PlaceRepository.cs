@@ -20,6 +20,59 @@ public class PlaceRepository : IPlaceRepository
 
     public IUnitOfWork UnitOfWork => _context;
 
+    private async Task<ICollection<PlaceAttribute>> ResolveAttributesAsync(IEnumerable<PlaceAttribute> attributes)
+    {
+        var resolved = new List<PlaceAttribute>();
+        var seen = new Dictionary<string, PlaceAttribute>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var attr in attributes)
+        {
+            var normalizedProvider = attr.Provider.ToLowerInvariant();
+            var normalizedKey = attr.Key.ToLowerInvariant();
+            var normalizedValue = attr.Value.ToLowerInvariant();
+            var lookupKey = $"{normalizedProvider}|{normalizedKey}|{normalizedValue}";
+
+            // Deduplicate within this resolution batch
+            if (seen.TryGetValue(lookupKey, out var cached))
+            {
+                resolved.Add(cached);
+                continue;
+            }
+
+            // Query database for already-saved entities
+            var existing = await _context.PlaceAttributes
+                .FirstOrDefaultAsync(a =>
+                    a.Provider.ToLower() == normalizedProvider &&
+                    a.Key.ToLower() == normalizedKey &&
+                    a.Value.ToLower() == normalizedValue);
+
+            // Fallback: check locally tracked entities (Added but not yet persisted)
+            if (existing == null)
+            {
+                existing = _context.PlaceAttributes.Local
+                    .FirstOrDefault(a =>
+                        a.Provider.ToLowerInvariant() == normalizedProvider &&
+                        a.Key.ToLowerInvariant() == normalizedKey &&
+                        a.Value.ToLowerInvariant() == normalizedValue);
+            }
+
+            if (existing != null)
+            {
+                resolved.Add(existing);
+                seen[lookupKey] = existing;
+            }
+            else
+            {
+                var created = new PlaceAttribute(attr.Provider, attr.Key, attr.Value);
+                _context.PlaceAttributes.Add(created);
+                resolved.Add(created);
+                seen[lookupKey] = created;
+            }
+        }
+
+        return resolved;
+    }
+
     public async Task<List<Place>> SearchAsync(string query, string cityCode, int maxResults = 20)
     {
         // Database-agnostic case-insensitive search using ToLower() on both sides
@@ -64,7 +117,8 @@ public class PlaceRepository : IPlaceRepository
 
         if (interests != null && interests.Any())
         {
-            query = query.Where(p => p.Attributes.Any(a => interests.Contains(a.Value)));
+            var lowerInterests = interests.Select(i => i.ToLower()).ToList();
+            query = query.Where(p => p.Attributes.Any(a => lowerInterests.Contains(a.Value.ToLower())));
         }
 
         return await query
@@ -93,6 +147,10 @@ public class PlaceRepository : IPlaceRepository
         foreach (var place in places)
         {
             var existing = await GetByProviderReferenceIdAsync(place.ProviderReferenceId);
+
+            // Resolve attributes: find-or-create by normalized (Provider, Key, Value)
+            var resolvedAttributes = await ResolveAttributesAsync(place.Attributes);
+
             if (existing != null)
             {
                 if (existing.IsAutoUpdateEnabled)
@@ -103,7 +161,7 @@ public class PlaceRepository : IPlaceRepository
                         place.TypicalDurationMinutes,
                         place.IsIndoor,
                         place.IsFamilyFriendly,
-                        place.Attributes);
+                        resolvedAttributes);
                 }
                 else
                 {
@@ -114,6 +172,11 @@ public class PlaceRepository : IPlaceRepository
             }
             else
             {
+                // Replace incoming attributes with resolved (tracked) entities
+                place.Attributes.Clear();
+                foreach (var attr in resolvedAttributes)
+                    place.Attributes.Add(attr);
+
                 await _context.Places.AddAsync(place);
             }
         }

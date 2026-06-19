@@ -17,39 +17,40 @@ public sealed class PlaceAttributeTests
     }
 
     [TestMethod]
-    public void Equality_SameValues_AreEqual()
+    public void Id_Default_IsZero_Transient()
+    {
+        var attr = new PlaceAttribute("foursquare", "category", "Hotel");
+
+        Assert.AreEqual(0L, attr.Id);
+        Assert.IsTrue(attr.IsTransient());
+    }
+
+    [TestMethod]
+    public void EntityEquals_SameIdentity_AreEqual()
     {
         var attr1 = new PlaceAttribute("foursquare", "category", "Hotel");
         var attr2 = new PlaceAttribute("foursquare", "category", "Hotel");
 
+        // Entity equality is identity-based — transient (Id=0) objects are NOT equal
+        Assert.IsFalse(attr1.Equals(attr2));
+        Assert.AreNotEqual(attr1.GetHashCode(), attr2.GetHashCode());
+    }
+
+    [TestMethod]
+    public void EntityEquals_SameId_AreEqual()
+    {
+        var attr1 = new PlaceAttribute(1, "foursquare", "category", "Hotel");
+        var attr2 = new PlaceAttribute(1, "foursquare", "category", "Hotel");
+
         Assert.AreEqual(attr1, attr2);
-        Assert.IsTrue(attr1.Equals(attr2));
         Assert.AreEqual(attr1.GetHashCode(), attr2.GetHashCode());
     }
 
     [TestMethod]
-    public void Equality_DifferentValues_AreNotEqual()
+    public void EntityEquals_DifferentId_AreNotEqual()
     {
-        var attr1 = new PlaceAttribute("foursquare", "category", "Hotel");
-        var attr2 = new PlaceAttribute("foursquare", "category", "Restaurant");
-
-        Assert.AreNotEqual(attr1, attr2);
-    }
-
-    [TestMethod]
-    public void Equality_DifferentKey_AreNotEqual()
-    {
-        var attr1 = new PlaceAttribute("foursquare", "category", "Hotel");
-        var attr2 = new PlaceAttribute("foursquare", "chain", "Hotel");
-
-        Assert.AreNotEqual(attr1, attr2);
-    }
-
-    [TestMethod]
-    public void Equality_DifferentProvider_AreNotEqual()
-    {
-        var attr1 = new PlaceAttribute("foursquare", "category", "Hotel");
-        var attr2 = new PlaceAttribute("google", "category", "Hotel");
+        var attr1 = new PlaceAttribute(1, "foursquare", "category", "Hotel");
+        var attr2 = new PlaceAttribute(2, "foursquare", "category", "Museum");
 
         Assert.AreNotEqual(attr1, attr2);
     }

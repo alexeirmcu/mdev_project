@@ -15,7 +15,7 @@ Implement the Place domain entity, its local repository, and the Foursquare API 
 - `IsFamilyFriendly` (bool) — default true.
 - `Location` — `PlaceLocation` ValueObject (OwnsOne).
 - `OpeningHours` — `List<OpeningHoursWindow>` (OwnsMany).
-- `Attributes` — `List<PlaceAttribute>` (OwnsMany, default empty).
+- `Attributes` — `List<PlaceAttribute>` (HasMany-through-join-table, default empty). Relationship is many-to-many via explicit join entity `PlacePlaceAttributes`. `PlaceAttribute` is a shared entity, not owned.
 - `AddAttribute(PlaceAttribute)` — method that appends to the `Attributes` collection (null check enforced).
 
 ### FR2: OpeningHoursWindow ValueObject
@@ -31,22 +31,22 @@ Implement the Place domain entity, its local repository, and the Foursquare API 
 - Value equality based on both coordinates.
 
 ### FR4: IPlaceRepository
+
 ```csharp
 namespace SmartTripPlanner.Domain.Repository;
 
 public interface IPlaceRepository : IRepository<Place>
 {
-    Task<List<Place>> SearchAsync(string query, string cityId, int maxResults = 20);
-    Task<Place?> GetByPlaceIdAsync(string placeId);
+    Task<List<Place>> SearchAsync(string query, string cityCode, int maxResults = 20);
+    Task<Place?> GetByProviderReferenceIdAsync(string providerReferenceId);
+    Task<IEnumerable<Place>> GetManyByIdsAsync(IEnumerable<long> placeIds, CancellationToken ct);
+    Task<List<Place>> GetManyByCityIdAsync(long cityId, CancellationToken ct = default);
+    Task<List<Place>> GetCandidatesByCityAndInterestsAsync(long cityId, IReadOnlyList<string> interests, CancellationToken ct = default);
+    Task<List<string>> GetDistinctAttributeValuesByCityCodeAsync(string cityCode, CancellationToken ct = default);
+    Task AddRangeAsync(IEnumerable<Place> places);
+    Task UpsertRangeAsync(IEnumerable<Place> places);
 }
 ```
-
-### FR5: PlaceRepository (Infrastructure)
-- EF Core implementation in `SmartTripPlanner.Infrastructure/Repositories/PlaceRepository.cs`.
-- `PlaceConfiguration` in `SmartTripPlanner.Infrastructure/Configurations/PlaceConfiguration.cs`.
-- Register `IPlaceRepository` in `InfrastructureServiceRegistration`.
-- **Cascade logic**: `SearchAsync` queries local DB first. If no results, calls `IPlaceExternalService.SearchPlacesAsync`, and returns mapped `Place` list without persisting.
-- **Attribute search**: `SearchAsync(query, cityCode, maxResults)` MUST match places where `Name.Contains(query)` OR any `Attribute.Value.Contains(query)` (case-insensitive) within the specified city. The query MUST include `Attributes` via EF Core `Include`.
 
 #### Scenario: Cascade search uses port instead of direct Foursquare dependency
 - GIVEN a `PlaceRepository` with `IPlaceExternalService` injected
@@ -60,20 +60,58 @@ public interface IPlaceRepository : IRepository<Place>
 - THEN it returns the local results
 - AND `IPlaceExternalService.SearchPlacesAsync` is NOT called
 
-#### Scenario: Search matches attribute value
-- GIVEN a Place with Name="Gran Palace" and Attribute("foursquare","category","Hotel") in city "MAD"
-- WHEN SearchAsync("hotel", "MAD") is called
+#### Scenario: Search matches attribute value through join table
+- GIVEN a Place with Name="Gran Palace" linked to PlaceAttribute(Value="Hotel") via join table in city "MAD"
+- WHEN `SearchAsync("hotel", "MAD")` is called
 - THEN the Place is returned
 
-#### Scenario: Existing name search preserved
-- GIVEN a Place with Name="Hotel California" in city "MAD"
-- WHEN SearchAsync("hotel", "MAD") is called
-- THEN the Place is returned
+#### Scenario: Interest-filtered candidate retrieval returns matching places via join table
+- GIVEN a city with places linked to shared PlaceAttribute entities "museum", "history", "food" via join table
+- WHEN `GetCandidatesByCityAndInterestsAsync(cityId, ["museum", "food"])` is called
+- THEN only places linked to at least one PlaceAttribute whose Value matches any interest are returned
+- AND matching is inclusive (place matches if ANY linked attribute matches ANY interest)
 
-#### Scenario: Search matches chain attribute
-- GIVEN a Place with Attribute("foursquare","chain","McDonald's") in city "MAD"
-- WHEN SearchAsync("mcdonalds", "MAD") is called
-- THEN the Place is returned
+#### Scenario: Interest filtering falls back gracefully
+- GIVEN a city with places having no attributes matching ["underwater"]
+- WHEN `GetCandidatesByCityAndInterestsAsync(cityId, ["underwater"])` is called
+- THEN an empty list is returned (not an exception)
+
+#### Scenario: Distinct attribute values per city code via join table
+- GIVEN a city with places linked to shared PlaceAttribute entities via join table
+- WHEN `GetDistinctAttributeValuesByCityCodeAsync("madrid-es")` is called
+- THEN distinct PlaceAttribute.Value strings are returned (no duplicates)
+
+### FR5: PlaceRepository (Infrastructure)
+- EF Core implementation in `SmartTripPlanner.Infrastructure/Repositories/PlaceRepository.cs`.
+- `PlaceConfiguration` in `SmartTripPlanner.Infrastructure/Configurations/PlaceConfiguration.cs` configures `HasMany(p => p.Attributes).WithMany()` using explicit join entity `PlacePlaceAttributes`.
+- A case-insensitive unique index is applied on `PlaceAttribute(Provider, Key, Value)`.
+- Register `IPlaceRepository` in `InfrastructureServiceRegistration`.
+- **Cascade logic**: `SearchAsync` queries local DB first. If no results, calls `IPlaceExternalService.SearchPlacesAsync`, and returns mapped `Place` list without persisting.
+- **Attribute search**: `SearchAsync(query, cityCode, maxResults)` MUST match places where `Name.Contains(query)` OR any `Attribute.Value.Contains(query)` (case-insensitive) within the specified city. The query MUST include `Attributes` via EF Core `Include` through join table.
+- **Interest-filtered query**: `GetCandidatesByCityAndInterestsAsync` MUST filter candidates in SQL through the join table linking Places to PlaceAttributes. `GetDistinctAttributeValuesByCityCodeAsync` MUST query distinct PlaceAttribute.Value strings through the join table in SQL.
+- **UpsertRangeAsync attribute resolution**: `UpsertRangeAsync` MUST resolve attributes using find-or-create: for each attribute on an incoming Place, check if a PlaceAttribute with matching (Provider, Key, Value) already exists (case-insensitive). If found, link the existing entity to the Place. If not found, create and persist a new PlaceAttribute entity, then link it.
+
+#### Scenario: Interest filtering is performed in SQL, not in-memory
+- GIVEN PlaceRepository with `GetCandidatesByCityAndInterestsAsync`
+- WHEN the method is called with interests ["museum"]
+- THEN the generated SQL includes a WHERE clause filtering on PlaceAttribute.Value
+- AND no in-memory `.Where()` is applied after materialization
+
+#### Scenario: Distinct attribute values query is performed in SQL
+- GIVEN PlaceRepository with `GetDistinctAttributeValuesByCityCodeAsync`
+- WHEN the method is called with cityCode "madrid-es"
+- THEN the generated SQL includes SELECT DISTINCT on PlaceAttribute.Value
+- AND no in-memory `.Distinct()` is applied after full table materialization
+
+#### Scenario: UpsertRangeAsync finds existing attribute and links
+- GIVEN PlaceAttribute (Provider="foursquare", Key="category", Value="Museum") already exists in DB
+- WHEN `UpsertRangeAsync` processes a new Place with the same attribute
+- THEN the existing PlaceAttribute row is linked via join table (no duplicate row created)
+
+#### Scenario: UpsertRangeAsync creates new attribute when not found
+- GIVEN no PlaceAttribute with (Provider="foursquare", Key="category", Value="Aquarium") exists
+- WHEN `UpsertRangeAsync` processes a Place with this attribute
+- THEN a new PlaceAttribute row is created and linked to the Place via join table
 
 ### FR6: IFoursquareApiClient (internal)
 `IFoursquareApiClient` remains in Infrastructure and is unchanged. It is now consumed exclusively by `FoursquarePlaceService`. All Foursquare DTOs (`FoursquarePlace`, etc.) and mappers (`FoursquareCategoryHeuristics`) become `internal` — no layer outside Infrastructure may reference them.
@@ -158,20 +196,35 @@ The Infrastructure layer MUST implement `IPlaceExternalService` via a `Foursquar
 - THEN Place.Attributes contains corresponding PlaceAttribute entries with Provider="foursquare", Key="category"
 
 ### FR12: PlaceModel Attributes
-`PlaceModel` MUST include `IReadOnlyList<PlaceAttributeModel> Attributes`. `PlaceAttributeModel` is a record with `Provider`, `Key`, `Value` (all string). `AutoMapperProfile` MUST map `PlaceAttribute` to `PlaceAttributeModel`.
+`PlaceModel` MUST include `IReadOnlyList<PlaceAttributeModel> Attributes`. `PlaceAttributeModel` is a record with `Key` and `Value` (string). `Provider` and `Id` MUST NOT be exposed in `PlaceAttributeModel`. `AutoMapperProfile` MUST map `PlaceAttribute` to `PlaceAttributeModel` projecting only `Key` and `Value`.
 
-#### Scenario: Attributes returned in API response
-- GIVEN a Place with two attributes
+#### Scenario: Attributes returned in API response without Provider or Id
+- GIVEN a Place with a linked PlaceAttribute (Provider="foursquare", Key="category", Value="Hotel", Id=42)
 - WHEN mapped to PlaceModel via AutoMapper
-- THEN PlaceModel.Attributes contains matching PlaceAttributeModel entries
+- THEN PlaceModel.Attributes contains a PlaceAttributeModel with Key="category", Value="Hotel"
+- AND the PlaceAttributeModel does NOT contain Provider or Id fields
 
 ### FR13: EF Core PlaceAttribute Configuration
-`PlaceConfiguration` MUST configure `OwnsMany(p => p.Attributes, ...)` with separate table "PlaceAttributes", foreign key "PlaceId", and properties: Provider (max 100, required), Key (max 100, required), Value (max 500, required). A composite index on `(PlaceId, Value)` SHOULD be applied for search performance.
+`PlaceConfiguration` MUST configure the many-to-many relationship between `Place` and `PlaceAttribute` using an explicit join entity `PlacePlaceAttributes` with foreign keys `PlaceId` and `PlaceAttributeId`. `PlaceAttribute` MUST be configured as a separate entity with its own `DbSet<PlaceAttribute>` in `PlannerDbContext` and a dedicated `PlaceAttributeConfiguration` class. A case-insensitive unique index MUST be applied on `(Provider, Key, Value)`.
 
-#### Scenario: Attributes persisted and loaded
-- GIVEN a Place with attributes saved via EF Core
-- WHEN the Place is retrieved with Include
-- THEN all Attributes are loaded with correct values
+#### Scenario: Attributes persisted through join table and loaded
+- GIVEN a Place linked to shared PlaceAttribute entities via join table
+- WHEN the Place is retrieved with Include on Attributes
+- THEN all linked Attributes are loaded with correct values
+
+### FR14: Delete and recreate migrations
+All existing EF Core migration files MUST be deleted. A single `InitialCreate` migration MUST be generated that captures the full schema including the `PlacePlaceAttributes` join table, `PlaceAttribute` as an entity with `Id`, and the case-insensitive unique index on `(Provider, Key, Value)`. The `__EFMigrationsHistory` table MUST start fresh with no prior migration history.
+
+#### Scenario: Fresh database applies InitialCreate
+- GIVEN a blank database
+- WHEN the InitialCreate migration is applied
+- THEN all tables (Places, PlaceAttributes, PlacePlaceAttributes, Cities, etc.) are created with correct schema
+- AND the migration history contains only the InitialCreate entry
+
+#### Scenario: No legacy migrations remain
+- GIVEN the source code after migration cleanup
+- WHEN the Migrations folder is inspected
+- THEN only the InitialCreate migration file exists (plus snapshot)
 
 ## Non-Functional Requirements
 - Strict TDD — tests define contracts before implementation.
@@ -233,10 +286,11 @@ The Infrastructure layer MUST implement `IPlaceExternalService` via a `Foursquar
 - External service failure (exception) returns empty list (graceful degradation).
 - Results from external service are ephemeral (not persisted in DB).
 
-### AC8: PlaceAttribute ValueObject (enhance-place-search)
+### AC8: PlaceAttribute Entity (normalize-place-attributes)
 - Creating a valid PlaceAttribute with Provider, Key, Value succeeds.
 - Creating with null/empty Provider, Key, or Value throws SmartTripDomainException.
-- Two PlaceAttribute instances with same values are equal.
+- Two transient PlaceAttribute instances are NOT equal (identity-based equality; same-Id instances are equal).
+- PlaceAttribute is immutable — no public setters on Provider, Key, Value.
 
 ### AC9: Place Attributes Collection (enhance-place-search)
 - Place exposes an empty `Attributes` list by default.
@@ -253,13 +307,17 @@ The Infrastructure layer MUST implement `IPlaceExternalService` via a `Foursquar
 - FoursquarePlaceService maps API categories to PlaceAttribute entries with Provider="foursquare", Key="category".
 - Only Pro-tier Foursquare data is used — no premium fields.
 
-### AC12: PlaceModel Attributes (enhance-place-search)
+### AC12: PlaceModel Attributes (normalize-place-attributes)
 - PlaceModel includes an Attributes collection.
-- AutoMapper correctly maps PlaceAttribute to PlaceAttributeModel.
+- PlaceAttributeModel exposes only Key and Value (no Provider or Id).
+- AutoMapper maps PlaceAttribute to PlaceAttributeModel projecting Key+Value only.
 
-### AC13: Attribute Persistence (enhance-place-search)
-- Place attributes are persisted to a separate "PlaceAttributes" table.
-- Attributes are correctly loaded when Place is retrieved with Include.
+### AC13: Attribute Persistence (normalize-place-attributes)
+- Place attributes are persisted as shared entities with a join table (not owned).
+- A case-insensitive unique index on (Provider, Key, Value) is enforced at the database level.
+- Attributes are correctly loaded when Place is retrieved with Include through join table.
+- Duplicate attributes across places result in one PlaceAttribute row linked via the join table.
+- Orphaned PlaceAttribute rows (with no Place references) are retained.
 
 ## Infrastructure Dependencies
 - `Microsoft.EntityFrameworkCore.InMemory` package for infrastructure tests (already added in Phase 1).

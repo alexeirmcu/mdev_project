@@ -90,9 +90,9 @@ public sealed class FoursquarePlaceServiceTests
         Assert.IsTrue(first.IsIndoor);
         Assert.IsTrue(first.IsFamilyFriendly);
         Assert.AreEqual(1, first.Attributes.Count);
-        Assert.AreEqual("foursquare", first.Attributes[0].Provider);
-        Assert.AreEqual("category", first.Attributes[0].Key);
-        Assert.AreEqual("Museum", first.Attributes[0].Value);
+        Assert.AreEqual("foursquare", first.Attributes.First().Provider);
+        Assert.AreEqual("category", first.Attributes.First().Key);
+        Assert.AreEqual("Museum", first.Attributes.First().Value);
 
         var second = results[1];
         Assert.AreEqual("fsq_night_1", second.ProviderReferenceId);
@@ -100,9 +100,9 @@ public sealed class FoursquarePlaceServiceTests
         Assert.AreEqual(60, second.TypicalDurationMinutes);
         Assert.IsFalse(second.IsFamilyFriendly);
         Assert.AreEqual(1, second.Attributes.Count);
-        Assert.AreEqual("foursquare", second.Attributes[0].Provider);
-        Assert.AreEqual("category", second.Attributes[0].Key);
-        Assert.AreEqual("Nightclub", second.Attributes[0].Value);
+        Assert.AreEqual("foursquare", second.Attributes.First().Provider);
+        Assert.AreEqual("category", second.Attributes.First().Key);
+        Assert.AreEqual("Nightclub", second.Attributes.First().Value);
     }
 
     [TestMethod]
@@ -235,7 +235,7 @@ public sealed class FoursquarePlaceServiceTests
         // Assert
         Assert.AreEqual(1, results.Count);
         Assert.AreEqual(1, results[0].Attributes.Count);
-        Assert.AreEqual("category", results[0].Attributes[0].Key);
+        Assert.AreEqual("category", results[0].Attributes.First().Key);
     }
 
     [TestMethod]

@@ -3,13 +3,19 @@ using SmartTripPlanner.Domain.Exceptions;
 
 namespace SmartTripPlanner.Domain.AggregatesModel;
 
-public class PlaceAttribute : ValueObject
+public class PlaceAttribute : Entity
 {
-    public string Provider { get; }
-    public string Key { get; }
-    public string Value { get; }
+    public string Provider { get; private set; }
+    public string Key { get; private set; }
+    public string Value { get; private set; }
 
-    private PlaceAttribute() { }
+    private PlaceAttribute() { Provider = null!; Key = null!; Value = null!; }
+
+    internal PlaceAttribute(long id, string provider, string key, string value)
+        : this(provider, key, value)
+    {
+        Id = id;
+    }
 
     public PlaceAttribute(string provider, string key, string value)
     {
@@ -24,12 +30,5 @@ public class PlaceAttribute : ValueObject
         Value = value ?? throw new SmartTripDomainException("Value cannot be null.");
         if (value == string.Empty)
             throw new SmartTripDomainException("Value cannot be empty.");
-    }
-
-    protected override IEnumerable<object> GetEqualityComponents()
-    {
-        yield return Provider;
-        yield return Key;
-        yield return Value;
     }
 }

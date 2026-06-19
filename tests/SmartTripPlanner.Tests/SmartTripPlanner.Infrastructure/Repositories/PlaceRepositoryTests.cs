@@ -391,4 +391,137 @@ public sealed class PlaceRepositoryTests
         Assert.AreEqual(1, results[0].OpeningHours.Count);
         Assert.AreEqual(DayOfWeek.Monday, results[0].OpeningHours[0].DayOfWeek);
     }
+
+    [TestMethod]
+    public async Task SavePlace_PreservesAttributes_AsSeparateEntities()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        var place = new Place("fsq_palace", "Gran Palace", madrid.Id,
+            new PlaceLocation(40.4168, -3.7038));
+        place.AddAttribute(new PlaceAttribute("foursquare", "category", "Hotel"));
+        place.AddAttribute(new PlaceAttribute("foursquare", "chain", "Iberostar"));
+        db.Places.Add(place);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+
+        // Verify attribute entities exist in PlaceAttributes table separately
+        var attributeCount = await db.PlaceAttributes.CountAsync();
+        Assert.AreEqual(2, attributeCount);
+
+        // Verify join table rows exist
+        var joinCount = await db.PlacePlaceAttributes.CountAsync();
+        Assert.AreEqual(2, joinCount);
+
+        // Verify place can be loaded with attributes through join table
+        var saved = await repo.GetByProviderReferenceIdAsync("fsq_palace");
+        Assert.IsNotNull(saved);
+        Assert.AreEqual(2, saved.Attributes.Count);
+    }
+
+    [TestMethod]
+    public async Task UpsertRangeAsync_FindOrCreate_SharedAttribute_NoDuplicateRows()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+
+        // First place with attribute
+        var place1 = new Place("fsq_a", "Place A", madrid.Id, new PlaceLocation(40.0, -3.0));
+        place1.AddAttribute(new PlaceAttribute("foursquare", "category", "Museum"));
+        await repo.UpsertRangeAsync(new[] { place1 });
+        await repo.UnitOfWork.SaveChangesAsync();
+
+        // Verify first place added and attribute created
+        Assert.AreEqual(1, await db.PlaceAttributes.CountAsync());
+        Assert.AreEqual(1, await db.PlacePlaceAttributes.CountAsync());
+
+        // Second place with SAME attribute value — should reuse existing attribute
+        var existingAttr = await db.PlaceAttributes.FirstAsync();
+        var place2 = new Place("fsq_b", "Place B", madrid.Id, new PlaceLocation(41.0, -4.0));
+        place2.AddAttribute(new PlaceAttribute("foursquare", "category", "Museum"));
+        await repo.UpsertRangeAsync(new[] { place2 });
+        await repo.UnitOfWork.SaveChangesAsync();
+
+        // Only one PlaceAttribute row should exist
+        Assert.AreEqual(1, await db.PlaceAttributes.CountAsync());
+
+        // Two join table rows should exist
+        Assert.AreEqual(2, await db.PlacePlaceAttributes.CountAsync());
+
+        // Both places should have the attribute loaded
+        var savedA = await db.Places.Include(p => p.Attributes).FirstAsync(p => p.ProviderReferenceId == "fsq_a");
+        var savedB = await db.Places.Include(p => p.Attributes).FirstAsync(p => p.ProviderReferenceId == "fsq_b");
+        Assert.AreEqual(1, savedA.Attributes.Count);
+        Assert.AreEqual(1, savedB.Attributes.Count);
+        Assert.AreSame(savedA.Attributes.First(), savedB.Attributes.First());
+    }
+
+    [TestMethod]
+    public async Task UpsertRangeAsync_FindOrCreate_CreatesNewAttribute_WhenNotFound()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+
+        var place = new Place("fsq_new", "New Place", madrid.Id, new PlaceLocation(40.0, -3.0));
+        place.AddAttribute(new PlaceAttribute("foursquare", "category", "Aquarium"));
+        await repo.UpsertRangeAsync(new[] { place });
+        await repo.UnitOfWork.SaveChangesAsync();
+
+        // New attribute should be created
+        Assert.AreEqual(1, await db.PlaceAttributes.CountAsync());
+        var attr = await db.PlaceAttributes.FirstAsync();
+        Assert.AreEqual("Aquarium", attr.Value);
+    }
+
+    [TestMethod]
+    public async Task GetDistinctInterestsByCityIdAsync_ReturnsDistinctValues()
+    {
+        using var db = CreateDbContext();
+        var madrid = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(madrid);
+        await db.SaveChangesAsync();
+
+        var place1 = new Place("fsq_a", "Place A", madrid.Id, new PlaceLocation(40.0, -3.0));
+        place1.AddAttribute(new PlaceAttribute("foursquare", "category", "Museum"));
+        place1.AddAttribute(new PlaceAttribute("foursquare", "category", "History"));
+        db.Places.Add(place1);
+
+        var place2 = new Place("fsq_b", "Place B", madrid.Id, new PlaceLocation(41.0, -4.0));
+        place2.AddAttribute(new PlaceAttribute("foursquare", "category", "Museum"));
+        place2.AddAttribute(new PlaceAttribute("foursquare", "chain", "Food"));
+        db.Places.Add(place2);
+
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var interests = await repo.GetDistinctInterestsByCityIdAsync(madrid.Id);
+
+        Assert.AreEqual(3, interests.Count);
+        CollectionAssert.Contains(interests.ToList(), "Museum");
+        CollectionAssert.Contains(interests.ToList(), "History");
+        CollectionAssert.Contains(interests.ToList(), "Food");
+    }
+
+    [TestMethod]
+    public async Task GetDistinctInterestsByCityIdAsync_ReturnsEmpty_WhenNoPlaces()
+    {
+        using var db = CreateDbContext();
+        var repo = CreateRepository(db);
+
+        var interests = await repo.GetDistinctInterestsByCityIdAsync(999);
+
+        Assert.AreEqual(0, interests.Count);
+    }
 }
