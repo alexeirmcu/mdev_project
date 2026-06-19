@@ -180,4 +180,91 @@ public sealed class TransitEnricherTests
         // Both locations null → transit should be null
         Assert.IsNull(act1.TransitToNext);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Hotel transit tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task EnrichAsync_HotelTransit_PopulatedWhenBaseHotelPresent()
+    {
+        var trip = CreateTrip(dayCount: 1);
+        var hotelLocation = new PlaceLocation(40.4168, -3.7038);
+        var activityLocation = new PlaceLocation(40.4200, -3.7100);
+
+        var act = new ActivityNode(1, "Place A", 1, 60, location: activityLocation);
+        trip.Days[0].AddActivity(BlockType.Morning, act);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        var morning = trip.Days[0].Morning;
+        Assert.IsNotNull(morning.TransitFromHotel, "TransitFromHotel should be computed when BaseHotel is set");
+        Assert.IsNotNull(morning.TransitToHotel, "TransitToHotel should be computed when BaseHotel is set");
+        Assert.IsTrue(morning.TransitFromHotel.DurationMinutes > 0);
+        Assert.IsTrue(morning.TransitToHotel.DurationMinutes > 0);
+    }
+
+    [TestMethod]
+    public async Task EnrichAsync_HotelTransit_NullWhenBaseHotelNull()
+    {
+        var trip = CreateTrip(dayCount: 1);
+        trip.BaseHotel = null; // Remove hotel
+
+        var act = new ActivityNode(1, "Place A", 1, 60, location: new PlaceLocation(40.4200, -3.7100));
+        trip.Days[0].AddActivity(BlockType.Morning, act);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        var morning = trip.Days[0].Morning;
+        Assert.IsNull(morning.TransitFromHotel);
+        Assert.IsNull(morning.TransitToHotel);
+    }
+
+    [TestMethod]
+    public async Task EnrichAsync_HotelTransit_NullForEmptyBlock()
+    {
+        var trip = CreateTrip(dayCount: 1);
+        // No activities added to Morning block
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        var morning = trip.Days[0].Morning;
+        Assert.IsNull(morning.TransitFromHotel);
+        Assert.IsNull(morning.TransitToHotel);
+    }
+
+    [TestMethod]
+    public async Task EnrichAsync_HotelTransit_RespectsTransportModeRules()
+    {
+        // Set car available and long distance from hotel to first activity
+        var trip = CreateTrip(dayCount: 1);
+        trip.Preferences = new TripPreferences(carAvailable: true, 30, true);
+
+        // Hotel near Madrid center (40.4168, -3.7038), activity far away (Toledo ~65km)
+        var activityLocation = new PlaceLocation(39.8628, -4.0273);
+        var act = new ActivityNode(1, "Toledo", 1, 60, location: activityLocation);
+        trip.Days[0].AddActivity(BlockType.Morning, act);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        var morning = trip.Days[0].Morning;
+        Assert.IsNotNull(morning.TransitFromHotel);
+
+        // Long distance with car available → should be CAR or at least have a valid mode
+        Assert.IsTrue(
+            morning.TransitFromHotel.TransportMode == TransportMode.CAR,
+            "Long distance from hotel with car available should use CAR");
+    }
 }

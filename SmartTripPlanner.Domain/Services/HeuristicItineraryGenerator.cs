@@ -15,17 +15,20 @@ public class HeuristicItineraryGenerator : IItineraryGenerator
     private readonly IUnpinnedMustSeePlacer _unpinnedPlacer;
     private readonly ICandidateFiller _candidateFiller;
     private readonly ITransitEnricher _transitEnricher;
+    private readonly ITimelineScheduler _timelineScheduler;
 
     public HeuristicItineraryGenerator(
         IPinnedMustSeePlacer pinnedPlacer,
         IUnpinnedMustSeePlacer unpinnedPlacer,
         ICandidateFiller candidateFiller,
-        ITransitEnricher transitEnricher)
+        ITransitEnricher transitEnricher,
+        ITimelineScheduler timelineScheduler)
     {
         _pinnedPlacer = pinnedPlacer;
         _unpinnedPlacer = unpinnedPlacer;
         _candidateFiller = candidateFiller;
         _transitEnricher = transitEnricher;
+        _timelineScheduler = timelineScheduler;
     }
 
     public async Task GenerateAsync(
@@ -79,6 +82,9 @@ public class HeuristicItineraryGenerator : IItineraryGenerator
 
         // Phase 5: Enrich with transit estimates and weather
         await _transitEnricher.EnrichAsync(trip, placesById, weatherData, ct);
+
+        // Phase 6: Compute wall-clock arrival/departure times
+        _timelineScheduler.Schedule(trip);
 
         // Fallback chain: if High must-sees remain unplaced, throw
         if (unplacedHigh.Count > 0)

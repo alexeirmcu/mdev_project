@@ -35,6 +35,7 @@ public static class ApplicationServicesRegistration
         services.AddScoped<IUnpinnedMustSeePlacer, UnpinnedMustSeePlacer>();
         services.AddScoped<ICandidateFiller, CandidateFiller>();
         services.AddScoped<ITransitEnricher, TransitEnricher>();
+        services.AddScoped<ITimelineScheduler, TimelineScheduler>();
 
         return services;
     }

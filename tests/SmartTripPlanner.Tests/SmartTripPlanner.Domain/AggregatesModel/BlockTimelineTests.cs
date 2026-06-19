@@ -142,4 +142,37 @@ public sealed class BlockTimelineTests
         var block = CreateMorningBlock();
         Assert.AreEqual(0, block.BlockTotalDurationMinutes);
     }
+
+    [TestMethod]
+    public void BlockTotalDurationMinutes_ExcludesHotelTransit()
+    {
+        var block = CreateMorningBlock();
+        block.TransitFromHotel = new TransitDetails(TransportMode.WALK_AND_PUBLIC_TRANSPORT, 15, 5, false);
+        block.TransitToHotel = new TransitDetails(TransportMode.WALK_AND_PUBLIC_TRANSPORT, 20, 5, false);
+        var activity = CreateActivity(60);
+        block.AddActivity(activity);
+
+        // Activity duration only (60), not hotel transit
+        Assert.AreEqual(60, block.BlockTotalDurationMinutes);
+    }
+
+    [TestMethod]
+    public void BlockWallClockDurationMinutes_IncludesHotelTransit()
+    {
+        var block = CreateMorningBlock();
+        block.TransitFromHotel = new TransitDetails(TransportMode.WALK_AND_PUBLIC_TRANSPORT, 15, 5, false);
+        block.TransitToHotel = new TransitDetails(TransportMode.WALK_AND_PUBLIC_TRANSPORT, 20, 5, false);
+        var activity = CreateActivity(60);
+        block.AddActivity(activity);
+
+        // 15 (from hotel) + 60 (activity) + 20 (to hotel) = 95
+        Assert.AreEqual(95, block.BlockWallClockDurationMinutes);
+    }
+
+    [TestMethod]
+    public void BlockWallClockDurationMinutes_Zero_WhenNoHotelTransitAndNoActivities()
+    {
+        var block = CreateMorningBlock();
+        Assert.AreEqual(0, block.BlockWallClockDurationMinutes);
+    }
 }

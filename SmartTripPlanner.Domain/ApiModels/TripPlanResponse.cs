@@ -26,10 +26,18 @@ public class DayPlanResponse
     public List<BlockResponse> Blocks { get; set; } = new();
 }
 
+public record TransitResponse(
+    string TransportMode,
+    int DurationMinutes,
+    int BufferMinutes,
+    bool FrictionAlert);
+
 public class BlockResponse
 {
     public string BlockType { get; set; } = string.Empty;
     public int TotalDurationMinutes { get; set; }
+    public TransitResponse? TransitFromHotel { get; set; }
+    public TransitResponse? TransitToHotel { get; set; }
     public List<ActivityResponse> Activities { get; set; } = new();
 }
 
@@ -45,4 +53,6 @@ public class ActivityResponse
     public int TransitDurationMinutes { get; set; }
     public int BufferMinutes { get; set; }
     public bool FrictionAlert { get; set; }
+    public int? EstimatedArrival { get; set; }
+    public int? EstimatedDeparture { get; set; }
 }

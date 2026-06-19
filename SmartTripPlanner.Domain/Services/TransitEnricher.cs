@@ -30,7 +30,8 @@ public class TransitEnricher : ITransitEnricher
             // Calculate transit between consecutive activities in each block
             foreach (var blockType in new[] { BlockType.Morning, BlockType.Afternoon, BlockType.Evening })
             {
-                var activities = dayPlan.GetBlock(blockType).Activities;
+                var block = dayPlan.GetBlock(blockType);
+                var activities = block.Activities;
                 for (int i = 0; i < activities.Count; i++)
                 {
                     if (i < activities.Count - 1)
@@ -49,6 +50,32 @@ public class TransitEnricher : ITransitEnricher
 
                             fromActivity.TransitToNext = transit;
                         }
+                    }
+                }
+
+                // Hotel transit: hotel → first activity, last activity → hotel
+                if (trip.BaseHotel is not null && activities.Count > 0)
+                {
+                    var hotelLocation = new PlaceLocation(trip.BaseHotel.Latitude, trip.BaseHotel.Longitude);
+
+                    // Transit from hotel to first activity
+                    if (activities[0].Location is not null)
+                    {
+                        block.TransitFromHotel = await AssignTransitAsync(
+                            hotelLocation,
+                            activities[0].Location,
+                            trip.Preferences,
+                            ct);
+                    }
+
+                    // Transit from last activity to hotel
+                    if (activities[^1].Location is not null)
+                    {
+                        block.TransitToHotel = await AssignTransitAsync(
+                            activities[^1].Location,
+                            hotelLocation,
+                            trip.Preferences,
+                            ct);
                     }
                 }
             }

@@ -40,6 +40,10 @@ public class AutoMapperProfile : Profile
             .ForCtorParam("DefaultStartHour", opt => opt.MapFrom(src => src.DefaultStartTime.ToString("HH:mm")))
             .ForMember(dest => dest.Days, opt => opt.MapFrom(src => src.Days));
 
+        // TransitDetails → TransitResponse (used for both inter-activity and hotel transit)
+        CreateMap<TransitDetails, TransitResponse>()
+            .ForMember(dest => dest.TransportMode, opt => opt.MapFrom(src => src.TransportMode.ToString()));
+
         // Itinerary response mappings
         CreateMap<ActivityNode, ActivityResponse>()
             .ForMember(dest => dest.PlaceId, opt => opt.MapFrom(src => src.PlaceId))
@@ -51,12 +55,16 @@ public class AutoMapperProfile : Profile
             .ForMember(dest => dest.TransportMode, opt => opt.MapFrom(src => src.TransitToNext != null ? src.TransitToNext.TransportMode.ToString() : string.Empty))
             .ForMember(dest => dest.TransitDurationMinutes, opt => opt.MapFrom(src => src.TransitToNext != null ? src.TransitToNext.DurationMinutes : 0))
             .ForMember(dest => dest.BufferMinutes, opt => opt.MapFrom(src => src.TransitToNext != null ? src.TransitToNext.BufferMinutes : 0))
-            .ForMember(dest => dest.FrictionAlert, opt => opt.MapFrom(src => src.TransitToNext != null ? src.TransitToNext.FrictionAlert : false));
+            .ForMember(dest => dest.FrictionAlert, opt => opt.MapFrom(src => src.TransitToNext != null ? src.TransitToNext.FrictionAlert : false))
+            .ForMember(dest => dest.EstimatedArrival, opt => opt.MapFrom(src => src.EstimatedArrival))
+            .ForMember(dest => dest.EstimatedDeparture, opt => opt.MapFrom(src => src.EstimatedDeparture));
 
         CreateMap<BlockTimeline, BlockResponse>()
             .ForMember(dest => dest.BlockType, opt => opt.MapFrom(src => src.BlockType.ToString()))
             .ForMember(dest => dest.TotalDurationMinutes, opt => opt.MapFrom(src => src.BlockTotalDurationMinutes))
-            .ForMember(dest => dest.Activities, opt => opt.MapFrom(src => src.Activities));
+            .ForMember(dest => dest.Activities, opt => opt.MapFrom(src => src.Activities))
+            .ForMember(dest => dest.TransitFromHotel, opt => opt.MapFrom(src => src.TransitFromHotel))
+            .ForMember(dest => dest.TransitToHotel, opt => opt.MapFrom(src => src.TransitToHotel));
 
         CreateMap<DayPlan, DayPlanResponse>()
             .ForMember(dest => dest.WeatherSummary, opt => opt.MapFrom(src => src.WeatherSummary.ToString()))

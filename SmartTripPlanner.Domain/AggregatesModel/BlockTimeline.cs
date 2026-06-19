@@ -7,7 +7,13 @@ namespace SmartTripPlanner.Domain.AggregatesModel;
 public class BlockTimeline : Entity
 {
     public BlockType BlockType { get; init; }
+    public TransitDetails? TransitFromHotel { get; set; }
+    public TransitDetails? TransitToHotel { get; set; }
     public int BlockTotalDurationMinutes => Activities.Sum(a => a.DurationMinutes + (a.TransitToNext?.DurationMinutes ?? 0));
+    public int BlockWallClockDurationMinutes =>
+        (TransitFromHotel?.DurationMinutes ?? 0) +
+        BlockTotalDurationMinutes +
+        (TransitToHotel?.DurationMinutes ?? 0);
     public List<ActivityNode> Activities { get; private set; } = new();
 
     public void AddActivity(ActivityNode activity)

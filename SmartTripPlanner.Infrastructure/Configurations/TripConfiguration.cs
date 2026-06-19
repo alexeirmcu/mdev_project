@@ -70,45 +70,60 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
             day.Property<long>("Id");
             day.HasKey("Id");
 
-            day.OwnsOne(d => d.Morning, m => m.OwnsMany(b => b.Activities, a =>
+            day.OwnsOne(d => d.Morning, m =>
             {
-                a.ToTable("MorningActivities");
-                a.WithOwner().HasForeignKey("DayPlanId");
-                a.Property<long>("Id");
-                a.HasKey("Id");
-                a.OwnsOne(ac => ac.TransitToNext);
-                a.OwnsOne(ac => ac.Location, loc =>
+                m.OwnsOne(b => b.TransitFromHotel);
+                m.OwnsOne(b => b.TransitToHotel);
+                m.OwnsMany(b => b.Activities, a =>
                 {
-                    loc.Property(l => l.Latitude).HasColumnName("Latitude");
-                    loc.Property(l => l.Longitude).HasColumnName("Longitude");
+                    a.ToTable("MorningActivities");
+                    a.WithOwner().HasForeignKey("DayPlanId");
+                    a.Property<long>("Id");
+                    a.HasKey("Id");
+                    a.OwnsOne(ac => ac.TransitToNext);
+                    a.OwnsOne(ac => ac.Location, loc =>
+                    {
+                        loc.Property(l => l.Latitude).HasColumnName("Latitude");
+                        loc.Property(l => l.Longitude).HasColumnName("Longitude");
+                    });
                 });
-            }));
-            day.OwnsOne(d => d.Afternoon, m => m.OwnsMany(b => b.Activities, a =>
+            });
+            day.OwnsOne(d => d.Afternoon, m =>
             {
-                a.ToTable("AfternoonActivities");
-                a.WithOwner().HasForeignKey("DayPlanId");
-                a.Property<long>("Id");
-                a.HasKey("Id");
-                a.OwnsOne(ac => ac.TransitToNext);
-                a.OwnsOne(ac => ac.Location, loc =>
+                m.OwnsOne(b => b.TransitFromHotel);
+                m.OwnsOne(b => b.TransitToHotel);
+                m.OwnsMany(b => b.Activities, a =>
                 {
-                    loc.Property(l => l.Latitude).HasColumnName("Latitude");
-                    loc.Property(l => l.Longitude).HasColumnName("Longitude");
+                    a.ToTable("AfternoonActivities");
+                    a.WithOwner().HasForeignKey("DayPlanId");
+                    a.Property<long>("Id");
+                    a.HasKey("Id");
+                    a.OwnsOne(ac => ac.TransitToNext);
+                    a.OwnsOne(ac => ac.Location, loc =>
+                    {
+                        loc.Property(l => l.Latitude).HasColumnName("Latitude");
+                        loc.Property(l => l.Longitude).HasColumnName("Longitude");
+                    });
                 });
-            }));
-            day.OwnsOne(d => d.Evening, m => m.OwnsMany(b => b.Activities, a =>
+            });
+            day.OwnsOne(d => d.Evening, m =>
             {
-                a.ToTable("EveningActivities");
-                a.WithOwner().HasForeignKey("DayPlanId");
-                a.Property<long>("Id");
-                a.HasKey("Id");
-                a.OwnsOne(ac => ac.TransitToNext);
-                a.OwnsOne(ac => ac.Location, loc =>
+                m.OwnsOne(b => b.TransitFromHotel);
+                m.OwnsOne(b => b.TransitToHotel);
+                m.OwnsMany(b => b.Activities, a =>
                 {
-                    loc.Property(l => l.Latitude).HasColumnName("Latitude");
-                    loc.Property(l => l.Longitude).HasColumnName("Longitude");
+                    a.ToTable("EveningActivities");
+                    a.WithOwner().HasForeignKey("DayPlanId");
+                    a.Property<long>("Id");
+                    a.HasKey("Id");
+                    a.OwnsOne(ac => ac.TransitToNext);
+                    a.OwnsOne(ac => ac.Location, loc =>
+                    {
+                        loc.Property(l => l.Latitude).HasColumnName("Latitude");
+                        loc.Property(l => l.Longitude).HasColumnName("Longitude");
+                    });
                 });
-            }));
+            });
         });
 
         builder.Metadata.FindNavigation(nameof(Trip.Days))?.SetPropertyAccessMode(PropertyAccessMode.Field);

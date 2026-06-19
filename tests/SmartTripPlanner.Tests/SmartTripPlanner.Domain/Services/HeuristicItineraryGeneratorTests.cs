@@ -14,6 +14,7 @@ public sealed class HeuristicItineraryGeneratorTests
 {
     private readonly Mock<ITransitCalculator> _transitMock;
     private readonly HeuristicItineraryGenerator _generator;
+    private readonly TimelineScheduler _timelineScheduler;
 
     public HeuristicItineraryGeneratorTests()
     {
@@ -23,12 +24,14 @@ public sealed class HeuristicItineraryGeneratorTests
         var unpinnedPlacer = new UnpinnedMustSeePlacer();
         var candidateFiller = new CandidateFiller(scorer);
         var transitEnricher = new TransitEnricher(_transitMock.Object);
+        _timelineScheduler = new TimelineScheduler();
 
         _generator = new HeuristicItineraryGenerator(
             pinnedPlacer,
             unpinnedPlacer,
             candidateFiller,
-            transitEnricher);
+            transitEnricher,
+            _timelineScheduler);
     }
 
     private static Mock<ITransitCalculator> CreateTransitCalculatorMock()
@@ -142,6 +145,18 @@ public sealed class HeuristicItineraryGeneratorTests
         Assert.AreEqual(1, day1.Morning.Activities.Count);
         Assert.AreEqual(1L, day1.Morning.Activities[0].PlaceId);
         Assert.AreEqual("Museo del Prado", day1.Morning.Activities[0].Name);
+
+        // Phase 6: Timeline scheduling populates arrival/departure
+        var activity = day1.Morning.Activities[0];
+        Assert.IsTrue(activity.EstimatedArrival > 0, "EstimatedArrival should be populated by TimelineScheduler");
+        Assert.IsTrue(activity.EstimatedDeparture > activity.EstimatedArrival,
+            "EstimatedDeparture should be after EstimatedArrival");
+
+        // Hotel transit should be populated (BaseHotel is set)
+        Assert.IsNotNull(day1.Morning.TransitFromHotel,
+            "TransitFromHotel should be populated when BaseHotel is set");
+        Assert.IsNotNull(day1.Morning.TransitToHotel,
+            "TransitToHotel should be populated when BaseHotel is set");
     }
 
     [TestMethod]
