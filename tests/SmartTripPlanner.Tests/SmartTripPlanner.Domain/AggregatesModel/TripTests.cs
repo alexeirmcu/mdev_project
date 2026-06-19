@@ -114,18 +114,58 @@ public sealed class TripTests
     }
 
     [TestMethod]
-    public void Status_DefaultIsCreated()
+    public void ClearDaysAndReset_ClearsDays()
     {
         var trip = CreateTrip();
-        Assert.AreEqual(TripStatus.CREATED, trip.Status);
+        trip.GenerateDays();
+        Assert.AreEqual(3, trip.Days.Count);
+
+        trip.ClearDaysAndReset();
+
+        Assert.AreEqual(0, trip.Days.Count);
+        Assert.IsFalse(trip.Days.Any());
     }
 
     [TestMethod]
-    public void UpdateStatus_ChangesStatus()
+    public void UpdateDates_WithValidRange_SetsDates()
     {
         var trip = CreateTrip();
-        trip.UpdateStatus(TripStatus.COMPLETED);
-        Assert.AreEqual(TripStatus.COMPLETED, trip.Status);
+        var start = new DateOnly(2026, 7, 1);
+        var end = new DateOnly(2026, 7, 5);
+
+        trip.UpdateDates(start, end);
+
+        Assert.AreEqual(start, trip.StartDate);
+        Assert.AreEqual(end, trip.EndDate);
+    }
+
+    [TestMethod]
+    public void UpdateDates_StartAfterEnd_ThrowsBusinessRuleException()
+    {
+        var trip = CreateTrip();
+
+        Assert.ThrowsExactly<BusinessRuleException>(() =>
+            trip.UpdateDates(new DateOnly(2026, 7, 5), new DateOnly(2026, 7, 1)));
+    }
+
+    [TestMethod]
+    public void UpdateDates_ExceedsMaxDuration_ThrowsBusinessRuleException()
+    {
+        var trip = CreateTrip();
+
+        Assert.ThrowsExactly<BusinessRuleException>(() =>
+            trip.UpdateDates(new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 20)));
+    }
+
+    [TestMethod]
+    public void UpdateBaseHotel_SetsHotel()
+    {
+        var trip = CreateTrip();
+        var hotel = new Location("New Hotel", 10.0, 20.0);
+
+        trip.UpdateBaseHotel(hotel);
+
+        Assert.AreEqual("New Hotel", trip.BaseHotel!.Name);
     }
 
     [TestMethod]

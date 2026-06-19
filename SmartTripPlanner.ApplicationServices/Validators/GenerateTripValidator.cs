@@ -29,35 +29,41 @@ public class GenerateTripValidator : AbstractValidator<GenerateTrip>
             .WithMessage("Invalid time format. Expected HH:mm.");
 
         RuleFor(x => x.Payload.BaseHotel)
-            .NotNull().WithErrorCode(nameof(ErrorCode.REQUIRED_FIELD))
-                .WithMessage("BaseHotel is required.")
             .ChildRules(hotel =>
             {
-                hotel.RuleFor(h => h.Name).NotEmpty().MaximumLength(200);
-                hotel.RuleFor(h => h.Latitude).InclusiveBetween(-90, 90);
-                hotel.RuleFor(h => h.Longitude).InclusiveBetween(-180, 180);
-            });
+                hotel.RuleFor(h => h!.Name).NotEmpty().MaximumLength(200);
+                hotel.RuleFor(h => h!.Latitude).InclusiveBetween(-90, 90);
+                hotel.RuleFor(h => h!.Longitude).InclusiveBetween(-180, 180);
+            })
+            .When(x => x.Payload.BaseHotel is not null);
 
         RuleFor(x => x.Payload.MustSees)
-            .NotEmpty().WithMessage("At least one Must-See is required.")
-            .Must(list => list.Select(m => m.PlaceId).Distinct().Count() == list.Count)
-            .WithMessage("Duplicate PlaceIds are not allowed in MustSees.");
+            .Must(list => list!.Select(m => m.PlaceId).Distinct().Count() == list!.Count)
+            .WithMessage("Duplicate PlaceIds are not allowed in MustSees.")
+            .When(x => x.Payload.MustSees is not null && x.Payload.MustSees.Count > 0);
 
         RuleFor(x => x.Payload.Travelers)
+            .NotNull().WithErrorCode(nameof(ErrorCode.REQUIRED_FIELD))
+                .WithMessage("Travelers is required.")
             .ChildRules(t =>
             {
                 t.RuleFor(x => x!.Adults).GreaterThanOrEqualTo(1);
                 t.RuleFor(x => x!.Children).GreaterThanOrEqualTo(0);
                 t.RuleFor(x => x!.Infants).GreaterThanOrEqualTo(0);
                 t.RuleFor(x => x!.Adults + x.Children + x.Infants).LessThanOrEqualTo(10);
-            })
-            .When(x => x.Payload.Travelers is not null);
+            });
 
         RuleFor(x => x.Payload.Preferences)
             .ChildRules(p =>
             {
                 p.RuleFor(x => x!.MaxWalkingMinutes).InclusiveBetween(5, 120);
             })
+            .When(x => x.Payload.Preferences is not null);
+
+        RuleFor(x => x.Payload.Preferences!.Interests)
+            .NotNull()
+            .NotEmpty()
+            .WithMessage("At least one interest is required.")
             .When(x => x.Payload.Preferences is not null);
     }
 }

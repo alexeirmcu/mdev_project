@@ -6,21 +6,22 @@ namespace SmartTripPlanner.Domain.AggregatesModel;
 
 public class Trip : Entity, IAggregateRoot
 {
+    private const int MaxTripDurationDays = 14;
     private List<MustSee> _originalMustSees = new();
     private List<DayPlan> _days = new();
 
     public Guid TripId { get; init; }
     public string TripCode { get; init; } = null!;
     public long CityId { get; init; }
-    public DateOnly StartDate { get; init; }
-    public DateOnly EndDate { get; init; }
-    public Location BaseHotel { get; init; } = null!;
-    public Travelers Travelers { get; init; } = new Travelers(2, 0, 0);
-    public TripPreferences Preferences { get; init; } = new TripPreferences();
-    public TimeOnly DefaultStartTime { get; init; } = new TimeOnly(9, 0);
+    public City City { get; init; } = null!;
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+    public Location? BaseHotel { get; set; }
+    public Travelers Travelers { get; set; } = new Travelers(2, 0, 0);
+    public TripPreferences Preferences { get; set; } = new TripPreferences();
+    public TimeOnly DefaultStartTime { get; set; } = new TimeOnly(9, 0);
     public IReadOnlyList<MustSee> OriginalMustSees => _originalMustSees.AsReadOnly();
     public IReadOnlyList<DayPlan> Days => _days.AsReadOnly();
-    public TripStatus Status { get; private set; } = TripStatus.CREATED;
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 
     public void AddMustSee(MustSee mustSee)
@@ -42,9 +43,43 @@ public class Trip : Entity, IAggregateRoot
         return false;
     }
 
-    public void UpdateStatus(TripStatus newStatus)
+    public void UpdateDates(DateOnly start, DateOnly end)
     {
-        Status = newStatus;
+        if (start > end)
+            throw new BusinessRuleException("StartDate cannot be after EndDate.");
+
+        var duration = end.DayNumber - start.DayNumber + 1;
+        if (duration > MaxTripDurationDays)
+            throw new BusinessRuleException(
+                $"Trip duration ({duration} days) exceeds maximum allowed ({MaxTripDurationDays} days)");
+
+        StartDate = start;
+        EndDate = end;
+    }
+
+    public void UpdateBaseHotel(Location hotel)
+    {
+        BaseHotel = hotel ?? throw new ArgumentNullException(nameof(hotel));
+    }
+
+    public void UpdateTravelers(Travelers travelers)
+    {
+        Travelers = travelers ?? throw new ArgumentNullException(nameof(travelers));
+    }
+
+    public void UpdatePreferences(TripPreferences preferences)
+    {
+        Preferences = preferences ?? throw new ArgumentNullException(nameof(preferences));
+    }
+
+    public void UpdateDefaultStartTime(TimeOnly time)
+    {
+        DefaultStartTime = time;
+    }
+
+    public void ClearDaysAndReset()
+    {
+        _days.Clear();
     }
 
     public void GenerateDays()
@@ -77,6 +112,5 @@ public class Trip : Entity, IAggregateRoot
             throw new SmartTripDomainException("Days have already been generated for this trip");
 
         _days.AddRange(days);
-        Status = TripStatus.GENERATED;
     }
 }

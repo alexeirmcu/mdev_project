@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartTripPlanner.Domain.AggregatesModel;
-using SmartTripPlanner.Domain.Enums;
 
 namespace SmartTripPlanner.Infrastructure.Configurations;
 
@@ -19,13 +18,13 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
         builder.HasIndex(t => t.TripCode).IsUnique();
 
         builder.Property(t => t.CityId).IsRequired();
+
+        builder.HasOne(t => t.City)
+            .WithMany()
+            .HasForeignKey(t => t.CityId);
+
         builder.Property(t => t.StartDate).IsRequired();
         builder.Property(t => t.EndDate).IsRequired();
-
-        builder.Property(t => t.Status)
-            .HasConversion<string>()
-            .IsRequired()
-            .HasDefaultValue(TripStatus.CREATED);
 
         builder.Property(t => t.CreatedAt).IsRequired();
 
@@ -48,6 +47,9 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
             prefs.Property(p => p.CarAvailable).HasColumnName("PrefCarAvailable").HasDefaultValue(false);
             prefs.Property(p => p.MaxWalkingMinutes).HasColumnName("PrefMaxWalkingMinutes").HasDefaultValue(30);
             prefs.Property(p => p.WeatherAwareEnabled).HasColumnName("PrefWeatherAwareEnabled").HasDefaultValue(true);
+            prefs.Property(p => p.Interests)
+                .HasColumnType("text[]")
+                .HasDefaultValueSql("ARRAY[]::text[]");
         });
 
         builder.OwnsMany(t => t.OriginalMustSees, mustSee =>
@@ -75,6 +77,11 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
                 a.Property<long>("Id");
                 a.HasKey("Id");
                 a.OwnsOne(ac => ac.TransitToNext);
+                a.OwnsOne(ac => ac.Location, loc =>
+                {
+                    loc.Property(l => l.Latitude).HasColumnName("Latitude");
+                    loc.Property(l => l.Longitude).HasColumnName("Longitude");
+                });
             }));
             day.OwnsOne(d => d.Afternoon, m => m.OwnsMany(b => b.Activities, a =>
             {
@@ -83,6 +90,11 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
                 a.Property<long>("Id");
                 a.HasKey("Id");
                 a.OwnsOne(ac => ac.TransitToNext);
+                a.OwnsOne(ac => ac.Location, loc =>
+                {
+                    loc.Property(l => l.Latitude).HasColumnName("Latitude");
+                    loc.Property(l => l.Longitude).HasColumnName("Longitude");
+                });
             }));
             day.OwnsOne(d => d.Evening, m => m.OwnsMany(b => b.Activities, a =>
             {
@@ -91,6 +103,11 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
                 a.Property<long>("Id");
                 a.HasKey("Id");
                 a.OwnsOne(ac => ac.TransitToNext);
+                a.OwnsOne(ac => ac.Location, loc =>
+                {
+                    loc.Property(l => l.Latitude).HasColumnName("Latitude");
+                    loc.Property(l => l.Longitude).HasColumnName("Longitude");
+                });
             }));
         });
 

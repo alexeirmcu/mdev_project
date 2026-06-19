@@ -16,7 +16,6 @@ namespace SmartTripPlanner.Tests.ApplicationServices.Handlers;
 public sealed class GenerateTripItineraryHandlerTests
 {
     private readonly Mock<ITripRepository> _tripRepoMock = new();
-    private readonly Mock<ICityRepository> _cityRepoMock = new();
     private readonly Mock<IPlaceRepository> _placeRepoMock = new();
     private readonly Mock<IItineraryGenerator> _itineraryGenMock = new();
     private readonly Mock<IWeatherProvider> _weatherProviderMock = new();
@@ -27,7 +26,6 @@ public sealed class GenerateTripItineraryHandlerTests
     {
         _handler = new GenerateTripItineraryHandler(
             _tripRepoMock.Object,
-            _cityRepoMock.Object,
             _placeRepoMock.Object,
             _itineraryGenMock.Object,
             _weatherProviderMock.Object,
@@ -54,9 +52,13 @@ public sealed class GenerateTripItineraryHandlerTests
     }
 
     [TestMethod]
-    public async Task Handle_CompletedTrip_ThrowsBusinessRuleException()
+    public async Task Handle_TripWithoutBaseHotel_ThrowsBusinessRuleException()
     {
-        var trip = CreateTrip(TripStatus.COMPLETED);
+        var trip = CreateTrip();
+        // Set BaseHotel to null via reflection since the mock mapper won't set it
+        var baseHotelProp = typeof(Trip).GetProperty("BaseHotel")!;
+        baseHotelProp.SetValue(trip, null);
+
         var tripId = trip.TripId;
 
         _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
@@ -66,7 +68,7 @@ public sealed class GenerateTripItineraryHandlerTests
             () => _handler.Handle(new GenerateTripItinerary(tripId), CancellationToken.None));
 
         Assert.IsNotNull(exception);
-        Assert.IsTrue(exception!.Message.Contains("completed"));
+        Assert.IsTrue(exception!.Message.Contains("BaseHotel"));
         _itineraryGenMock.Verify(g => g.GenerateAsync(
             It.IsAny<Trip>(),
             It.IsAny<IReadOnlyList<Place>>(),
@@ -77,7 +79,7 @@ public sealed class GenerateTripItineraryHandlerTests
     [TestMethod]
     public async Task Handle_CreatedTrip_GeneratesItinerary()
     {
-        var trip = CreateTrip(TripStatus.CREATED);
+        var trip = CreateTrip();
         var tripId = trip.TripId;
 
         _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
@@ -85,7 +87,7 @@ public sealed class GenerateTripItineraryHandlerTests
 
         var candidatePlaces = new List<Place> { CreatePlaceEntity(100L) };
         _placeRepoMock.Setup(r => r.GetManyByCityIdAsync(
-                trip.CityId, It.IsAny<CancellationToken>()))
+                trip.CityId, It.IsAny<IEnumerable<string>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(candidatePlaces);
 
         var weatherData = new Dictionary<DateOnly, WeatherCondition>
@@ -100,11 +102,6 @@ public sealed class GenerateTripItineraryHandlerTests
 
         _tripRepoMock.Setup(r => r.UpdateAsync(trip, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-
-        var city = new City("madrid-es", "Madrid", true);
-        SetEntityId(city, 1L);
-        _cityRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(city);
 
         _mapperMock.Setup(m => m.Map<TripPlanResponse>(trip, It.IsAny<Action<IMappingOperationOptions>>()))
             .Returns(new TripPlanResponse(
@@ -116,7 +113,6 @@ public sealed class GenerateTripItineraryHandlerTests
 
         await _handler.Handle(new GenerateTripItinerary(tripId), CancellationToken.None);
 
-        Assert.AreEqual(TripStatus.GENERATED, trip.Status);
         _itineraryGenMock.Verify(g => g.GenerateAsync(
             trip, candidatePlaces, weatherData, It.IsAny<CancellationToken>()), Times.Once);
         _tripRepoMock.Verify(r => r.UpdateAsync(trip, It.IsAny<CancellationToken>()), Times.Once);
@@ -125,7 +121,7 @@ public sealed class GenerateTripItineraryHandlerTests
     [TestMethod]
     public async Task Handle_GeneratedTrip_RegeneratesItinerary()
     {
-        var trip = CreateTrip(TripStatus.GENERATED);
+        var trip = CreateTrip();
         trip.GenerateDays(); // creates skeleton days
         var tripId = trip.TripId;
         var initialDayCount = trip.Days.Count;
@@ -135,7 +131,7 @@ public sealed class GenerateTripItineraryHandlerTests
 
         var candidatePlaces = new List<Place> { CreatePlaceEntity(100L) };
         _placeRepoMock.Setup(r => r.GetManyByCityIdAsync(
-                trip.CityId, It.IsAny<CancellationToken>()))
+                trip.CityId, It.IsAny<IEnumerable<string>?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(candidatePlaces);
 
         var weatherData = new Dictionary<DateOnly, WeatherCondition>
@@ -150,11 +146,6 @@ public sealed class GenerateTripItineraryHandlerTests
 
         _tripRepoMock.Setup(r => r.UpdateAsync(trip, It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
-
-        var city = new City("madrid-es", "Madrid", true);
-        SetEntityId(city, 1L);
-        _cityRepoMock.Setup(r => r.GetByIdAsync(It.IsAny<long>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(city);
 
         _mapperMock.Setup(m => m.Map<TripPlanResponse>(trip, It.IsAny<Action<IMappingOperationOptions>>()))
             .Returns(new TripPlanResponse(
@@ -168,19 +159,23 @@ public sealed class GenerateTripItineraryHandlerTests
 
         // Days should still be valid count after regeneration (GenerateDays clears and rebuilds)
         Assert.AreEqual(initialDayCount, trip.Days.Count);
-        Assert.AreEqual(TripStatus.GENERATED, trip.Status);
+        Assert.IsTrue(trip.Days.Any());
         _itineraryGenMock.Verify(g => g.GenerateAsync(
             trip, candidatePlaces, weatherData, It.IsAny<CancellationToken>()), Times.Once);
         _tripRepoMock.Verify(r => r.UpdateAsync(trip, It.IsAny<CancellationToken>()), Times.Once);
     }
 
-    private static Trip CreateTrip(TripStatus status = TripStatus.CREATED)
+    private static Trip CreateTrip()
     {
+        var city = new City("madrid-es", "Madrid", true);
+        SetEntityId(city, 1L);
+
         var trip = new Trip
         {
             TripId = Guid.NewGuid(),
             TripCode = "MAD-2026-TEST",
             CityId = 1L,
+            City = city,
             StartDate = new DateOnly(2026, 7, 1),
             EndDate = new DateOnly(2026, 7, 3),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
@@ -189,13 +184,6 @@ public sealed class GenerateTripItineraryHandlerTests
             DefaultStartTime = new TimeOnly(9, 0),
             CreatedAt = DateTimeOffset.UtcNow
         };
-
-        if (status != TripStatus.CREATED)
-        {
-            var field = typeof(Trip).GetField("<Status>k__BackingField",
-                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
-            field?.SetValue(trip, status);
-        }
 
         return trip;
     }

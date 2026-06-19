@@ -19,6 +19,7 @@ internal sealed class TripRepository : ITripRepository
     public async Task<Trip?> GetByIdAsync(Guid tripId, CancellationToken ct)
     {
         return await _dbContext.Trips
+            .Include(t => t.City)
             .Include(t => t.Days)
             .FirstOrDefaultAsync(t => t.TripId == tripId, ct);
     }
@@ -26,6 +27,7 @@ internal sealed class TripRepository : ITripRepository
     public async Task<Trip?> GetByTripCodeAsync(string tripCode, CancellationToken ct)
     {
         return await _dbContext.Trips
+            .Include(t => t.City)
             .Include(t => t.Days)
             .FirstOrDefaultAsync(t => t.TripCode == tripCode, ct);
     }
@@ -38,6 +40,7 @@ internal sealed class TripRepository : ITripRepository
     public async Task<IEnumerable<Trip>> ListAsync(long? cityId, DateOnly? startDate, DateOnly? endDate, CancellationToken ct)
     {
         var query = _dbContext.Trips
+            .Include(t => t.City)
             .Include(t => t.Days)
             .AsQueryable();
 

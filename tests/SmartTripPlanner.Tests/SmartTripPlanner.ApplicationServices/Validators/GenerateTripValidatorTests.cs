@@ -18,7 +18,7 @@ public sealed class GenerateTripValidatorTests
         new LocationModel("Hotel Central", 40.4168, -3.7038),
         new List<MustSeeInput> { new(1L, Priority.High) },
         new TravelersInput(2, 0, 0),
-        new TripPreferencesInput(false, 30, true),
+        new TripPreferencesInput(false, 30, true, new List<string> { "culture", "food" }),
         "09:00"));
 
     [TestMethod]
@@ -72,20 +72,6 @@ public sealed class GenerateTripValidatorTests
     }
 
     [TestMethod]
-    public async Task MustSees_Empty_Fails()
-    {
-        var request = CreateValidRequest() with
-        {
-            Payload = new TripGenerationRequest(
-                "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
-                new LocationModel("H", 0, 0),
-                new List<MustSeeInput>())
-        };
-        var result = await _sut.TestValidateAsync(request);
-        result.ShouldHaveValidationErrorFor(x => x.Payload.MustSees);
-    }
-
-    [TestMethod]
     public async Task MustSees_DuplicatePlaceIds_Fails()
     {
         var request = CreateValidRequest() with
@@ -93,7 +79,8 @@ public sealed class GenerateTripValidatorTests
             Payload = new TripGenerationRequest(
                 "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
                 new LocationModel("H", 0, 0),
-                new List<MustSeeInput> { new(1L, Priority.High), new(1L, Priority.Low) })
+                new List<MustSeeInput> { new(1L, Priority.High), new(1L, Priority.Low) },
+                new TravelersInput(2, 0, 0))
         };
         var result = await _sut.TestValidateAsync(request);
         result.ShouldHaveValidationErrorFor(x => x.Payload.MustSees);
@@ -108,22 +95,69 @@ public sealed class GenerateTripValidatorTests
                 "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
                 new LocationModel("H", 0, 0),
                 new List<MustSeeInput> { new(1L, Priority.High) },
-                null, null, "25:00")
+                new TravelersInput(2, 0, 0), null, "25:00")
         };
         var result = await _sut.TestValidateAsync(request);
         result.ShouldHaveValidationErrorFor(x => x.Payload.DefaultStartHour);
     }
 
     [TestMethod]
-    public async Task BaseHotel_Null_Fails()
+    public async Task MustSees_Empty_DoesNotFail()
     {
         var request = CreateValidRequest() with
         {
             Payload = new TripGenerationRequest(
                 "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
-                null!, new List<MustSeeInput> { new(1L, Priority.High) })
+                new LocationModel("H", 0, 0),
+                new List<MustSeeInput>(),
+                new TravelersInput(2, 0, 0))
         };
         var result = await _sut.TestValidateAsync(request);
-        result.ShouldHaveValidationErrorFor(x => x.Payload.BaseHotel);
+        result.ShouldNotHaveValidationErrorFor(x => x.Payload.MustSees);
+    }
+
+    [TestMethod]
+    public async Task MustSees_Null_DoesNotFail()
+    {
+        var request = CreateValidRequest() with
+        {
+            Payload = new TripGenerationRequest(
+                "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
+                new LocationModel("H", 0, 0),
+                MustSees: null,
+                Travelers: new TravelersInput(2, 0, 0))
+        };
+        var result = await _sut.TestValidateAsync(request);
+        result.ShouldNotHaveValidationErrorFor(x => x.Payload.MustSees);
+    }
+
+    [TestMethod]
+    public async Task BaseHotel_Null_DoesNotFail()
+    {
+        var request = CreateValidRequest() with
+        {
+            Payload = new TripGenerationRequest(
+                "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
+                BaseHotel: null,
+                MustSees: new List<MustSeeInput> { new(1L, Priority.High) },
+                Travelers: new TravelersInput(2, 0, 0))
+        };
+        var result = await _sut.TestValidateAsync(request);
+        result.ShouldNotHaveValidationErrorFor(x => x.Payload.BaseHotel);
+    }
+
+    [TestMethod]
+    public async Task Travelers_Null_Fails()
+    {
+        var request = CreateValidRequest() with
+        {
+            Payload = new TripGenerationRequest(
+                "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
+                new LocationModel("H", 0, 0),
+                new List<MustSeeInput> { new(1L, Priority.High) },
+                Travelers: null)
+        };
+        var result = await _sut.TestValidateAsync(request);
+        result.ShouldHaveValidationErrorFor(x => x.Payload.Travelers);
     }
 }

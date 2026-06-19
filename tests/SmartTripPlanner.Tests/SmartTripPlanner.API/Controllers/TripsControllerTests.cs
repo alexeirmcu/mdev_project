@@ -237,18 +237,37 @@ public sealed class TripsControllerTests
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
-    // Test 4: GET /api/trips/{id} → 404 (placeholder endpoint)
+    // Test 4: GET /api/trips/{id}
     // ─────────────────────────────────────────────────────────────────────────────
 
     [TestMethod]
-    public async Task GetTrip_Placeholder_ReturnsNotFound()
+    public async Task GetTrip_ReturnsOkWithTrip()
     {
         var tripId = Guid.NewGuid();
+        var expectedResponse = new TripPlanResponse(
+            tripId,
+            "MAD-2026-TEST",
+            1L,
+            "madrid-es",
+            "Madrid",
+            new DateOnly(2026, 7, 1),
+            new DateOnly(2026, 7, 3),
+            new LocationModel("Hotel Central", 40.4168, -3.7038),
+            new TravelersInput(2, 0, 0),
+            new TripPreferencesInput(false, 30, true),
+            new List<MustSeeResponse>(),
+            "CREATED",
+            "09:00");
+
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<GetTrip>(q => q.TripId == tripId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expectedResponse);
 
         var act = await _controller.GetTrip(tripId, CancellationToken.None);
 
-        var notFoundResult = act as NotFoundObjectResult;
-        Assert.IsNotNull(notFoundResult);
-        Assert.AreEqual(StatusCodes.Status404NotFound, notFoundResult.StatusCode);
+        var okResult = act as OkObjectResult;
+        Assert.IsNotNull(okResult);
+        Assert.AreEqual(StatusCodes.Status200OK, okResult.StatusCode);
+        Assert.AreSame(expectedResponse, okResult.Value);
     }
 }

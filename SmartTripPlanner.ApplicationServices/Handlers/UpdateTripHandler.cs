@@ -4,7 +4,6 @@ using Microsoft.Extensions.Logging;
 using SmartTripPlanner.ApplicationServices.Commands;
 using SmartTripPlanner.Domain.AggregatesModel;
 using SmartTripPlanner.Domain.ApiModels;
-using SmartTripPlanner.Domain.Enums;
 using SmartTripPlanner.Domain.Exceptions;
 using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Domain.Repository;
@@ -13,10 +12,7 @@ namespace SmartTripPlanner.ApplicationServices.Handlers;
 
 public class UpdateTripHandler(
     ITripRepository tripRepository,
-    ICityRepository cityRepository,
     IPlaceRepository placeRepository,
-    IItineraryGenerator itineraryGenerator,
-    IWeatherProvider weatherProvider,
     IMapper mapper,
     ILogger<UpdateTripHandler> logger)
     : IRequestHandler<UpdateTrip, TripPlanResponse>
@@ -29,46 +25,71 @@ public class UpdateTripHandler(
 
         var payload = request.Payload;
 
-        EnforceStatusRestrictions(trip, payload);
+        // Block modifications if trip has already started
+        if (trip.StartDate < DateOnly.FromDateTime(DateTime.UtcNow))
+            throw new BusinessRuleException("Cannot modify a trip that has already started.");
 
+        bool anyModification = false;
+
+        // Apply partial updates
+        if (payload.StartDate.HasValue || payload.EndDate.HasValue)
+        {
+            trip.UpdateDates(
+                payload.StartDate ?? trip.StartDate,
+                payload.EndDate ?? trip.EndDate);
+            anyModification = true;
+        }
+
+        if (payload.BaseHotel is not null)
+        {
+            trip.UpdateBaseHotel(mapper.Map<Location>(payload.BaseHotel));
+            anyModification = true;
+        }
+
+        if (payload.Travelers is not null)
+        {
+            trip.UpdateTravelers(mapper.Map<Travelers>(payload.Travelers));
+            anyModification = true;
+        }
+
+        if (payload.Preferences is not null)
+        {
+            trip.UpdatePreferences(mapper.Map<TripPreferences>(payload.Preferences));
+            anyModification = true;
+        }
+
+        if (payload.DefaultStartHour is not null)
+        {
+            trip.UpdateDefaultStartTime(TimeOnly.Parse(payload.DefaultStartHour));
+            anyModification = true;
+        }
+
+        // Apply must-see modifications
         if (payload.MustSeesToAdd is not null && payload.MustSeesToAdd.Count > 0)
+        {
             await AddMustSeesAsync(trip, payload.MustSeesToAdd, ct);
+            anyModification = true;
+        }
 
         if (payload.MustSeesToRemove is not null && payload.MustSeesToRemove.Count > 0)
-            RemoveMustSees(trip, payload.MustSeesToRemove);
-
-        if (payload.GenerateItinerary)
         {
-            if (trip.Status == TripStatus.GENERATED)
-            {
-                await RegenerateItineraryAsync(trip, ct);
-            }
-            else if (trip.Status == TripStatus.CREATED && trip.OriginalMustSees.Any())
-            {
-                await GenerateItineraryAsync(trip, ct);
-            }
+            RemoveMustSees(trip, payload.MustSeesToRemove);
+            anyModification = true;
+        }
+
+        // If the trip was GENERATED and any modification was applied, invalidate itinerary
+        if (anyModification && trip.Days.Any())
+        {
+            trip.ClearDaysAndReset();
         }
 
         await tripRepository.UpdateAsync(trip, ct);
 
-        var city = await cityRepository.GetByIdAsync(trip.CityId, ct);
-
-        var response = MapResponse(trip, city);
+        var response = MapResponse(trip);
 
         logger.LogInformation("Trip {TripId} updated", trip.TripId);
 
         return response;
-    }
-
-    private static void EnforceStatusRestrictions(Trip trip, TripUpdateRequest payload)
-    {
-        if (trip.Status == TripStatus.GENERATED)
-        {
-            if (payload.StartDate.HasValue || payload.EndDate.HasValue ||
-                payload.BaseHotel is not null || payload.DefaultStartHour is not null)
-                throw new BusinessRuleException(
-                    "Cannot modify StartDate, EndDate, BaseHotel, or DefaultStartHour when trip status is GENERATED");
-        }
     }
 
     private async Task AddMustSeesAsync(Trip trip, List<MustSeeInput> mustSees, CancellationToken ct)
@@ -99,22 +120,8 @@ public class UpdateTripHandler(
         }
     }
 
-    private async Task GenerateItineraryAsync(Trip trip, CancellationToken ct)
+    private TripPlanResponse MapResponse(Trip trip)
     {
-        var candidates = await placeRepository.GetManyByCityIdAsync(trip.CityId, ct);
-        var weather = await weatherProvider.GetWeatherAsync(trip.CityId, trip.StartDate, trip.EndDate, ct);
-        await itineraryGenerator.GenerateAsync(trip, candidates, weather, ct);
-        trip.UpdateStatus(TripStatus.GENERATED);
-    }
-
-    private async Task RegenerateItineraryAsync(Trip trip, CancellationToken ct)
-    {
-        trip.GenerateDays();
-        await GenerateItineraryAsync(trip, ct);
-    }
-
-    private TripPlanResponse MapResponse(Trip trip, City? city)
-    {
-        return mapper.Map<TripPlanResponse>(trip, opts => opts.Items["City"] = city);
+        return mapper.Map<TripPlanResponse>(trip, opts => opts.Items["City"] = trip.City);
     }
 }

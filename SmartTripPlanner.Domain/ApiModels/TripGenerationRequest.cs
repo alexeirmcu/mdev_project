@@ -4,9 +4,8 @@ public record TripGenerationRequest(
     string CityCode,
     DateOnly StartDate,
     DateOnly EndDate,
-    LocationModel BaseHotel,
-    IReadOnlyList<MustSeeInput> MustSees,
+    LocationModel? BaseHotel = null,
+    IReadOnlyList<MustSeeInput> MustSees = null,
     TravelersInput? Travelers = null,
     TripPreferencesInput? Preferences = null,
-    string DefaultStartHour = "09:00",
-    bool GenerateItinerary = true);
+    string DefaultStartHour = "09:00");

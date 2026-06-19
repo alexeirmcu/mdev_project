@@ -19,7 +19,8 @@ public class AutoMapperProfile : Profile
         // Trip mappings
         CreateMap<MustSeeInput, MustSee>();
         CreateMap<TravelersInput, Travelers>();
-        CreateMap<TripPreferencesInput, TripPreferences>();
+        CreateMap<TripPreferencesInput, TripPreferences>()
+            .ForCtorParam("interests", opt => opt.MapFrom(src => src.Interests));
         CreateMap<LocationModel, Location>();
 
         CreateMap<Travelers, TravelersInput>();
@@ -35,7 +36,7 @@ public class AutoMapperProfile : Profile
             .ForCtorParam("CityCode", opt => opt.MapFrom((src, ctx) => ((City?)ctx.Items["City"])?.CityCode ?? string.Empty))
             .ForCtorParam("CityName", opt => opt.MapFrom((src, ctx) => ((City?)ctx.Items["City"])?.CityName ?? string.Empty))
             .ForCtorParam("MustSees", opt => opt.MapFrom(src => src.OriginalMustSees))
-            .ForCtorParam("Status", opt => opt.MapFrom(src => src.Status.ToString()))
+            .ForCtorParam("Status", opt => opt.MapFrom(src => src.Days.Any() ? "GENERATED" : "CREATED"))
             .ForCtorParam("DefaultStartHour", opt => opt.MapFrom(src => src.DefaultStartTime.ToString("HH:mm")))
             .ForMember(dest => dest.Days, opt => opt.MapFrom(src => src.Days));
 

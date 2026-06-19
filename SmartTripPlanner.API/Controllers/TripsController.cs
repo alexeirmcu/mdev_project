@@ -67,7 +67,7 @@ public class TripsController : ControllerBase
     }
 
     /// <summary>
-    /// Gets a trip by its TripId. Placeholder for future use.
+    /// Gets a trip by its TripId.
     /// </summary>
     [HttpGet("{tripId:guid}")]
     [ProducesResponseType(typeof(TripPlanResponse), StatusCodes.Status200OK)]
@@ -76,8 +76,8 @@ public class TripsController : ControllerBase
         Guid tripId,
         CancellationToken ct)
     {
-        // This is a placeholder endpoint referenced by CreatedAtAction.
-        // Full implementation will be added in a future flow.
-        return NotFound(new { message = $"Trip with id '{tripId}' not found." });
+        var query = new GetTrip(tripId);
+        var response = await _mediator.Send(query, ct);
+        return Ok(response);
     }
 }

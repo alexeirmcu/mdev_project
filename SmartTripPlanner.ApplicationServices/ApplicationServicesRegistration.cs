@@ -30,6 +30,12 @@ public static class ApplicationServicesRegistration
         services.AddScoped<IItineraryGenerator, HeuristicItineraryGenerator>();
         services.AddScoped<ICandidateScorer, CandidateScorer>();
 
+        // Phase collaborator services
+        services.AddScoped<IPinnedMustSeePlacer, PinnedMustSeePlacer>();
+        services.AddScoped<IUnpinnedMustSeePlacer, UnpinnedMustSeePlacer>();
+        services.AddScoped<ICandidateFiller, CandidateFiller>();
+        services.AddScoped<ITransitEnricher, TransitEnricher>();
+
         return services;
     }
 }

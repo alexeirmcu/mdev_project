@@ -5,7 +5,6 @@ using SmartTripPlanner.ApplicationServices.Commands;
 using SmartTripPlanner.ApplicationServices.Configurations;
 using SmartTripPlanner.Domain.AggregatesModel;
 using SmartTripPlanner.Domain.ApiModels;
-using SmartTripPlanner.Domain.Enums;
 using SmartTripPlanner.Domain.Exceptions;
 using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Domain.Repository;
@@ -17,8 +16,6 @@ public class GenerateTripHandler(
     ICityRepository cityRepository,
     IPlaceRepository placeRepository,
     ITripCodeGenerator tripCodeGenerator,
-    IItineraryGenerator itineraryGenerator,
-    IWeatherProvider weatherProvider,
     IMapper mapper,
     ILogger<GenerateTripHandler> logger)
     : IRequestHandler<GenerateTrip, TripPlanResponse>
@@ -31,14 +28,20 @@ public class GenerateTripHandler(
 
         var city = await ValidateCityAsync(payload.CityCode, ct);
 
-        await ValidatePlacesAsync(payload.MustSees.ToList(), ct);
+        if (payload.MustSees is not null && payload.MustSees.Count > 0)
+        {
+            await ValidatePlacesAsync(payload.MustSees.ToList(), ct);
+        }
 
         var tripDuration = payload.EndDate.DayNumber - payload.StartDate.DayNumber + 1;
         if (tripDuration > MaxTripDurationDays)
             throw new BusinessRuleException(
                 $"Trip duration ({tripDuration} days) exceeds maximum allowed ({MaxTripDurationDays} days)");
 
-        ValidatePinnedDays(payload.MustSees, tripDuration);
+        if (payload.MustSees is not null)
+        {
+            ValidatePinnedDays(payload.MustSees, tripDuration);
+        }
 
         var tripCode = await tripCodeGenerator.GenerateAsync(city.CityCode, payload.StartDate.Year, ct);
 
@@ -46,15 +49,10 @@ public class GenerateTripHandler(
 
         await tripRepository.AddAsync(trip, ct);
 
-        if (payload.GenerateItinerary)
-        {
-            await GenerateItineraryAsync(trip, city, ct);
-        }
-
         var response = MapResponse(trip, city);
 
-        logger.LogInformation("Trip {TripId} created with code {TripCode} ({DayCount} days)",
-            trip.TripId, trip.TripCode, trip.Days.Count);
+        logger.LogInformation("Trip {TripId} created with code {TripCode} (status: CREATED, itinerary not generated)",
+            trip.TripId, trip.TripCode);
 
         return response;
     }
@@ -110,28 +108,22 @@ public class GenerateTripHandler(
             CityId = city.Id,
             StartDate = payload.StartDate,
             EndDate = payload.EndDate,
-            BaseHotel = mapper.Map<Location>(payload.BaseHotel),
-            Travelers = mapper.Map<Travelers>(payload.Travelers),
-            Preferences = mapper.Map<TripPreferences>(payload.Preferences),
+            BaseHotel = payload.BaseHotel is not null ? mapper.Map<Location>(payload.BaseHotel) : null,
+            Travelers = payload.Travelers is not null ? mapper.Map<Travelers>(payload.Travelers) : new Travelers(2, 0, 0),
+            Preferences = payload.Preferences is not null ? mapper.Map<TripPreferences>(payload.Preferences) : new TripPreferences(),
             DefaultStartTime = TimeOnly.Parse(payload.DefaultStartHour),
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        foreach (var mustSeeInput in payload.MustSees)
+        if (payload.MustSees is not null)
         {
-            trip.AddMustSee(mapper.Map<MustSee>(mustSeeInput));
+            foreach (var mustSeeInput in payload.MustSees)
+            {
+                trip.AddMustSee(mapper.Map<MustSee>(mustSeeInput));
+            }
         }
 
         return trip;
-    }
-
-    private async Task GenerateItineraryAsync(Trip trip, City city, CancellationToken ct)
-    {
-        var candidatePlaces = await placeRepository.GetManyByCityIdAsync(city.Id, ct);
-        var weatherData = await weatherProvider.GetWeatherAsync(city.Id, trip.StartDate, trip.EndDate, ct);
-        await itineraryGenerator.GenerateAsync(trip, candidatePlaces, weatherData, ct);
-        trip.UpdateStatus(TripStatus.GENERATED);
-        await tripRepository.UpdateAsync(trip, ct);
     }
 
     private TripPlanResponse MapResponse(Trip trip, City city)

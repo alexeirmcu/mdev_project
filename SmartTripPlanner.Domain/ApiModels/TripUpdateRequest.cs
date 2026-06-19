@@ -8,5 +8,4 @@ public record TripUpdateRequest(
     TripPreferencesInput? Preferences = null,
     string? DefaultStartHour = null,
     List<MustSeeInput>? MustSeesToAdd = null,
-    List<long>? MustSeesToRemove = null,
-    bool GenerateItinerary = true);
+    List<long>? MustSeesToRemove = null);

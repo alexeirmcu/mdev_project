@@ -19,7 +19,16 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         _transitMock = CreateTransitCalculatorMock();
         var scorer = new CandidateScorer();
-        _generator = new HeuristicItineraryGenerator(scorer, _transitMock.Object);
+        var pinnedPlacer = new PinnedMustSeePlacer();
+        var unpinnedPlacer = new UnpinnedMustSeePlacer();
+        var candidateFiller = new CandidateFiller(scorer);
+        var transitEnricher = new TransitEnricher(_transitMock.Object);
+
+        _generator = new HeuristicItineraryGenerator(
+            pinnedPlacer,
+            unpinnedPlacer,
+            candidateFiller,
+            transitEnricher);
     }
 
     private static Mock<ITransitCalculator> CreateTransitCalculatorMock()
@@ -144,7 +153,6 @@ public sealed class HeuristicItineraryGeneratorTests
         };
         var trip = CreateTrip(mustSees, dayCount: 2);
 
-        // Fill Morning block with pinned must-sees to force overflow
         var places = new List<Place>
         {
             CreatePlace(1, "Must-See A", 40.4168, -3.7038, duration: 60),
@@ -232,12 +240,10 @@ public sealed class HeuristicItineraryGeneratorTests
     [TestMethod]
     public async Task GenerateAsync_MustSeeClosedOnFirstDay_PlacedOnOpenDay()
     {
-        // Trip starts Monday (July 1, 2026 is a Wednesday)
-        // Actually July 1, 2026 is a Wednesday — let me verify
+        // Trip starts on Wednesday (July 1, 2026)
         var firstDay = new DateOnly(2026, 7, 1); // Wednesday
         Assert.AreEqual(DayOfWeek.Wednesday, firstDay.DayOfWeek);
 
-        // Must-see closed on Wednesday
         var mustSees = new List<MustSee>
         {
             new(1, Priority.High) // unpinned
@@ -318,10 +324,6 @@ public sealed class HeuristicItineraryGeneratorTests
     [TestMethod]
     public async Task GenerateAsync_BlockCapacityExceeded_LowPriorityCandidateSkipped()
     {
-        // Fill morning block to capacity, then verify low-priority overflow is skipped
-        // Morning block max = 3 visits x 60 min = 180 min ≤ 210 max
-        // So 3 activities of 60 min each fit in Morning
-
         // Use 5 must-sees for a 1-day trip (Morning=3, Afternoon=2 after overflow)
         var mustSees = new List<MustSee>
         {
@@ -458,8 +460,6 @@ public sealed class HeuristicItineraryGeneratorTests
     [TestMethod]
     public async Task GenerateAsync_LowPriorityMustSeeSkippedWhenNoRoom_HighStillPlaced()
     {
-        // Evening block (capacity 1 for 60-min activity):
-        // 2 must-sees, one High, one Low → High placed, Low skipped
         var mustSees = new List<MustSee>
         {
             new(1, Priority.High),
@@ -474,8 +474,6 @@ public sealed class HeuristicItineraryGeneratorTests
 
         await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
 
-        // Low priority should still try to find a spot.
-        // 105-min in evening = 1 activity max. High gets it. Low overflowed.
         // Morning + Afternoon have room for low priority too (each 3 x 60 min)
         // So both should actually fit
         var total = trip.Days[0].Morning.Activities.Count
@@ -497,7 +495,6 @@ public sealed class HeuristicItineraryGeneratorTests
             new(2, Priority.High)
         };
         var trip = CreateTrip(mustSees, dayCount: 1, carAvailable: false);
-        // Two places very close (<1.5 km)
         var places = new List<Place>
         {
             CreatePlace(1, "Puerta del Sol", 40.4168, -3.7038, duration: 60),
@@ -520,14 +517,12 @@ public sealed class HeuristicItineraryGeneratorTests
     [TestMethod]
     public async Task GenerateAsync_LongDistanceWithCar_UsesCarTransport()
     {
-        // Pin both must-sees to same day and block to guarantee consecutive activities
         var mustSees = new List<MustSee>
         {
             new(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning),
             new(2, Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning)
         };
         var trip = CreateTrip(mustSees, dayCount: 1, carAvailable: true);
-        // Two places far apart (>10 km triggers inter-zone car switch)
         var places = new List<Place>
         {
             CreatePlace(1, "Madrid Centro", 40.4168, -3.7038, duration: 60),

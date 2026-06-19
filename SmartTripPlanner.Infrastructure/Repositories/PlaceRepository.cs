@@ -54,13 +54,32 @@ public class PlaceRepository : IPlaceRepository
             .ToListAsync(ct);
     }
 
-    public async Task<List<Place>> GetManyByCityIdAsync(long cityId, CancellationToken ct = default)
+    public async Task<List<Place>> GetManyByCityIdAsync(long cityId, IEnumerable<string>? interests = null, CancellationToken ct = default)
     {
-        return await _context.Places
+        var query = _context.Places
             .Include(p => p.OpeningHours)
             .Include(p => p.Attributes)
             .Where(p => p.CityId == cityId)
+            .AsQueryable();
+
+        if (interests != null && interests.Any())
+        {
+            query = query.Where(p => p.Attributes.Any(a => interests.Contains(a.Value)));
+        }
+
+        return await query
             .Take(TripPlanningConstants.MaxCandidatesPerCity)
+            .ToListAsync(ct);
+    }
+
+    public async Task<List<string>> GetDistinctInterestsByCityIdAsync(long cityId, CancellationToken ct = default)
+    {
+        return await _context.Places
+            .Where(p => p.CityId == cityId)
+            .SelectMany(p => p.Attributes)
+            .Select(a => a.Value)
+            .Distinct()
+            .OrderBy(v => v)
             .ToListAsync(ct);
     }
 
