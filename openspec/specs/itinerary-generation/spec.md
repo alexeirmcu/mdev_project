@@ -115,9 +115,9 @@ When `TripPreferences.WeatherAwareEnabled = true` and a day's `WeatherSummary = 
 - WHEN itinerary generation runs on a rainy day
 - THEN no weather-based reordering or filtering occurs
 
-### FR6: Transport mode assignment per leg
+### FR6: Transport mode assignment per leg (now includes hotel transit)
 
-The system MUST assign `TransportMode` per transit leg between activities using `ITransitCalculator` (Domain port). Default: `WALK_AND_PUBLIC_TRANSPORT`. Switch to `CAR` when car is available and either: (a) PT+walk exceeds 20 minutes longer than car, or (b) the trip involves long-distance inter-zone transit.
+The system MUST assign `TransportMode` per transit leg between activities AND per hotel transit leg (`Hotel → FirstActivity`, `LastActivity → Hotel`) using `ITransitCalculator` (Domain port). Default: `WALK_AND_PUBLIC_TRANSPORT`. Switch to `CAR` when car is available and either: (a) PT+walk exceeds 20 minutes longer than car, or (b) the trip involves long-distance inter-zone transit. Hotel transit legs MUST be stored on `BlockTimeline` as `TransitFromHotel` and `TransitToHotel` (both `TransitDetails?`, null when `Trip.BaseHotel` is null or block is empty), computed by `TransitEnricher` using `Trip.BaseHotel.Location`.
 
 #### Scenario: PT+Walking is reasonably fast
 
@@ -139,6 +139,44 @@ The system MUST assign `TransportMode` per transit leg between activities using 
 - AND `TripPreferences.CarAvailable = true`
 - WHEN transit is assigned
 - THEN `TransitDetails.TransportMode = WALK_AND_PUBLIC_TRANSPORT` (car is not justified)
+
+#### Scenario: Hotel to first activity — transit computed and stored on block
+
+- GIVEN a non-empty block and `Trip.BaseHotel` is set
+- WHEN `TransitEnricher.EnrichAsync` runs
+- THEN `block.TransitFromHotel` is a `TransitDetails` with `TransportMode`, `DurationMinutes`, `BufferMinutes`, `FrictionAlert` computed from `BaseHotel.Location` to `Activities[0].Location`
+
+#### Scenario: Last activity to hotel — transit computed and stored on block
+
+- GIVEN a non-empty block and `Trip.BaseHotel` is set
+- WHEN `TransitEnricher.EnrichAsync` runs
+- THEN `block.TransitToHotel` is a `TransitDetails` computed from `Activities[^1].Location` to `BaseHotel.Location`
+
+#### Scenario: Hotel transit null when BaseHotel absent
+
+- GIVEN `Trip.BaseHotel` is null
+- WHEN `TransitEnricher.EnrichAsync` runs
+- THEN `TransitFromHotel` and `TransitToHotel` remain null
+
+#### Scenario: Hotel transit null for empty block
+
+- GIVEN a block with zero activities
+- WHEN `TransitEnricher.EnrichAsync` runs
+- THEN `TransitFromHotel` and `TransitToHotel` remain null
+
+#### Scenario: Hotel transit respects transport mode rules
+
+- GIVEN hotel is 5 km from first activity and `CarAvailable = true` and car is 25+ min faster
+- WHEN hotel transit is computed
+- THEN `TransitFromHotel.TransportMode = CAR`
+- GIVEN same distance but `CarAvailable = false`
+- THEN `TransitFromHotel.TransportMode = WALK_AND_PUBLIC_TRANSPORT`
+
+#### Scenario: Short-distance hotel transit defaults to walk+PT
+
+- GIVEN hotel is 0.8 km from first activity
+- WHEN hotel transit is computed
+- THEN `TransitFromHotel.TransportMode = WALK_AND_PUBLIC_TRANSPORT` regardless of `CarAvailable`
 
 ### FR7: Block capacity validation
 
@@ -217,9 +255,9 @@ The `GenerateTripHandler` SHALL call `IItineraryGenerator.GenerateAsync(trip, we
 - WHEN the handler validates before generation
 - THEN a validation error is returned (not a runtime exception)
 
-### FR10: Response includes full DayPlan[] with blocks, activities, transit
+### FR10: Response includes full DayPlan[] with blocks, activities, transit, hotel transit, and times
 
-The `TripPlanResponse` SHALL include the itinerary data: `DayPlan[]` with blocks, `ActivityNode[]` per block, and `TransitDetails` per leg. This requires extending the current response DTO.
+`TripPlanResponse` SHALL expose all itinerary data including hotel transit legs and exact times. `BlockResponse` MUST add `TransitFromHotel` and `TransitToHotel` (nullable `TransitResponse`). `ActivityResponse` MUST add `EstimatedArrival` and `EstimatedDeparture` (nullable `int`, minutes from midnight). `AutoMapperProfile` MUST include: `TransitDetails → TransitResponse` mapping; `BlockTimeline.TransitFromHotel/ToHotel → BlockResponse.TransitFromHotel/ToHotel`; `ActivityNode.EstimatedArrival/Departure → ActivityResponse.EstimatedArrival/Departure`.
 
 #### Scenario: API response contains full itinerary
 
@@ -228,6 +266,24 @@ The `TripPlanResponse` SHALL include the itinerary data: `DayPlan[]` with blocks
 - THEN the response includes each day's Morning, Afternoon, and Evening blocks
 - AND each block contains its `ActivityNode` list with `SequenceOrder`, `PlaceId`, `Name`, `DurationMinutes`, `IsIndoor`, `Priority`
 - AND each activity with a next-activity has `TransitToNext` with `TransportMode`, `DurationMinutes`, `BufferMinutes`
+
+#### Scenario: Block response includes hotel transit details
+
+- GIVEN a block with `TransitFromHotel` and `TransitToHotel` set
+- WHEN `TripPlanResponse` is mapped from `Trip`
+- THEN `BlockResponse.TransitFromHotel` and `BlockResponse.TransitToHotel` contain `TransportMode`, `DurationMinutes`, `BufferMinutes`, `FrictionAlert`
+
+#### Scenario: Activity response includes arrival and departure times
+
+- GIVEN a scheduled activity with `EstimatedArrival=555`, `EstimatedDeparture=615`
+- WHEN `TripPlanResponse` is mapped
+- THEN `ActivityResponse.EstimatedArrival = 555` and `ActivityResponse.EstimatedDeparture = 615`
+
+#### Scenario: Null hotel transit and times map to null in response
+
+- GIVEN a block where `TransitFromHotel` and `TransitToHotel` are null
+- WHEN mapped to `BlockResponse`
+- THEN both fields are null (not default/zero)
 
 ### FR11: ActivityNode stores PlaceLocation for distance calculation
 
@@ -286,6 +342,22 @@ The `TripPlanResponse` SHALL include the itinerary data: `DayPlan[]` with blocks
 - WHEN `GenerateAsync` is called twice concurrently
 - THEN no shared mutable dictionary (_placesById) causes race conditions
 - AND ActivityNode.Location is used for distance lookups instead of dictionary lookups
+
+### FR14: BlockTimeline hotel transit properties
+
+`BlockTimeline` MUST expose `TransitFromHotel` (`TransitDetails?`) and `TransitToHotel` (`TransitDetails?`) representing hotel→first-activity and last-activity→hotel transit legs. `BlockTotalDurationMinutes` semantics MUST remain unchanged (sum of activities + inter-activity transit only). A computed `BlockWallClockDurationMinutes` MAY be added summing hotel legs + block duration for display.
+
+#### Scenario: BlockTotalDurationMinutes excludes hotel transit
+
+- GIVEN a block with one 60-min activity, TransitFromHotel(15min), TransitToHotel(20min)
+- WHEN `BlockTotalDurationMinutes` is computed
+- THEN the result is 60 (activity duration only, no hotel legs)
+
+#### Scenario: BlockWallClockDurationMinutes includes hotel transit
+
+- GIVEN same block
+- WHEN `BlockWallClockDurationMinutes` is computed
+- THEN the result is 95 (15 + 60 + 20)
 
 ## 3. Acceptance Criteria
 
