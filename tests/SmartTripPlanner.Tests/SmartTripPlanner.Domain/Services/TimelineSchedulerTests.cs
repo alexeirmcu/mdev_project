@@ -1,6 +1,7 @@
 using SmartTripPlanner.Domain.AggregatesModel;
 using SmartTripPlanner.Domain.Enums;
 using SmartTripPlanner.Domain.Services;
+using SmartTripPlanner.Domain.Constants;
 
 namespace SmartTripPlanner.Tests.Domain.Services;
 
@@ -210,5 +211,161 @@ public sealed class TimelineSchedulerTests
         // Afternoon first activity: 540 + 5 + 0 = 545
         Assert.AreEqual(545, afternoon.Activities[0].EstimatedArrival,
             "Afternoon should start at DayPlan.StartTime + TransitFromHotel, not chained from morning");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Block chaining via InterBlockTransit tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Schedule_BlockWithInterBlockTransit_ChainsFromPreviousBlockEnd()
+    {
+        // Morning: TransitFromHotel=15+5, Activity=60 → morning end = 540+20+60 = 620
+        // InterBlockTransit: 10+5 (stored on destination block — Afternoon)
+        // Afternoon: starts at 620+15 = 635, Activity=45 → departure = 680
+        var activityA = CreateActivity(1, 60);
+        var morning = CreateBlock(BlockType.Morning, activityA);
+        morning.TransitFromHotel = CreateTransit(15, 5);
+
+        var activityB = CreateActivity(2, 45);
+        var afternoon = CreateBlock(BlockType.Afternoon, activityB);
+        afternoon.InterBlockTransit = CreateTransit(10, 5); // stored on destination block
+
+        var trip = CreateTripWithDay(morning, afternoon);
+        var scheduler = new TimelineScheduler();
+
+        scheduler.Schedule(trip);
+
+        // Morning first activity: 540 + 15 + 5 = 560
+        Assert.AreEqual(560, morning.Activities[0].EstimatedArrival);
+        Assert.AreEqual(620, morning.Activities[0].EstimatedDeparture);
+
+        // Afternoon first activity chains from morning end + InterBlockTransit
+        // 620 + 10 + 5 = 635
+        Assert.AreEqual(635, afternoon.Activities[0].EstimatedArrival,
+            "Afternoon should chain from morning end via InterBlockTransit");
+        Assert.AreEqual(680, afternoon.Activities[0].EstimatedDeparture);
+    }
+
+    [TestMethod]
+    public void Schedule_BlockWithTransitFromHotel_ResetsToStartTime()
+    {
+        // Morning has InterBlockTransit (but also TransitFromHotel)
+        // TransitFromHotel takes priority → reset to DayPlan.StartTime
+        var activityA = CreateActivity(1, 60);
+        var morning = CreateBlock(BlockType.Morning, activityA);
+        morning.TransitFromHotel = CreateTransit(10, 0);
+        morning.InterBlockTransit = CreateTransit(5, 0);
+
+        var trip = CreateTripWithDay(morning);
+        var scheduler = new TimelineScheduler();
+
+        scheduler.Schedule(trip);
+
+        // Should start at DayPlan.StartTime (540) + TransitFromHotel (10) = 550
+        Assert.AreEqual(550, morning.Activities[0].EstimatedArrival,
+            "TransitFromHotel takes priority over InterBlockTransit — starts at StartTime");
+    }
+
+    [TestMethod]
+    public void Schedule_InterBlockTransitChainsMixedWithTransitFromHotel()
+    {
+        // Morning: TransitFromHotel=10+0, Activity=60 → end = 540+10+60 = 610
+        // InterBlockTransit: 10+5 (on Afternoon) → Afternoon chains at 610+15 = 625
+        // Afternoon: no TransitFromHotel, Activity=45 → end = 625+45 = 670
+        // No InterBlockTransit to Evening → Evening has TransitFromHotel
+        // Evening: TransitFromHotel=5+0, Activity=30 → start = 540+5 = 545
+        var activityM = CreateActivity(1, 60);
+        var morning = CreateBlock(BlockType.Morning, activityM);
+        morning.TransitFromHotel = CreateTransit(10, 0);
+
+        var activityA = CreateActivity(2, 45);
+        var afternoon = CreateBlock(BlockType.Afternoon, activityA);
+        afternoon.InterBlockTransit = CreateTransit(10, 5); // from Morning to Afternoon
+
+        var activityE = CreateActivity(3, 30);
+        var evening = CreateBlock(BlockType.Evening, activityE);
+        evening.TransitFromHotel = CreateTransit(5, 0);
+
+        var trip = CreateTripWithDay(morning, afternoon, evening);
+        var scheduler = new TimelineScheduler();
+
+        scheduler.Schedule(trip);
+
+        // Morning: 540 + 10 = 550, end = 610
+        Assert.AreEqual(550, morning.Activities[0].EstimatedArrival);
+        Assert.AreEqual(610, morning.Activities[0].EstimatedDeparture);
+
+        // Afternoon chains from morning: 610 + 10 + 5 = 625
+        Assert.AreEqual(625, afternoon.Activities[0].EstimatedArrival);
+        Assert.AreEqual(670, afternoon.Activities[0].EstimatedDeparture);
+
+        // Evening has TransitFromHotel → resets to StartTime: 540 + 5 = 545
+        Assert.AreEqual(545, evening.Activities[0].EstimatedArrival,
+            "Evening with TransitFromHotel should reset to StartTime, not chain from afternoon");
+        Assert.AreEqual(575, evening.Activities[0].EstimatedDeparture);
+    }
+
+    [TestMethod]
+    public void Schedule_EmptyBlockFollowedByNonEmpty_ResetsToStartTime()
+    {
+        // Morning: empty
+        // Afternoon: TransitFromHotel=10+0, Activity=45
+        // Since morning is empty, no InterBlockTransit → Afternoon resets to StartTime
+        var morning = CreateBlock(BlockType.Morning); // empty
+
+        var activityA = CreateActivity(2, 45);
+        var afternoon = CreateBlock(BlockType.Afternoon, activityA);
+        afternoon.TransitFromHotel = CreateTransit(10, 0);
+
+        var trip = CreateTripWithDay(morning, afternoon);
+        var scheduler = new TimelineScheduler();
+
+        scheduler.Schedule(trip);
+
+        // Morning skipped (empty)
+        Assert.AreEqual(0, morning.Activities.Count);
+
+        // Afternoon starts at DayPlan.StartTime (540) + TransitFromHotel (10) = 550
+        Assert.AreEqual(550, afternoon.Activities[0].EstimatedArrival,
+            "Afternoon after empty Morning should reset to StartTime");
+    }
+
+    [TestMethod]
+    public void Schedule_MultipleInterBlockTransit_ChainsCorrectly()
+    {
+        // Three blocks all chained via InterBlockTransit (no TransitFromHotel)
+        // Morning: Activity=60 → end=600
+        // InterBlockTransit: 10+5 (on Afternoon) → Afternoon starts at 615
+        // Afternoon: Activity=45 → end=660
+        // InterBlockTransit: 8+3 (on Evening) → Evening starts at 671
+        // Evening: Activity=30 → end=701
+        var activityM = CreateActivity(1, 60);
+        var morning = CreateBlock(BlockType.Morning, activityM);
+
+        var activityA = CreateActivity(2, 45);
+        var afternoon = CreateBlock(BlockType.Afternoon, activityA);
+        afternoon.InterBlockTransit = CreateTransit(10, 5); // from Morning to Afternoon
+
+        var activityE = CreateActivity(3, 30);
+        var evening = CreateBlock(BlockType.Evening, activityE);
+        evening.InterBlockTransit = CreateTransit(8, 3); // from Afternoon to Evening
+
+        var trip = CreateTripWithDay(morning, afternoon, evening);
+        var scheduler = new TimelineScheduler();
+
+        scheduler.Schedule(trip);
+
+        // Morning: 540 + 0 = 540 (no TransitFromHotel, first block)
+        Assert.AreEqual(540, morning.Activities[0].EstimatedArrival);
+        Assert.AreEqual(600, morning.Activities[0].EstimatedDeparture);
+
+        // Afternoon: 600 + 10 + 5 = 615
+        Assert.AreEqual(615, afternoon.Activities[0].EstimatedArrival);
+        Assert.AreEqual(660, afternoon.Activities[0].EstimatedDeparture);
+
+        // Evening: 660 + 8 + 3 = 671
+        Assert.AreEqual(671, evening.Activities[0].EstimatedArrival);
+        Assert.AreEqual(701, evening.Activities[0].EstimatedDeparture);
     }
 }

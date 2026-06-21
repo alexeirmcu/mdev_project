@@ -175,4 +175,37 @@ public sealed class BlockTimelineTests
         var block = CreateMorningBlock();
         Assert.AreEqual(0, block.BlockWallClockDurationMinutes);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // InterBlockTransit tests
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void InterBlockTransit_DefaultIsNull()
+    {
+        var block = CreateMorningBlock();
+        Assert.IsNull(block.InterBlockTransit);
+    }
+
+    [TestMethod]
+    public void InterBlockTransit_CanBeSet()
+    {
+        var block = CreateMorningBlock();
+        var transit = new TransitDetails(TransportMode.WALK_AND_PUBLIC_TRANSPORT, 10, 5, false);
+        block.InterBlockTransit = transit;
+        Assert.IsNotNull(block.InterBlockTransit);
+        Assert.AreEqual(10, block.InterBlockTransit.DurationMinutes);
+    }
+
+    [TestMethod]
+    public void BlockTotalDurationMinutes_ExcludesInterBlockTransit()
+    {
+        var block = CreateMorningBlock();
+        block.InterBlockTransit = new TransitDetails(TransportMode.WALK_AND_PUBLIC_TRANSPORT, 15, 5, false);
+        var activity = CreateActivity(60);
+        block.AddActivity(activity);
+
+        // Inter-block transit is external to block capacity — should not affect TotalDuration
+        Assert.AreEqual(60, block.BlockTotalDurationMinutes);
+    }
 }

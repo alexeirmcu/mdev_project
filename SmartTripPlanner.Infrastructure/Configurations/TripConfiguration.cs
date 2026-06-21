@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.Enums;
 
 namespace SmartTripPlanner.Infrastructure.Configurations;
 
@@ -47,6 +48,10 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
             prefs.Property(p => p.CarAvailable).HasColumnName("PrefCarAvailable").HasDefaultValue(false);
             prefs.Property(p => p.MaxWalkingMinutes).HasColumnName("PrefMaxWalkingMinutes").HasDefaultValue(30);
             prefs.Property(p => p.WeatherAwareEnabled).HasColumnName("PrefWeatherAwareEnabled").HasDefaultValue(true);
+            prefs.Property(p => p.ReturnToHotelStrategy)
+                .HasColumnName("PrefReturnToHotelStrategy")
+                .HasConversion<string>()
+                .HasDefaultValue(ReturnToHotelStrategy.Always);
             prefs.Property(p => p.Interests)
                 .HasColumnType("text[]")
                 .HasDefaultValueSql("ARRAY[]::text[]");
@@ -74,6 +79,7 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
             {
                 m.OwnsOne(b => b.TransitFromHotel);
                 m.OwnsOne(b => b.TransitToHotel);
+                m.OwnsOne(b => b.InterBlockTransit);
                 m.OwnsMany(b => b.Activities, a =>
                 {
                     a.ToTable("MorningActivities");
@@ -92,6 +98,7 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
             {
                 m.OwnsOne(b => b.TransitFromHotel);
                 m.OwnsOne(b => b.TransitToHotel);
+                m.OwnsOne(b => b.InterBlockTransit);
                 m.OwnsMany(b => b.Activities, a =>
                 {
                     a.ToTable("AfternoonActivities");
@@ -110,6 +117,7 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
             {
                 m.OwnsOne(b => b.TransitFromHotel);
                 m.OwnsOne(b => b.TransitToHotel);
+                m.OwnsOne(b => b.InterBlockTransit);
                 m.OwnsMany(b => b.Activities, a =>
                 {
                     a.ToTable("EveningActivities");

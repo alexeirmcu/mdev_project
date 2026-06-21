@@ -64,7 +64,8 @@ public class AutoMapperProfile : Profile
             .ForMember(dest => dest.TotalDurationMinutes, opt => opt.MapFrom(src => src.BlockTotalDurationMinutes))
             .ForMember(dest => dest.Activities, opt => opt.MapFrom(src => src.Activities))
             .ForMember(dest => dest.TransitFromHotel, opt => opt.MapFrom(src => src.TransitFromHotel))
-            .ForMember(dest => dest.TransitToHotel, opt => opt.MapFrom(src => src.TransitToHotel));
+            .ForMember(dest => dest.TransitToHotel, opt => opt.MapFrom(src => src.TransitToHotel))
+            .ForMember(dest => dest.InterBlockTransit, opt => opt.MapFrom(src => src.InterBlockTransit));
 
         CreateMap<DayPlan, DayPlanResponse>()
             .ForMember(dest => dest.WeatherSummary, opt => opt.MapFrom(src => src.WeatherSummary.ToString()))

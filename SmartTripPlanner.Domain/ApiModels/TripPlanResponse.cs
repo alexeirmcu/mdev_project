@@ -38,6 +38,7 @@ public class BlockResponse
     public int TotalDurationMinutes { get; set; }
     public TransitResponse? TransitFromHotel { get; set; }
     public TransitResponse? TransitToHotel { get; set; }
+    public TransitResponse? InterBlockTransit { get; set; }
     public List<ActivityResponse> Activities { get; set; } = new();
 }
 

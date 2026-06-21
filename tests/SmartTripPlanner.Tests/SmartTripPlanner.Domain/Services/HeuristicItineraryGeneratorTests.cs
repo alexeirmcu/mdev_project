@@ -90,7 +90,8 @@ public sealed class HeuristicItineraryGeneratorTests
     }
 
     private static Trip CreateTrip(IReadOnlyList<MustSee> mustSees, int dayCount = 3,
-        bool carAvailable = false, bool weatherAware = true, int children = 0)
+        bool carAvailable = false, bool weatherAware = true, int children = 0,
+        ReturnToHotelStrategy returnToHotelStrategy = ReturnToHotelStrategy.Always)
     {
         var trip = new Trip
         {
@@ -101,7 +102,7 @@ public sealed class HeuristicItineraryGeneratorTests
             EndDate = new DateOnly(2026, 7, 1 + dayCount - 1),
             BaseHotel = new Location("Test Hotel", 40.4168, -3.7038),
             Travelers = new Travelers(2, children, 0),
-            Preferences = new TripPreferences(carAvailable, 30, weatherAware),
+            Preferences = new TripPreferences(carAvailable, 30, weatherAware, returnToHotelStrategy: returnToHotelStrategy),
             DefaultStartTime = new TimeOnly(9, 0),
             CreatedAt = DateTimeOffset.UtcNow
         };
@@ -648,5 +649,120 @@ public sealed class HeuristicItineraryGeneratorTests
 
         Assert.AreEqual(1, trip.Days.Count);
         Assert.AreEqual(1, trip.Days[0].Morning.Activities.Count);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // ReturnToHotelStrategy Integration Tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task GenerateAsync_AlwaysStrategy_HotelLegsPresentNoInterBlockTransit()
+    {
+        // Always is the default — verify hotel transit populated and no InterBlockTransit
+        var mustSees = new List<MustSee>
+        {
+            new(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning),
+            new(2, Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Afternoon)
+        };
+        var trip = CreateTrip(mustSees, dayCount: 1, returnToHotelStrategy: ReturnToHotelStrategy.Always);
+        var places = new List<Place>
+        {
+            CreatePlace(1, "Place Morning", 40.4168, -3.7038, duration: 60),
+            CreatePlace(2, "Place Afternoon", 40.4200, -3.7100, duration: 60),
+        };
+
+        await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
+
+        var morning = trip.Days[0].Morning;
+        var afternoon = trip.Days[0].Afternoon;
+
+        // Always: each block has full hotel transit
+        Assert.IsNotNull(morning.TransitFromHotel);
+        Assert.IsNotNull(morning.TransitToHotel);
+        Assert.IsNull(morning.InterBlockTransit);
+        Assert.IsNotNull(afternoon.TransitFromHotel);
+        Assert.IsNotNull(afternoon.TransitToHotel);
+        Assert.IsNull(afternoon.InterBlockTransit);
+    }
+
+    [TestMethod]
+    public async Task GenerateAsync_NeverStrategy_InterBlockTransitPopulated()
+    {
+        var mustSees = new List<MustSee>
+        {
+            new(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning),
+            new(2, Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Afternoon)
+        };
+        var trip = CreateTrip(mustSees, dayCount: 1, returnToHotelStrategy: ReturnToHotelStrategy.Never);
+        var places = new List<Place>
+        {
+            CreatePlace(1, "Morning Place", 40.4168, -3.7038, duration: 60),
+            CreatePlace(2, "Afternoon Place", 40.4200, -3.7100, duration: 60),
+        };
+
+        await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
+
+        var morning = trip.Days[0].Morning;
+        var afternoon = trip.Days[0].Afternoon;
+
+        // Never: InterBlockTransit on destination (Afternoon), hotel legs null at boundary
+        Assert.IsNotNull(morning.TransitFromHotel, "Morning still has TransitFromHotel (start of day)");
+        Assert.IsNull(morning.TransitToHotel, "Morning TransitToHotel null — inter-block to Afternoon");
+        Assert.IsNull(morning.InterBlockTransit, "Morning InterBlockTransit null — stored on destination");
+
+        Assert.IsNull(afternoon.TransitFromHotel, "Afternoon TransitFromHotel null — inter-block from Morning");
+        Assert.IsNotNull(afternoon.InterBlockTransit, "Afternoon has InterBlockTransit from Morning");
+        Assert.IsNotNull(afternoon.TransitToHotel, "Afternoon returns to hotel at end of block");
+    }
+
+    [TestMethod]
+    public async Task GenerateAsync_ProximityBased_MechanismRuns()
+    {
+        // Verify ProximityBased runs through full pipeline without error
+        var mustSees = new List<MustSee>
+        {
+            new(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning),
+            new(2, Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Afternoon)
+        };
+        var trip = CreateTrip(mustSees, dayCount: 1, carAvailable: true,
+            returnToHotelStrategy: ReturnToHotelStrategy.ProximityBased);
+        var places = new List<Place>
+        {
+            CreatePlace(1, "Morning Place", 40.4168, -3.7038, duration: 60),
+            CreatePlace(2, "Afternoon Place", 40.4200, -3.7100, duration: 60),
+        };
+
+        await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
+
+        var morning = trip.Days[0].Morning;
+        var afternoon = trip.Days[0].Afternoon;
+
+        // Mechanism ran — either InterBlockTransit on destination OR hotel transit kept
+        Assert.IsTrue(
+            afternoon.InterBlockTransit != null || morning.TransitToHotel != null,
+            "ProximityBased must choose either direct or hotel route");
+    }
+
+    [TestMethod]
+    public async Task GenerateAsync_NeverStrategy_EveningAlwaysReturnsToHotel()
+    {
+        var mustSees = new List<MustSee>
+        {
+            new(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Afternoon),
+            new(2, Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Evening)
+        };
+        var trip = CreateTrip(mustSees, dayCount: 1, returnToHotelStrategy: ReturnToHotelStrategy.Never);
+        var places = new List<Place>
+        {
+            CreatePlace(1, "Afternoon Place", 40.4200, -3.7100, duration: 60),
+            CreatePlace(2, "Evening Place", 40.4180, -3.7140, duration: 60),
+        };
+
+        await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
+
+        var evening = trip.Days[0].Evening;
+
+        // Evening always returns to hotel regardless of strategy
+        Assert.IsNotNull(evening.TransitToHotel, "Evening always returns to hotel — even with Never strategy");
     }
 }

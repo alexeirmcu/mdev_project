@@ -9,6 +9,7 @@ public class BlockTimeline : Entity
     public BlockType BlockType { get; init; }
     public TransitDetails? TransitFromHotel { get; set; }
     public TransitDetails? TransitToHotel { get; set; }
+    public TransitDetails? InterBlockTransit { get; set; }
     public int BlockTotalDurationMinutes => Activities.Sum(a => a.DurationMinutes + (a.TransitToNext?.DurationMinutes ?? 0));
     public int BlockWallClockDurationMinutes =>
         (TransitFromHotel?.DurationMinutes ?? 0) +

@@ -19,20 +19,39 @@ public class TimelineScheduler : ITimelineScheduler
         foreach (var dayPlan in trip.Days)
         {
             var startMinutes = dayPlan.StartTime.Hour * 60 + dayPlan.StartTime.Minute;
+            var previousBlockEnd = startMinutes;
 
             foreach (var blockType in new[] { BlockType.Morning, BlockType.Afternoon, BlockType.Evening })
             {
                 var block = dayPlan.GetBlock(blockType);
                 if (block.Activities.Count == 0)
+                {
+                    // Empty block: still advance previousBlockEnd so non-empty blocks
+                    // that chain via InterBlockTransit use the last non-empty block's end
                     continue;
+                }
 
-                var currentTime = startMinutes;
+                int currentTime;
 
-                // Add hotel-to-first-activity transit at block start
+                // Determine block start: TransitFromHotel resets; InterBlockTransit chains; else reset
                 if (block.TransitFromHotel is not null)
                 {
+                    currentTime = startMinutes;
                     currentTime += block.TransitFromHotel.DurationMinutes;
                     currentTime += block.TransitFromHotel.BufferMinutes;
+                }
+                else if (block.InterBlockTransit is not null
+                         && dayPlan.GetBlock(BlockType.Morning) != block) // first block of day can't chain
+                {
+                    // Block arrived via inter-block transit from previous block
+                    currentTime = previousBlockEnd;
+                    currentTime += block.InterBlockTransit.DurationMinutes;
+                    currentTime += block.InterBlockTransit.BufferMinutes;
+                }
+                else
+                {
+                    // No hotel transit and no inter-block transit → start fresh
+                    currentTime = startMinutes;
                 }
 
                 foreach (var activity in block.Activities)
@@ -49,7 +68,8 @@ public class TimelineScheduler : ITimelineScheduler
                     }
                 }
 
-                // MVP: reset to DayPlan.StartTime for next block (no block chaining)
+                // Store block end time for potential chaining to next block
+                previousBlockEnd = currentTime;
             }
         }
     }

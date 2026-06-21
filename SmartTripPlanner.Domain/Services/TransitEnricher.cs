@@ -79,6 +79,79 @@ public class TransitEnricher : ITransitEnricher
                     }
                 }
             }
+
+            // Apply ReturnToHotelStrategy to optimize inter-block transit
+            if (trip.Preferences.ReturnToHotelStrategy != ReturnToHotelStrategy.Always
+                && trip.BaseHotel is not null)
+            {
+                await ApplyStrategyAsync(dayPlan, trip.Preferences, trip.BaseHotel, ct);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Applies Never or ProximityBased strategy to replace hotel-return transit
+    /// with direct inter-block transit where beneficial.
+    /// </summary>
+    private async Task ApplyStrategyAsync(
+        DayPlan dayPlan,
+        TripPreferences preferences,
+        Location baseHotel,
+        CancellationToken ct)
+    {
+        var blocks = new[] { BlockType.Morning, BlockType.Afternoon, BlockType.Evening };
+        var hotelLocation = new PlaceLocation(baseHotel.Latitude, baseHotel.Longitude);
+
+        for (int i = 0; i < blocks.Length - 1; i++)
+        {
+            var currentBlock = dayPlan.GetBlock(blocks[i]);
+            var nextBlock = dayPlan.GetBlock(blocks[i + 1]);
+
+            // Both blocks need activities for inter-block optimization
+            if (currentBlock.Activities.Count == 0 || nextBlock.Activities.Count == 0)
+                continue;
+
+            var lastActivity = currentBlock.Activities[^1];
+            var nextFirstActivity = nextBlock.Activities[0];
+
+            if (lastActivity.Location is null || nextFirstActivity.Location is null)
+                continue;
+
+            if (preferences.ReturnToHotelStrategy == ReturnToHotelStrategy.Never)
+            {
+                // Direct inter-block transit, skip hotel return
+                // InterBlockTransit is stored on the destination block (symmetric with TransitFromHotel)
+                var transit = await AssignTransitAsync(
+                    lastActivity.Location, nextFirstActivity.Location, preferences, ct);
+                nextBlock.InterBlockTransit = transit;
+                currentBlock.TransitToHotel = null;
+                nextBlock.TransitFromHotel = null;
+
+                // Evening block's TransitToHotel stays (end of day always returns to hotel)
+            }
+            else if (preferences.ReturnToHotelStrategy == ReturnToHotelStrategy.ProximityBased)
+            {
+                var direct = await AssignTransitAsync(
+                    lastActivity.Location, nextFirstActivity.Location, preferences, ct);
+                var toHotel = await AssignTransitAsync(
+                    lastActivity.Location, hotelLocation, preferences, ct);
+                var fromHotel = await AssignTransitAsync(
+                    hotelLocation, nextFirstActivity.Location, preferences, ct);
+
+                var directTotal = direct.DurationMinutes + direct.BufferMinutes;
+                var viaHotelTotal = toHotel.DurationMinutes + toHotel.BufferMinutes
+                                    + fromHotel.DurationMinutes + fromHotel.BufferMinutes;
+
+                if (directTotal < viaHotelTotal)
+                {
+                    // Direct is strictly shorter
+                    // InterBlockTransit on destination block
+                    nextBlock.InterBlockTransit = direct;
+                    currentBlock.TransitToHotel = null;
+                    nextBlock.TransitFromHotel = null;
+                }
+                // else: keep hotel transit (tie-breaker favors hotel when <=)
+            }
         }
     }
 

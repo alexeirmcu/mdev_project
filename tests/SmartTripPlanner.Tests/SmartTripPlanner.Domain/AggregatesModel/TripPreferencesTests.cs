@@ -1,4 +1,5 @@
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.Enums;
 
 namespace SmartTripPlanner.Tests.Domain.AggregatesModel;
 
@@ -48,5 +49,40 @@ public sealed class TripPreferencesTests
     public void MaxWalkingMinutes_Negative_ThrowsArgumentException()
     {
         Assert.ThrowsExactly<ArgumentException>(() => new TripPreferences(false, -1));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // ReturnToHotelStrategy tests
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Default_ReturnToHotelStrategy_IsAlways()
+    {
+        var prefs = new TripPreferences();
+        Assert.AreEqual(ReturnToHotelStrategy.Always, prefs.ReturnToHotelStrategy);
+    }
+
+    [TestMethod]
+    public void Constructor_WithReturnToHotelStrategy_SetsCorrectly()
+    {
+        var prefs = new TripPreferences(returnToHotelStrategy: ReturnToHotelStrategy.Never);
+        Assert.AreEqual(ReturnToHotelStrategy.Never, prefs.ReturnToHotelStrategy);
+    }
+
+    [TestMethod]
+    public void Equals_DifferentReturnToHotelStrategy_ReturnsFalse()
+    {
+        var a = new TripPreferences(returnToHotelStrategy: ReturnToHotelStrategy.Always);
+        var b = new TripPreferences(returnToHotelStrategy: ReturnToHotelStrategy.Never);
+        Assert.AreNotEqual(a, b);
+    }
+
+    [TestMethod]
+    public void Equals_SameReturnToHotelStrategy_ReturnsTrue()
+    {
+        var a = new TripPreferences(returnToHotelStrategy: ReturnToHotelStrategy.Never);
+        var b = new TripPreferences(returnToHotelStrategy: ReturnToHotelStrategy.Never);
+        Assert.AreEqual(a, b);
+        Assert.AreEqual(a.GetHashCode(), b.GetHashCode());
     }
 }

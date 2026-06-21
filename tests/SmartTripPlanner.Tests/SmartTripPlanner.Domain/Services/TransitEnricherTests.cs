@@ -242,6 +242,220 @@ public sealed class TransitEnricherTests
         Assert.IsNull(morning.TransitToHotel);
     }
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // ReturnToHotelStrategy tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task EnrichAsync_AlwaysStrategy_HotelLegsPresentNoInterBlockTransit()
+    {
+        var trip = CreateTrip(dayCount: 1);
+        trip.Preferences = new TripPreferences(returnToHotelStrategy: ReturnToHotelStrategy.Always);
+
+        var morningLoc = new PlaceLocation(40.4168, -3.7038);
+        var afternoonLoc = new PlaceLocation(40.4200, -3.7100);
+
+        var act1 = new ActivityNode(1, "Morning Place", 1, 60, location: morningLoc);
+        var act2 = new ActivityNode(2, "Afternoon Place", 2, 60, location: afternoonLoc);
+        trip.Days[0].AddActivity(BlockType.Morning, act1);
+        trip.Days[0].AddActivity(BlockType.Afternoon, act2);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        var morning = trip.Days[0].Morning;
+        var afternoon = trip.Days[0].Afternoon;
+
+        // Always: each block independent — hotel legs present, no InterBlockTransit
+        Assert.IsNotNull(morning.TransitFromHotel);
+        Assert.IsNotNull(morning.TransitToHotel);
+        Assert.IsNull(morning.InterBlockTransit);
+        Assert.IsNotNull(afternoon.TransitFromHotel);
+        Assert.IsNotNull(afternoon.TransitToHotel);
+        Assert.IsNull(afternoon.InterBlockTransit);
+    }
+
+    [TestMethod]
+    public async Task EnrichAsync_NeverStrategy_InterBlockTransitPresentHotelLegsNullAtBoundaries()
+    {
+        var trip = CreateTrip(dayCount: 1);
+        trip.Preferences = new TripPreferences(returnToHotelStrategy: ReturnToHotelStrategy.Never);
+
+        var morningLoc = new PlaceLocation(40.4168, -3.7038);
+        var afternoonLoc = new PlaceLocation(40.4200, -3.7100);
+
+        var act1 = new ActivityNode(1, "Morning Place", 1, 60, location: morningLoc);
+        var act2 = new ActivityNode(2, "Afternoon Place", 2, 60, location: afternoonLoc);
+        trip.Days[0].AddActivity(BlockType.Morning, act1);
+        trip.Days[0].AddActivity(BlockType.Afternoon, act2);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        var morning = trip.Days[0].Morning;
+        var afternoon = trip.Days[0].Afternoon;
+
+        // Never: Morning→Afternoon boundary — InterBlockTransit on destination (Afternoon), hotel legs null
+        Assert.IsNotNull(morning.TransitFromHotel, "Morning should still have TransitFromHotel (start of day)");
+        Assert.IsNull(morning.TransitToHotel, "Morning TransitToHotel should be null (inter-block transit used)");
+        Assert.IsNull(morning.InterBlockTransit, "Morning InterBlockTransit is null — transit stored on destination block");
+
+        Assert.IsNull(afternoon.TransitFromHotel, "Afternoon TransitFromHotel should be null (inter-block transit)");
+        Assert.IsNotNull(afternoon.TransitToHotel, "Afternoon TransitToHotel should be present (end of block returns to hotel)");
+        Assert.IsNotNull(afternoon.InterBlockTransit, "Afternoon should have InterBlockTransit from Morning (stored on destination)");
+    }
+
+    [TestMethod]
+    public async Task EnrichAsync_NeverStrategy_EveningAlwaysReturnsToHotel()
+    {
+        var trip = CreateTrip(dayCount: 1);
+        trip.Preferences = new TripPreferences(returnToHotelStrategy: ReturnToHotelStrategy.Never);
+
+        var afternoonLoc = new PlaceLocation(40.4200, -3.7100);
+        var eveningLoc = new PlaceLocation(40.4180, -3.7140);
+
+        var act1 = new ActivityNode(1, "Afternoon Place", 1, 60, location: afternoonLoc);
+        var act2 = new ActivityNode(2, "Evening Place", 2, 60, location: eveningLoc);
+        trip.Days[0].AddActivity(BlockType.Afternoon, act1);
+        trip.Days[0].AddActivity(BlockType.Evening, act2);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        var afternoon = trip.Days[0].Afternoon;
+        var evening = trip.Days[0].Evening;
+
+        // Even with Never: Afternoon→Evening boundary optimized but Evening still returns to hotel
+        Assert.IsNull(afternoon.TransitToHotel, "Afternoon TransitToHotel null — inter-block to Evening");
+        Assert.IsNull(afternoon.InterBlockTransit, "Afternoon InterBlockTransit null — transit stored on destination (Evening)");
+        Assert.IsNull(evening.TransitFromHotel, "Evening TransitFromHotel null — came via inter-block from Afternoon");
+        Assert.IsNotNull(evening.InterBlockTransit, "Evening should have InterBlockTransit from Afternoon (stored on destination)");
+        Assert.IsNotNull(evening.TransitToHotel, "Evening TransitToHotel MUST be present — end of day always returns to hotel");
+    }
+
+    [TestMethod]
+    public async Task EnrichAsync_NeverStrategy_EmptyBlockBoundary_KeepsHotelTransit()
+    {
+        var trip = CreateTrip(dayCount: 1);
+        trip.Preferences = new TripPreferences(returnToHotelStrategy: ReturnToHotelStrategy.Never);
+
+        // Only Morning has activities — Afternoon is empty
+        var morningLoc = new PlaceLocation(40.4168, -3.7038);
+        var act1 = new ActivityNode(1, "Morning Only", 1, 60, location: morningLoc);
+        trip.Days[0].AddActivity(BlockType.Morning, act1);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        var morning = trip.Days[0].Morning;
+
+        // With empty Afternoon, Morning should still have full hotel transit
+        Assert.IsNotNull(morning.TransitFromHotel);
+        Assert.IsNotNull(morning.TransitToHotel);
+        Assert.IsNull(morning.InterBlockTransit);
+    }
+
+    [TestMethod]
+    public async Task EnrichAsync_ProximityBased_ChoosesDirectWhenShorter()
+    {
+        // Setup: hotel is far from boundary locations, but locations are close to each other
+        var trip = CreateTrip(dayCount: 1);
+        trip.Preferences = new TripPreferences(returnToHotelStrategy: ReturnToHotelStrategy.ProximityBased);
+
+        // Hotel at (40.4168, -3.7038) — Madrid center
+        // Morning and Afternoon activities very close to each other but far from hotel
+        // This should make direct transit shorter than via hotel
+        var morningLoc = new PlaceLocation(40.5000, -3.8000);  // ~10km from hotel
+        var afternoonLoc = new PlaceLocation(40.5010, -3.8010); // ~0.1km from morning
+
+        var act1 = new ActivityNode(1, "Morning Place", 1, 60, location: morningLoc);
+        var act2 = new ActivityNode(2, "Afternoon Place", 2, 60, location: afternoonLoc);
+        trip.Days[0].AddActivity(BlockType.Morning, act1);
+        trip.Days[0].AddActivity(BlockType.Afternoon, act2);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        var morning = trip.Days[0].Morning;
+        var afternoon = trip.Days[0].Afternoon;
+
+        // Direct should be chosen (very short distance between activities)
+        // InterBlockTransit is on the destination block (Afternoon)
+        Assert.IsNull(morning.TransitToHotel, "Direct route chosen — TransitToHotel should be null");
+        Assert.IsNull(morning.InterBlockTransit, "Morning has no InterBlockTransit — stored on destination");
+        Assert.IsNull(afternoon.TransitFromHotel, "Direct route — TransitFromHotel should be null");
+        Assert.IsNotNull(afternoon.InterBlockTransit, "Afternoon should have InterBlockTransit from Morning (direct route)");
+        Assert.IsNotNull(afternoon.TransitToHotel, "Afternoon still returns to hotel");
+    }
+
+    [TestMethod]
+    public async Task EnrichAsync_ProximityBased_MechanismRunsAndMakesChoice()
+    {
+        // Verify ProximityBased executes, makes a choice, and doesn't crash
+        var trip = CreateTrip(dayCount: 1);
+        trip.Preferences = new TripPreferences(carAvailable: true, returnToHotelStrategy: ReturnToHotelStrategy.ProximityBased);
+
+        // Activities close together (short direct transit) but far from hotel
+        // With CarAvailable, the mock may use different modes — the key is that
+        // the proximity mechanism computes both and makes a choice
+        var morningLoc = new PlaceLocation(40.5000, -3.8000);  // ~10km from hotel
+        var afternoonLoc = new PlaceLocation(40.5010, -3.8010); // ~0.1km from morning
+
+        var act1 = new ActivityNode(1, "Morning Place", 1, 60, location: morningLoc);
+        var act2 = new ActivityNode(2, "Afternoon Place", 2, 60, location: afternoonLoc);
+        trip.Days[0].AddActivity(BlockType.Morning, act1);
+        trip.Days[0].AddActivity(BlockType.Afternoon, act2);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        var morning = trip.Days[0].Morning;
+        var afternoon = trip.Days[0].Afternoon;
+
+        // The mechanism made a choice: either InterBlockTransit on destination (direct chosen)
+        // OR hotel transit is kept (hotel chosen). One must be true.
+        Assert.IsTrue(
+            afternoon.InterBlockTransit != null || morning.TransitToHotel != null,
+            "ProximityBased must set either InterBlockTransit (on destination) or keep TransitToHotel");
+    }
+
+    [TestMethod]
+    public async Task EnrichAsync_ProximityBased_EveningAlwaysReturnsToHotel()
+    {
+        var trip = CreateTrip(dayCount: 1);
+        trip.Preferences = new TripPreferences(returnToHotelStrategy: ReturnToHotelStrategy.ProximityBased);
+
+        var afternoonLoc = new PlaceLocation(40.4200, -3.7100);
+        var eveningLoc = new PlaceLocation(40.4180, -3.7140);
+
+        var act1 = new ActivityNode(1, "Afternoon Place", 1, 60, location: afternoonLoc);
+        var act2 = new ActivityNode(2, "Evening Place", 2, 60, location: eveningLoc);
+        trip.Days[0].AddActivity(BlockType.Afternoon, act1);
+        trip.Days[0].AddActivity(BlockType.Evening, act2);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        var evening = trip.Days[0].Evening;
+
+        // Evening always returns to hotel regardless of strategy
+        Assert.IsNotNull(evening.TransitToHotel, "Evening always returns to hotel");
+    }
+
     [TestMethod]
     public async Task EnrichAsync_HotelTransit_RespectsTransportModeRules()
     {
