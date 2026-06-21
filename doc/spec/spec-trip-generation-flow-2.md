@@ -14,11 +14,13 @@ Este flujo genera el itinerario multi-dia de un viaje previamente creado (Flujo 
 - Asignacion de modo de transporte por tramo.
 - Adaptacion climatica (indoor/outdoor scoring).
 - Validacion de capacidad por bloque y fallback por prioridad.
+- **Horarios exactos de inicio y fin por visita** (`EstimatedArrival` / `EstimatedDeparture`).
+- **Tramos de ida y vuelta al hotel** (`TransitFromHotel` / `TransitToHotel`).
+- **Transit directo entre bloques consecutivos** (`InterBlockTransit`) via `ReturnToHotelStrategy`.
 
 **No Alcance:**
 - OR-Tools VRP solver (post-MVP).
 - Routing real con API externa (Google Maps, HERE, etc.).
-- Horarios exactos de inicio por visita (`EstimatedArrival` / `EstimatedDeparture` existen como propiedades pero no se computan).
 - Replanificacion automatica (Flow 4).
 - Multi-ciudad / cambio de hotel.
 
@@ -56,11 +58,16 @@ Contenedor de actividades dentro de un bloque horario.
 BlockType             : BlockType (Morning | Afternoon | Evening)
 Activities            : List<ActivityNode>
 BlockTotalDurationMinutes => suma de DurationMinutes + TransitToNext.DurationMinutes
+TransitFromHotel      : TransitDetails? (Hotel → primera actividad)
+TransitToHotel        : TransitDetails? (ultima actividad → Hotel)
+InterBlockTransit     : TransitDetails? (ultima actividad → primera actividad del siguiente bloque)
 ```
 
 - `AddActivity(ActivityNode)` — agrega si hay capacidad (visitas + duracion).
 - `CanFitActivity(int durationMinutes)` — valida contra limites de `TripPlanningConstants`.
 - `GetBlockConstraints()` — resuelve `(maxVisits, maxDuration)` segun el tipo de bloque.
+
+**Nota:** `BlockTotalDurationMinutes` **no** incluye `TransitFromHotel`, `TransitToHotel`, ni `InterBlockTransit`. Solo suma actividades + transit interno.
 
 ### 2.3 `ActivityNode`
 
@@ -77,12 +84,12 @@ IsIndoor              : bool
 Priority              : Priority (High | Medium | Low)
 Location              : PlaceLocation (copia de Place.Location)
 TransitToNext         : TransitDetails? (null para la ultima actividad del bloque)
-EstimatedArrival      : int (minutos desde medianoche; seteable pero NO computado por el generador)
-EstimatedDeparture    : int (minutos desde medianoche; seteable pero NO computado por el generador)
+EstimatedArrival      : int (minutos desde medianoche; computado por TimelineScheduler)
+EstimatedDeparture    : int (minutos desde medianoche; computado por TimelineScheduler)
 IsCompleted           : bool (para Flow 4 / checklist)
 ```
 
-**Nota tecnica:** `EstimatedArrival` y `EstimatedDeparture` existen como propiedades mutables pero el generador heuristico actual **no las calcula**. Solo se setean `DurationMinutes` y `SequenceOrder`.
+**Nota:** `EstimatedArrival` y `EstimatedDeparture` son computados por `TimelineScheduler` (Phase 6) despues de que `TransitEnricher` calcula todos los tramos de transit.
 
 ### 2.4 `TransitDetails`
 
@@ -95,7 +102,23 @@ BufferMinutes         : int (default 10)
 FrictionAlert         : bool (true si hay alerta de friccion, e.g. aparcamiento denso)
 ```
 
-### 2.5 `TripPlanningConstants`
+### 2.5 `TripPreferences`
+
+Ubicacion: `SmartTripPlanner.Domain/AggregatesModel/TripPreferences.cs`
+
+```
+CarAvailable          : bool (default false)
+MaxWalkingMinutes     : int (default 30)
+WeatherAwareEnabled   : bool (default true)
+ReturnToHotelStrategy : ReturnToHotelStrategy (default Always)
+```
+
+**`ReturnToHotelStrategy`:**
+- **`Always`** (default): Cada bloque empieza y termina en el hotel. Hotel → Bloque → Hotel.
+- **`Never`**: El itinerario fluye continuo entre bloques. BloqueA[ultima] → BloqueB[primera]. Solo la Noche vuelve al hotel.
+- **`ProximityBased`**: En cada limite entre bloques, compara la ruta directa vs via hotel y elige la mas corta. Empate = favorece volver al hotel.
+
+### 2.6 `TripPlanningConstants`
 
 Ubicacion: `SmartTripPlanner.Domain/Constants/TripPlanningConstants.cs`
 
@@ -120,7 +143,7 @@ Ubicacion: `SmartTripPlanner.Domain/Constants/TripPlanningConstants.cs`
 | `MaxCandidatesPerCity` | 50 | Limite de candidatos por ciudad |
 | `InterestAttributeKey` | "category" | Clave de atributo para filtrar intereses |
 
-### 2.6 `OverConstrainedRouteException`
+### 2.7 `OverConstrainedRouteException`
 
 Ubicacion: `SmartTripPlanner.Domain/Exceptions/OverConstrainedRouteException.cs`
 
@@ -158,7 +181,12 @@ POST /api/trips/{tripId}/generate
   "endDate": "2026-07-19",
   "baseHotel": { "name": "Hotel Example", "latitude": 40.4168, "longitude": -3.7038 },
   "travelers": { "adults": 2, "children": 1, "infants": 0 },
-  "preferences": { "carAvailable": false, "maxWalkingMinutes": 30, "weatherAwareEnabled": true },
+  "preferences": {
+    "carAvailable": false,
+    "maxWalkingMinutes": 30,
+    "weatherAwareEnabled": true,
+    "returnToHotelStrategy": "Always"
+  },
   "mustSees": [...],
   "status": "GENERATED",
   "defaultStartHour": "09:00",
@@ -171,6 +199,19 @@ POST /api/trips/{tripId}/generate
         {
           "blockType": "Morning",
           "totalDurationMinutes": 195,
+          "transitFromHotel": {
+            "transportMode": "WALK_AND_PUBLIC_TRANSPORT",
+            "durationMinutes": 12,
+            "bufferMinutes": 10,
+            "frictionAlert": false
+          },
+          "transitToHotel": {
+            "transportMode": "WALK_AND_PUBLIC_TRANSPORT",
+            "durationMinutes": 8,
+            "bufferMinutes": 10,
+            "frictionAlert": false
+          },
+          "interBlockTransit": null,
           "activities": [
             {
               "placeId": 42,
@@ -182,7 +223,9 @@ POST /api/trips/{tripId}/generate
               "transportMode": "WALK_AND_PUBLIC_TRANSPORT",
               "transitDurationMinutes": 15,
               "bufferMinutes": 10,
-              "frictionAlert": false
+              "frictionAlert": false,
+              "estimatedArrival": 562,
+              "estimatedDeparture": 682
             }
           ]
         },
@@ -210,9 +253,9 @@ POST /api/trips/{tripId}/generate
 
 ---
 
-## 4. Algoritmo Heuristico (5 Pasos)
+## 4. Algoritmo Heuristico (6 Pasos)
 
-El generador `HeuristicItineraryGenerator` ejecuta 5 pasos secuenciales, delegando cada fase a un colaborador inyectable.
+El generador `HeuristicItineraryGenerator` ejecuta 6 pasos secuenciales, delegando cada fase a un colaborador inyectable.
 
 ```
 [GenerateTripItineraryHandler]
@@ -245,7 +288,18 @@ El generador `HeuristicItineraryGenerator` ejecuta 5 pasos secuenciales, delegan
 ├── Paso 5: Transit & Weather Enrichment ──> ITransitEnricher.EnrichAsync()
 │     • Asigna WeatherSummary por dia desde el diccionario
 │     • Calcula transit entre actividades consecutivas del bloque
-│     • Selecciona TransportMode segun reglas de transporte
+│     • Calcula TransitFromHotel y TransitToHotel por bloque
+│     • Aplica ReturnToHotelStrategy:
+│       - Always: Hotel → Bloque → Hotel (cada bloque independiente)
+│       - Never: BloqueA[ultima] → BloqueB[primera] (InterBlockTransit)
+│       - ProximityBased: elige directo o via hotel segun distancia mas corta
+│     • Evening SIEMPRE retorna al hotel (fin de dia)
+│
+├── Paso 6: Timeline Scheduling ──> ITimelineScheduler.Schedule()
+│     • Recorre cada bloque y computa EstimatedArrival / EstimatedDeparture
+│     • Si TransitFromHotel != null: bloque empieza en DayPlan.StartTime
+│     • Si InterBlockTransit != null: bloque empieza despues del anterior + inter-block
+│     • Avanza: currentTime += Duration + TransitToNext.Duration + TransitToNext.Buffer
 │
 ▼
 [Guardar trip actualizado + retornar TripPlanResponse]
@@ -255,14 +309,15 @@ El generador `HeuristicItineraryGenerator` ejecuta 5 pasos secuenciales, delegan
 
 | Puerto / Interfaz | Implementacion | Responsabilidad |
 |-------------------|----------------|-----------------|
-| `IItineraryGenerator` | `HeuristicItineraryGenerator` | Orquesta los 5 pasos |
+| `IItineraryGenerator` | `HeuristicItineraryGenerator` | Orquesta los 6 pasos |
 | `IPinnedMustSeePlacer` | `PinnedMustSeePlacer` | Ubica must-sees con dia/bloque fijado |
 | `IUnpinnedMustSeePlacer` | `UnpinnedMustSeePlacer` | Ubica must-sees sin fijar |
 | `ICandidateFiller` | `CandidateFiller` | Llena slots restantes |
-| `ITransitEnricher` | `TransitEnricher` | Transit + clima por dia |
+| `ITransitEnricher` | `TransitEnricher` | Transit + clima + hotel transit + strategy |
 | `ICandidateScorer` | `CandidateScorer` | Formula de puntaje por candidato |
 | `ITransitCalculator` | `HaversineTransitCalculator` | Estimacion de duracion/modo de traslado |
 | `IWeatherProvider` | `StubbedWeatherProvider` | Provee pronostico (stub MVP) |
+| `ITimelineScheduler` | `TimelineScheduler` | Computa horarios exactos por actividad |
 
 ### 4.2 Regla de Seleccion de Transporte
 
@@ -281,7 +336,73 @@ El `HaversineTransitCalculator` usa distancia haversine / velocidad por modo:
 
 **Nota:** No hay integracion con API de routing real. Es una heuristica basada en distancia en linea recta.
 
-### 4.3 Formula de Scoring de Candidatos
+### 4.3 ReturnToHotelStrategy
+
+Configurada via `TripPreferences.ReturnToHotelStrategy` (default `Always`).
+
+#### Always (default)
+```
+Hotel → [Morning] → Hotel → [Afternoon] → Hotel → [Evening] → Hotel
+```
+Cada bloque es independiente. Se calculan `TransitFromHotel` y `TransitToHotel` para todos los bloques.
+
+#### Never
+```
+Hotel → [Morning] → [Afternoon] → [Evening] → Hotel
+```
+- `TransitFromHotel` se calcula solo para el **primer bloque no vacio** del dia.
+- `TransitToHotel` se calcula solo para la **Noche** (fin de dia).
+- En los limites Mañana↔Tarde y Tarde↔Noche: se calcula `InterBlockTransit` (directo entre ultima y primera actividad).
+- Si un bloque esta vacio, el siguiente bloque recalcula `TransitFromHotel` desde el hotel.
+
+#### ProximityBased
+En cada limite entre bloques con actividades:
+```csharp
+var direct = await AssignTransitAsync(lastActivity.Location, nextFirstActivity.Location, preferences, ct);
+var toHotel = await AssignTransitAsync(lastActivity.Location, hotelLocation, preferences, ct);
+var fromHotel = await AssignTransitAsync(hotelLocation, nextFirstActivity.Location, preferences, ct);
+
+var directTotal = direct.DurationMinutes + direct.BufferMinutes;
+var viaHotelTotal = toHotel.DurationMinutes + toHotel.BufferMinutes 
+                  + fromHotel.DurationMinutes + fromHotel.BufferMinutes;
+
+// Elige la ruta mas corta. Empate (<=) favorece volver al hotel.
+if (viaHotelTotal <= directTotal) {
+    currentBlock.TransitToHotel = toHotel;
+    nextBlock.TransitFromHotel = fromHotel;
+} else {
+    currentBlock.InterBlockTransit = direct;
+}
+```
+
+### 4.4 Timeline Scheduling
+
+`TimelineScheduler.Schedule(trip)` es **sincrono puro** (sin I/O). Recorre cada `DayPlan` y cada `BlockTimeline`:
+
+```csharp
+var currentTime = dayPlan.StartTime.ToMinutes(); // default 540 = 09:00
+
+foreach (var block in dayPlan.Blocks)
+{
+    if (block.TransitFromHotel != null)
+        currentTime = dayPlan.StartTime.ToMinutes() + block.TransitFromHotel.DurationMinutes + block.TransitFromHotel.BufferMinutes;
+    else if (block.InterBlockTransit != null)
+        currentTime += block.InterBlockTransit.DurationMinutes + block.InterBlockTransit.BufferMinutes;
+    
+    foreach (var activity in block.Activities)
+    {
+        activity.EstimatedArrival = currentTime;
+        activity.EstimatedDeparture = currentTime + activity.DurationMinutes;
+        
+        if (activity.TransitToNext != null)
+            currentTime = activity.EstimatedDeparture + activity.TransitToNext.DurationMinutes + activity.TransitToNext.BufferMinutes;
+    }
+}
+```
+
+**MVP limitation:** Cada bloque arranca independiente (no se encadenan Mañana→Tarde a menos que `InterBlockTransit` lo indique). Los tiempos son estimados, no horarios fijos de compromiso.
+
+### 4.5 Formula de Scoring de Candidatos
 
 `CandidateScorer.Score(Place, ScoringContext)`:
 
@@ -296,7 +417,7 @@ Donde `ScoringContext` recibe:
 - `DistanceFromBlockCenterKm` = distancia Haversine desde la actividad mas cercana ya colocada en el bloque (0 si el bloque esta vacio).
 - `PopularityRaw` = **hardcoded a 0.5** (stub; `Place` no tiene campo de popularidad).
 
-### 4.4 Fallback por Prioridad en Overflow
+### 4.6 Fallback por Prioridad en Overflow
 
 Si no todos los lugares caben:
 
@@ -319,7 +440,11 @@ Si no todos los lugares caben:
 8. **Capacidad de bloque:** Morning <= 3 visitas / 210 min; Afternoon <= 3 / 180 min; Evening <= 2 / 105 min.
 9. **Over-constrained:** Si un must-see `High` no cabe tras descartar `Low` y `Medium`, se lanza `OverConstrainedRouteException` con `ConflictingPlaceIds`.
 10. **Todos los must-sees incluidos:** Salvo que sea fisicamente imposible (razon expuesta en la excepcion).
-11. **295 tests existentes continuan pasando** tras cualquier modificacion.
+11. **Horarios exactos:** `EstimatedArrival` y `EstimatedDeparture` se computan para cada `ActivityNode` via `TimelineScheduler`.
+12. **Hotel transit:** Cada bloque expone `TransitFromHotel` y `TransitToHotel` cuando aplica (segun `ReturnToHotelStrategy`).
+13. **Inter-block transit:** `InterBlockTransit` se calcula en limites entre bloques cuando `ReturnToHotelStrategy` es `Never` o `ProximityBased` elige la ruta directa.
+14. **Evening siempre retorna:** `TransitToHotel` se calcula siempre para el bloque Evening, independientemente de la estrategia.
+15. **333 tests existentes continuan pasando** tras cualquier modificacion.
 
 ---
 
@@ -340,26 +465,21 @@ Si no todos los lugares caben:
 - **Razon:** Evita lookups de `Place` durante el scoring y el calculo de transit. El generador trabaja solo con `ActivityNode.Location`.
 - **Consecuencia:** Si `Place.Location` cambia post-generacion, el itinerario no se actualiza automaticamente. Requiere re-generacion.
 
-### 6.4 Por que `EstimatedArrival` / `EstimatedDeparture` existen pero no se computan?
+### 6.4 Por que ReturnToHotelStrategy en lugar de optimizar automaticamente?
 
-- **Razon:** Fueron agregados al modelo para Flow 4 (ejecucion del dia con horarios exactos), pero el generador heuristico MVP solo asigna secuencia y duracion.
-- **Consecuencia:** El itinerario muestra duracion por visita y por bloque, pero no horarios de inicio exactos.
+- **Razon:** Diferentes familias tienen diferentes necesidades. Algunas prefieren volver al hotel a descansar/comer; otras quieren maximizar el tiempo turistico. Es una preferencia de usuario, no una optimizacion impuesta.
+- **Consecuencia:** El frontend debe exponer esta opcion en el formulario de preferencias del viaje.
+
+### 6.5 Por que cada bloque arranca en StartTime por defecto?
+
+- **Razon:** Simplifica el scheduler MVP. Sin inter-block transit, cada bloque es independiente. Con inter-block transit, el scheduler encadena automaticamente.
+- **Consecuencia:** Los horarios mostrados son estimaciones, no compromisos rigidos. La familia puede ajustar el ritmo real.
 
 ---
 
 ## 7. Gaps Identificados (Pendientes)
 
-### 7.1 `EstimatedArrival` / `EstimatedDeparture` no computados
-
-**Estado:** `ActivityNode` tiene las propiedades, pero `HeuristicItineraryGenerator` (ni ninguna de sus fases) las setea.
-
-**Impacto:** El itinerario no expone horarios exactos de inicio por visita.
-
-**Fix requerido:** Agregar un paso de "Timeline Scheduling" post-`TransitEnricher` que calcule `EstimatedArrival = StartTime + sum(transits + buffers previos)` y `EstimatedDeparture = EstimatedArrival + DurationMinutes`.
-
-**Prioridad:** Media (bloquea UX de horarios exactos pero no bloquea el MVP).
-
-### 7.2 `PopularityRaw` hardcodeado a 0.5
+### 7.1 `PopularityRaw` hardcodeado a 0.5
 
 **Estado:** `CandidateFiller` pasa `PopularityRaw = 0.5` a `CandidateScorer`. La entidad `Place` no tiene campo de popularidad.
 
@@ -369,7 +489,7 @@ Si no todos los lugares caben:
 
 **Prioridad:** Baja (MVP funciona sin ello).
 
-### 7.3 `MaxWalkingMinutes` no se usa en el calculo de transporte
+### 7.2 `MaxWalkingMinutes` no se usa en el calculo de transporte
 
 **Estado:** `TripPreferences.MaxWalkingMinutes` existe en el request/response pero `TransitEnricher` no lo consulta.
 
@@ -379,17 +499,7 @@ Si no todos los lugares caben:
 
 **Prioridad:** Baja.
 
-### 7.4 No hay transit desde/hacia el hotel
-
-**Estado:** `TransitDetails` solo conecta actividades consecutivas dentro de un bloque. No hay tramo de ida desde el hotel a la primera actividad ni de vuelta.
-
-**Impacto:** El itinerario no indica "salir del hotel a las 09:00, llegar al Prado a las 09:15".
-
-**Fix requerido:** Extender `TransitEnricher` para calcular `Hotel → FirstActivity` y `LastActivity → Hotel` por bloque.
-
-**Prioridad:** Media.
-
-### 7.5 `WeatherProvider` es un stub
+### 7.3 `WeatherProvider` es un stub
 
 **Estado:** `StubbedWeatherProvider` devuelve `WeatherCondition.Clear` para todas las fechas.
 
@@ -399,24 +509,38 @@ Si no todos los lugares caben:
 
 **Prioridad:** Media.
 
+### 7.4 Encadenamiento de bloques limitado al MVP
+
+**Estado:** `TimelineScheduler` encadena bloques cuando hay `InterBlockTransit`, pero no optimiza el `DayPlan.StartTime` de bloques posteriores si el dia se "estira".
+
+**Impacto:** Si Mañana y Tarde estan muy cargadas, el scheduler puede mostrar horarios que exceden las 21:00 sin advertencia.
+
+**Fix requerido:** Agregar validacion de "hora limite del dia" (ej. 21:00) y ajustar/alertar si el itinerario excede el horario razonable.
+
+**Prioridad:** Baja.
+
 ---
 
 ## 8. Tests de Cobertura
 
 | Suite | Clase | Cobertura |
 |-------|-------|-----------|
-| Domain | `HeuristicItineraryGeneratorTests` | ~20 casos: pinned, unpinned, clima, capacidad, over-constrained, transporte |
+| Domain | `HeuristicItineraryGeneratorTests` | ~24 casos: pinned, unpinned, clima, capacidad, over-constrained, transporte, hotel transit, timeline scheduling |
 | Domain | `PinnedMustSeePlacerTests` | 5 casos: dia/bloque correcto, sin bloque, dia invalido, overflow, bloques llenos |
 | Domain | `UnpinnedMustSeePlacerTests` | 4 casos: primer dia, dia cerrado, dias llenos, slots libres |
 | Domain | `CandidateFillerTests` | 5 casos: pool vacio, colocacion, Haversine real, scoring, distancia cero |
-| Domain | `TransitEnricherTests` | 5 casos: clima por dia, transit consecutivo, actividad unica, Location, skip null |
+| Domain | `TransitEnricherTests` | 11 casos: clima, transit consecutivo, actividad unica, Location, hotel transit (Always/Never/ProximityBased), strategy boundaries |
+| Domain | `TimelineSchedulerTests` | 11 casos: reset por TransitFromHotel, chaining por InterBlockTransit, mixed boundaries, empty blocks, hotel transit timing |
 | Domain | `CandidateScorerTests` | Formula de scoring |
 | Domain | `ZoneClusteringHelperTests` | Clustering geografico |
+| Domain | `ReturnToHotelStrategyTests` | Enum values |
+| Domain | `TripPreferencesTests` | Propiedad ReturnToHotelStrategy |
+| Domain | `BlockTimelineTests` | InterBlockTransit property |
 | Application | `GenerateTripItineraryHandlerTests` | 4 casos: not found, sin hotel, generar, re-generar |
 | Application | `GenerateTripHandlerTests` | ~11 casos (Flujo 0) |
 | API | `TripsControllerTests` | 4 casos: creacion, generacion, bloques con actividades, get trip |
 
-**Total del proyecto:** 295 pasando, 0 fallos.
+**Total del proyecto:** 333 pasando, 0 fallos.
 
 ---
 
@@ -428,31 +552,38 @@ Si no todos los lugares caben:
 - `SmartTripPlanner.Domain/AggregatesModel/ActivityNode.cs`
 - `SmartTripPlanner.Domain/AggregatesModel/TransitDetails.cs`
 - `SmartTripPlanner.Domain/AggregatesModel/MustSee.cs`
+- `SmartTripPlanner.Domain/AggregatesModel/TripPreferences.cs`
 - `SmartTripPlanner.Domain/Enums/WeatherCondition.cs`
 - `SmartTripPlanner.Domain/Enums/TransportMode.cs`
 - `SmartTripPlanner.Domain/Enums/BlockType.cs`
 - `SmartTripPlanner.Domain/Enums/Priority.cs`
+- `SmartTripPlanner.Domain/Enums/ReturnToHotelStrategy.cs`
 - `SmartTripPlanner.Domain/Constants/TripPlanningConstants.cs`
 - `SmartTripPlanner.Domain/Exceptions/OverConstrainedRouteException.cs`
 - `SmartTripPlanner.Domain/Ports/IItineraryGenerator.cs`
 - `SmartTripPlanner.Domain/Ports/ICandidateScorer.cs`
 - `SmartTripPlanner.Domain/Ports/ITransitCalculator.cs`
 - `SmartTripPlanner.Domain/Ports/IWeatherProvider.cs`
+- `SmartTripPlanner.Domain/Ports/ITimelineScheduler.cs`
 - `SmartTripPlanner.Domain/Services/HeuristicItineraryGenerator.cs`
 - `SmartTripPlanner.Domain/Services/PinnedMustSeePlacer.cs`
 - `SmartTripPlanner.Domain/Services/UnpinnedMustSeePlacer.cs`
 - `SmartTripPlanner.Domain/Services/CandidateFiller.cs`
 - `SmartTripPlanner.Domain/Services/TransitEnricher.cs`
 - `SmartTripPlanner.Domain/Services/CandidateScorer.cs`
+- `SmartTripPlanner.Domain/Services/TimelineScheduler.cs`
 - `SmartTripPlanner.Domain/Services/ZoneClusteringHelper.cs`
 - `SmartTripPlanner.Domain/Services/ItineraryGeneratorHelpers.cs`
 - `SmartTripPlanner.ApplicationServices/Handlers/GenerateTripItineraryHandler.cs`
 - `SmartTripPlanner.ApplicationServices/Commands/GenerateTripItinerary.cs`
+- `SmartTripPlanner.ApplicationServices/ApplicationServicesRegistration.cs`
 - `SmartTripPlanner.API/Controllers/TripsController.cs`
+- `SmartTripPlanner.API/Configurations/AutoMapperProfile.cs`
 - `SmartTripPlanner.Infrastructure/Services/HaversineTransitCalculator.cs`
 - `SmartTripPlanner.Infrastructure/Services/StubbedWeatherProvider.cs`
+- `SmartTripPlanner.Infrastructure/Configurations/TripConfiguration.cs`
 
 ---
 
-*Ultima actualizacion: 2026-06-19*
-*Version: 2.0 (refleja estado actual del codigo, no estado deseado)*
+*Ultima actualizacion: 2026-06-21*
+*Version: 2.1 (incluye ReturnToHotelStrategy, TimelineScheduler, hotel transit)*
