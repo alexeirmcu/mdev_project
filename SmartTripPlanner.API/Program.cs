@@ -1,12 +1,16 @@
 using AutoMapper;
 using AutoMapper.Configuration;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Microsoft.AspNetCore.Builder;
+using OpenAI;
 using SmartTripPlanner.API.Middleware;
 using SmartTripPlanner.ApplicationServices;
 using SmartTripPlanner.ApplicationServices.Configurations;
 using SmartTripPlanner.Infrastructure;
+using SmartTripPlanner.Infrastructure.LLM;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -19,6 +23,19 @@ builder.Services.AddHealthChecks();
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddInfrastructure(connectionString!);
 builder.Services.AddApplicationServices(builder.Configuration);
+
+builder.Services.AddSingleton<IChatClient>(sp =>
+{
+    var llmOptions = sp.GetRequiredService<IOptions<LlmApiOptions>>().Value;
+    var logger = sp.GetRequiredService<ILogger<Program>>();
+    
+    logger.LogInformation("Configuring LLM client with BaseUrl: {BaseUrl}, Model: {Model}", 
+        llmOptions.BaseUrl, llmOptions.Model);
+    
+    var client = new OpenAIClient(new System.ClientModel.ApiKeyCredential(llmOptions.ApiKey),
+        new OpenAIClientOptions { Endpoint = new Uri(llmOptions.BaseUrl) });
+    return client.GetChatClient(llmOptions.Model).AsIChatClient();
+});
 
 builder.Services.AddTransient<ExceptionHandlingMiddleware>();
 

@@ -42,12 +42,15 @@ internal class FoursquareApiClient : IFoursquareApiClient
         }
     }
 
-    public async Task<FoursquarePlace?> GetPlaceByIdAsync(string fsqId)
+    public async Task<FoursquarePlace?> GetPlaceByIdAsync(string fsqId, bool includeTips = false, CancellationToken ct = default)
     {
         try
         {
-            var url = $"{BasePath}/{Uri.EscapeDataString(fsqId)}?fields=fsq_id,name,geocodes,hours,categories";
-            var response = await _httpClient.GetAsync(url);
+            var fields = "fsq_id,name,geocodes,hours,categories";
+            if (includeTips)
+                fields += ",tips";
+            var url = $"{BasePath}/{Uri.EscapeDataString(fsqId)}?fields={fields}";
+            var response = await _httpClient.GetAsync(url, ct);
 
             if (!response.IsSuccessStatusCode)
                 return null;

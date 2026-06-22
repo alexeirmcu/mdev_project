@@ -5,5 +5,5 @@ namespace SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
 internal interface IFoursquareApiClient
 {
     Task<List<FoursquarePlace>> SearchPlacesAsync(string query, string near, int limit = 20);
-    Task<FoursquarePlace?> GetPlaceByIdAsync(string fsqId);
+    Task<FoursquarePlace?> GetPlaceByIdAsync(string fsqId, bool includeTips = false, CancellationToken ct = default);
 }

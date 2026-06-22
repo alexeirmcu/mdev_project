@@ -14,6 +14,7 @@ public class GenerateTripItineraryHandler(
     IPlaceRepository placeRepository,
     IItineraryGenerator itineraryGenerator,
     IWeatherProvider weatherProvider,
+    IOutboxWriter outboxWriter,
     IMapper mapper,
     ILogger<GenerateTripItineraryHandler> logger)
     : IRequestHandler<GenerateTripItinerary, TripPlanResponse>
@@ -33,6 +34,29 @@ public class GenerateTripItineraryHandler(
             ct);
         var weather = await weatherProvider.GetWeatherAsync(trip.CityId, trip.StartDate, trip.EndDate, ct);
         await itineraryGenerator.GenerateAsync(trip, candidates, weather, ct);
+
+        try
+        {
+            var unenrichedRefIds = trip.Days
+                .SelectMany(d => new[] { d.Morning, d.Afternoon, d.Evening })
+                .SelectMany(b => b.Activities)
+                .Select(a => a.PlaceId)
+                .Distinct()
+                .Join(candidates, placeId => placeId, place => place.Id, (_, place) => place)
+                .Where(p => !p.IsEnriched)
+                .Select(p => p.ProviderReferenceId)
+                .Distinct()
+                .ToList();
+
+            if (unenrichedRefIds.Count > 0)
+            {
+                await outboxWriter.EnqueueAsync(unenrichedRefIds, ct);
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to enqueue enrichment outbox messages (best-effort)");
+        }
 
         await tripRepository.UpdateAsync(trip, ct);
 

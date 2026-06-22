@@ -57,5 +57,8 @@ public class PlaceConfiguration : IEntityTypeConfiguration<Place>
         builder.Property(p => p.IsIndoor).HasDefaultValue(false);
         builder.Property(p => p.IsFamilyFriendly).HasDefaultValue(true);
         builder.Property(p => p.IsAutoUpdateEnabled).HasDefaultValue(true);
+        builder.Property(p => p.FamilyFriendlyScore).HasDefaultValue(3);
+        builder.Property(p => p.Popularity).HasDefaultValue(0.5);
+        builder.Property(p => p.IsEnriched).HasDefaultValue(false);
     }
 }

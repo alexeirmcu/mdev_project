@@ -15,4 +15,5 @@ internal class FoursquarePlace
     public FoursquareHours? Hours { get; set; }
     public List<FoursquareCategory> Categories { get; set; } = new();
     public List<FoursquareChain> Chains { get; set; } = new();
+    public List<FoursquareTip> Tips { get; set; } = new();
 }

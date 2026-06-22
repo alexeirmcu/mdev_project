@@ -16,6 +16,9 @@ public class Place : Entity, IAggregateRoot
     public bool IsIndoor { get; private set; } = false;
     public bool IsFamilyFriendly { get; private set; } = true;
     public bool IsAutoUpdateEnabled { get; private set; } = true;
+    public int FamilyFriendlyScore { get; private set; } = 3;
+    public double Popularity { get; private set; } = 0.5;
+    public bool IsEnriched { get; private set; } = false;
     public List<OpeningHoursWindow> OpeningHours { get; private set; } = new();
     public ICollection<PlaceAttribute> Attributes { get; private set; } = new List<PlaceAttribute>();
 
@@ -56,6 +59,22 @@ public class Place : Entity, IAggregateRoot
     public void AddAttribute(PlaceAttribute attribute)
     {
         Attributes.Add(attribute ?? throw new SmartTripDomainException("Attribute cannot be null."));
+    }
+
+    public void MarkEnriched(int typicalDurationMinutes, bool isIndoor, int familyFriendlyScore, double popularity)
+    {
+        if (familyFriendlyScore < 1 || familyFriendlyScore > 5)
+            throw new SmartTripDomainException("FamilyFriendlyScore must be between 1 and 5.");
+        if (popularity < 0.0 || popularity > 1.0)
+            throw new SmartTripDomainException("Popularity must be between 0.0 and 1.0.");
+        if (typicalDurationMinutes <= 0)
+            throw new SmartTripDomainException("TypicalDurationMinutes must be greater than 0.");
+
+        TypicalDurationMinutes = typicalDurationMinutes;
+        IsIndoor = isIndoor;
+        FamilyFriendlyScore = familyFriendlyScore;
+        Popularity = popularity;
+        IsEnriched = true;
     }
 
     public void UpdateFromExternalProvider(string name, PlaceLocation location,

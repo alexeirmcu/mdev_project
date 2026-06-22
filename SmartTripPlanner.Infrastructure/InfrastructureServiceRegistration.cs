@@ -3,8 +3,11 @@ using Microsoft.Extensions.DependencyInjection;
 using SmartTripPlanner.Domain.Base;
 using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Domain.Repository;
+using SmartTripPlanner.Infrastructure.Background;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Configuration;
+using SmartTripPlanner.Infrastructure.LLM;
+using SmartTripPlanner.Infrastructure.Outbox;
 using SmartTripPlanner.Infrastructure.Repositories;
 using SmartTripPlanner.Infrastructure.Services;
 
@@ -39,6 +42,18 @@ public static class InfrastructureServiceRegistration
 
         services.AddScoped<ITransitCalculator, HaversineTransitCalculator>();
         services.AddScoped<IWeatherProvider, StubbedWeatherProvider>();
+
+        services.AddOptions<LlmApiOptions>()
+            .BindConfiguration(LlmApiOptions.SectionName);
+
+        services.AddOptions<LlmEnrichmentOptions>()
+            .BindConfiguration(LlmEnrichmentOptions.SectionName);
+
+        services.AddScoped<ILlmClient, LlmClient>();
+        services.AddScoped<IOutboxWriter, OutboxWriter>();
+        services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();
+        services.AddScoped<ILlmEnrichmentProcessor, LlmEnrichmentProcessor>();
+        services.AddHostedService<LlmEnrichmentBackgroundService>();
 
         return services;
     }
