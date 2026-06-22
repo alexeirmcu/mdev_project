@@ -49,6 +49,7 @@ Planificar un viaje de 2–7 días en familia lleva horas:
 3. Elegir el mejor **modo de transporte** (coche vs TP+caminar) por tramo usando reglas pragmáticas.
 4. Ofrecer **swaps indoor/outdoor** según el clima.
 5. Permitir **seguimiento ligero del día** (checklist) y **replanning** cuando el plan se descarrila.
+6. **(Delivered)** Calcular **horarios exactos de inicio y fin por visita** (`EstimatedArrival` / `EstimatedDeparture`) via `TimelineScheduler`.
 
 ---
 
@@ -59,7 +60,6 @@ Planificar un viaje de 2–7 días en familia lleva horas:
 - Comunidad de reseñas
 - Reglas de clima más allá de indoor/outdoor
 - Tracking GPS en background
-- Horarios exactos de inicio por visita
 
 ---
 
@@ -217,3 +217,7 @@ Para habilitar la búsqueda interna de must-sees en Europa desde el día 1:
 - **Opción C** *(recomendada)*: API externa para estructura y búsqueda + enriquecimiento manual de los top-50 lugares de la ciudad piloto
 
 Elegir una opción y definir la primera ciudad piloto (ej. Madrid) para establecer el plan de validación y las métricas del MVP.
+
+---
+
+*Última actualización: 2026-06-22*

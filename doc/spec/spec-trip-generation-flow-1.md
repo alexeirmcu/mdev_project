@@ -298,18 +298,16 @@ Cuando un lugar proviene de Foursquare, la respuesta cruda carece de metadatos s
 
 ### 8.1 `OpeningHours` en Mapeo de Emergencia
 
-**Estado:** `FoursquarePlaceService.MapToPlace()` no inyecta `OpeningHours` en el momento de creación del `Place` desde Foursquare.
+**Estado: RESUELTO** — `FoursquarePlaceService.MapToPlace()` inyecta horarios por defecto 09:00–18:00 para compatibilidad con el solver.
 
-**Impacto:** Flow 2 (OR-Tools Solver) requiere `OpeningHours` para calcular restricciones duras de horarios. Si un lugar viene de Foursquare y no tiene `OpeningHours`, el solver puede fallar o asumir valores incorrectos.
-
-**Fix Requerido:**
+**Implementación actual en `FoursquarePlaceService.cs` (líneas 54-56):**
 ```csharp
-// En FoursquarePlaceService.MapToPlace()
+// Inject default opening hours for solver compatibility
 foreach (var day in Enum.GetValues<DayOfWeek>())
-    place.OpeningHours.Add(new OpeningHoursWindow(day, 540, 1080)); // 09:00-18:00 default
+    place.OpeningHours.Add(new OpeningHoursWindow(day, 540, 1080)); // 09:00-18:00
 ```
 
-**Prioridad:** Alta (bloquea Flow 2).
+**Impacto resuelto:** Flow 2 puede leer `OpeningHours` de cualquier `Place` proveniente de Foursquare y aplicar restricciones de horarios sin fallos.
 
 ### 8.2 PlaceModel no expone `Id` interno
 
@@ -333,7 +331,7 @@ foreach (var day in Enum.GetValues<DayOfWeek>())
 | Infraestructura | `FoursquareCategoryHeuristicsTests` | Validación de categorías |
 | Infraestructura | `PlaceRepositoryTests` | Search, Upsert, GetByProviderReferenceId |
 
-**Total de tests del proyecto:** 157 pasando, 0 fallos.
+**Total de tests del proyecto:** +300 pasando, 0 fallos.
 
 ---
 
@@ -354,5 +352,5 @@ foreach (var day in Enum.GetValues<DayOfWeek>())
 
 ---
 
-*Última actualización: 2026-06-17*
+*Última actualización: 2026-06-22*
 *Versión: 1.1 (refleja estado actual del código, no estado deseado)*

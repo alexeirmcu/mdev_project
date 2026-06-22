@@ -444,7 +444,7 @@ Si no todos los lugares caben:
 12. **Hotel transit:** Cada bloque expone `TransitFromHotel` y `TransitToHotel` cuando aplica (segun `ReturnToHotelStrategy`).
 13. **Inter-block transit:** `InterBlockTransit` se calcula en limites entre bloques cuando `ReturnToHotelStrategy` es `Never` o `ProximityBased` elige la ruta directa.
 14. **Evening siempre retorna:** `TransitToHotel` se calcula siempre para el bloque Evening, independientemente de la estrategia.
-15. **333 tests existentes continuan pasando** tras cualquier modificacion.
+15. **+400 tests existentes continuan pasando** tras cualquier modificacion.
 
 ---
 
@@ -481,11 +481,11 @@ Si no todos los lugares caben:
 
 ### 7.1 `PopularityRaw` hardcodeado a 0.5
 
-**Estado:** `CandidateFiller` pasa `PopularityRaw = 0.5` a `CandidateScorer`. La entidad `Place` no tiene campo de popularidad.
+**Estado:** La entidad `Place` YA tiene `Popularity` (double 0..1, default 0.5) y se enriquece via LLM pipeline (Flow 3, `MarkEnriched()` method). Sin embargo, `CandidateFiller` (línea 56) aún pasa `PopularityRaw: 0.5` hardcodeado en lugar de usar `place.Popularity`.
 
-**Impacto:** El scoring no refleja popularidad real del lugar.
+**Impacto:** El scoring no refleja la popularidad real del lugar porque `CandidateFiller` no consume el valor de `place.Popularity`.
 
-**Fix requerido:** Agregar `Popularity` (double 0..1) a `Place` y poblarlo desde Foursquare o el pipeline de enriquecimiento (Flow 3).
+**Fix requerido:** En `CandidateFiller.FillAsync()`, reemplazar `PopularityRaw: 0.5` por `PopularityRaw: place.Popularity` para que el scorer use la popularidad real del lugar.
 
 **Prioridad:** Baja (MVP funciona sin ello).
 
@@ -540,7 +540,7 @@ Si no todos los lugares caben:
 | Application | `GenerateTripHandlerTests` | ~11 casos (Flujo 0) |
 | API | `TripsControllerTests` | 4 casos: creacion, generacion, bloques con actividades, get trip |
 
-**Total del proyecto:** 333 pasando, 0 fallos.
+**Total del proyecto:** +400 pasando, 0 fallos.
 
 ---
 
@@ -585,5 +585,5 @@ Si no todos los lugares caben:
 
 ---
 
-*Ultima actualizacion: 2026-06-21*
+*Ultima actualizacion: 2026-06-22*
 *Version: 2.1 (incluye ReturnToHotelStrategy, TimelineScheduler, hotel transit)*

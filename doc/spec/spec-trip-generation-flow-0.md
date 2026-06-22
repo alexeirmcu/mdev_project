@@ -31,14 +31,13 @@ Responsabilidad: Contener toda la información del viaje y actuar como root del 
 │  DefaultStartTime : TimeOnly (default: 09:00)                           │
 │  OriginalMustSees : List<MustSee> (Value Object)                        │
 │  Days             : List<DayPlan> (inicialmente vacía)                  │
-│  Status           : TripStatus enum (CREATED / GENERATED / COMPLETED)    │
+│  (Note: Trip does not have a Status property; status is derived from Days.Any())│
 │  CreatedAt        : DateTimeOffset                                      │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 **Nota sobre el estado actual del código:**
-- El `Trip` actual tiene `SelectedPlaces` (colección de `Place` entities). Esto es incorrecto desde el punto de vista de DDD: `Trip` no debería mantener referencias a entidades del catálogo (`Place`) como colección de navegación.
-- **Corrección:** El agregado `Trip` debe contener `OriginalMustSees` como una lista de **Value Objects** (`MustSee`) que almacenan solo el `PlaceId` (long, FK interna a `Place.Id`), `Priority` y `PinnedDayIndex`/`PinnedBlock`. Esto desacopla el agregado del catálogo de lugares.
+- El `Trip` actual usa `OriginalMustSees` como lista de **Value Objects** (`MustSee`) que almacenan solo el `PlaceId` (long, FK interna a `Place.Id`), `Priority` y `PinnedDayIndex`/`PinnedBlock`. Esto desacopla el agregado del catálogo de lugares.
 
 ### 2.2 `MustSee` — Value Object
 
@@ -173,7 +172,7 @@ public record TripGenerationRequest(
     DateOnly EndDate,
     LocationModel BaseHotel,
     IReadOnlyList<MustSeeInput> MustSees,
-    TravelersInput? Travelers = null,
+    TravelersInput Travelers,
     TripPreferencesInput? Preferences = null,
     string DefaultStartHour = "09:00"
 );
@@ -238,7 +237,7 @@ public record MustSeeResponse(
 
 ### 3.3 PATCH /api/trips/{tripId} — Actualización del Viaje
 
-Permite modificar los datos del trip antes de generar el itinerario (status `CREATED`). Una vez generado (`GENERATED`), solo permitir edición de `MustSees` adicionales (no eliminar must-sees ya usados en el solver).
+Permite modificar los datos del trip antes de generar el itinerario. No utiliza un enum `TripStatus` para control de estado. En su lugar, si se aplica alguna modificación y el trip ya tiene días generados (`trip.Days.Any()`), el handler invalida el itinerario llamando a `trip.ClearDaysAndReset()`.
 
 **Request:** `TripUpdateRequest`
 ```csharp
@@ -260,12 +259,13 @@ public record TripUpdateRequest(
 - `200 OK` — Trip actualizado
 - `400 Bad Request` — Validación fallida
 - `404 Not Found` — Trip no existe
-- `422 Unprocessable Entity` — Intentar modificar fechas/baseHotel cuando Status != CREATED
 
 **Reglas de negocio:**
-- Si `Status == GENERATED`, no se permite modificar `StartDate`, `EndDate`, `BaseHotel`, `DefaultStartHour`.
-- Si `Status == GENERATED`, solo se permite: agregar must-sees nuevos, quitar must-sees que aún no estén en el itinerario (no usados en ningún `DayPlan`), o modificar `Travelers`/`Preferences`.
-- Si se elimina un `MustSee` que ya está en el itinerario generado, lanzar `422` con mensaje: "Cannot remove must-see that is already planned in the itinerary. Use replan instead."
+- Si el trip ya comenzó (`StartDate < today`), se rechaza la modificación con `422`.
+- Si se aplica alguna modificación y `trip.Days.Any()`, se invalida el itinerario actual (`trip.ClearDaysAndReset()`).
+- Para agregar must-sees, se verifica existencia de `PlaceId` via `placeRepository.GetManyByIdsAsync()`. Si faltan, se lanza `BusinessRuleException`.
+- Para eliminar must-sees, se verifica que existan en `OriginalMustSees`. Si no existen, se lanza `BusinessRuleException`.
+- No hay distinción por estado del trip: cualquier modificación que resulte en días existentes provoca la invalidación del itinerario.
 
 ---
 
@@ -367,18 +367,19 @@ public class GenerateTripValidator : AbstractValidator<GenerateTrip>
             });
             
         RuleFor(x => x.Payload.MustSees)
-            .NotEmpty().WithMessage("At least one Must-See is required")
-            .Must(list => list.Select(m => m.PlaceId).Distinct().Count() == list.Count)
-            .WithMessage("Duplicate PlaceIds are not allowed in MustSees");
-            
+            .Must(list => list!.Select(m => m.PlaceId).Distinct().Count() == list!.Count)
+            .WithMessage("Duplicate PlaceIds are not allowed in MustSees.")
+            .When(x => x.Payload.MustSees is not null && x.Payload.MustSees.Count > 0);
+
         RuleFor(x => x.Payload.Travelers)
+            .NotNull().WithErrorCode(nameof(ErrorCode.REQUIRED_FIELD))
+                .WithMessage("Travelers is required.")
             .ChildRules(t => {
-                t.RuleFor(x => x.Adults).GreaterThanOrEqualTo(1);
-                t.RuleFor(x => x.Children).GreaterThanOrEqualTo(0);
-                t.RuleFor(x => x.Infants).GreaterThanOrEqualTo(0);
-                t.RuleFor(x => x.Adults + x.Children + x.Infants).LessThanOrEqualTo(10);
-            })
-            .When(x => x.Payload.Travelers is not null);
+                t.RuleFor(x => x!.Adults).GreaterThanOrEqualTo(1);
+                t.RuleFor(x => x!.Children).GreaterThanOrEqualTo(0);
+                t.RuleFor(x => x!.Infants).GreaterThanOrEqualTo(0);
+                t.RuleFor(x => x!.Adults + x.Children + x.Infants).LessThanOrEqualTo(10);
+            });
             
         RuleFor(x => x.Payload.Preferences)
             .ChildRules(p => {
@@ -476,7 +477,6 @@ var trip = new Trip
         request.Payload.Preferences?.WeatherAwareEnabled ?? true
     ),
     DefaultStartTime = TimeOnly.Parse(request.Payload.DefaultStartHour),
-    Status = TripStatus.CREATED,
     CreatedAt = DateTimeOffset.UtcNow
 };
 
@@ -523,7 +523,7 @@ var response = new TripPlanResponse(
         m.PinnedDayIndex,
         m.PinnedBlock?.ToString()
     )).ToList(),
-    trip.Status.ToString(),
+    "CREATED", // Status is derived from Days.Any() by AutoMapper; hardcoded here for this handler
     trip.DefaultStartTime.ToString("HH:mm")
 );
 
@@ -543,68 +543,84 @@ return response;
 ```csharp
 public class Trip : Entity, IAggregateRoot
 {
+    private List<MustSee> _originalMustSees = new();
+    private List<DayPlan> _days = new();
+
+    public Guid TripId { get; init; }
+    public string TripCode { get; init; } = null!;
     public long CityId { get; init; }
-    public DateOnly StartDate { get; init; }
-    public DateOnly EndDate { get; init; }
-    public required Location BaseHotel { get; init; }
-    public Travelers Travelers { get; private set; } = new Travelers(2, 0, 0);
-    public TripPreferences Preferences { get; private set; } = new TripPreferences();
-    public TimeOnly DefaultStartTime { get; private set; } = new TimeOnly(9, 0);
-    public List<MustSee> OriginalMustSees { get; private set; } = new();
-    public List<DayPlan> Days { get; private set; } = new();
-    public TripStatus Status { get; private set; } = TripStatus.CREATED;
+    public City City { get; init; } = null!;
+    public DateOnly StartDate { get; set; }
+    public DateOnly EndDate { get; set; }
+    public Location? BaseHotel { get; set; }
+    public Travelers Travelers { get; set; } = new Travelers(2, 0, 0);
+    public TripPreferences Preferences { get; set; } = new TripPreferences();
+    public TimeOnly DefaultStartTime { get; set; } = new TimeOnly(9, 0);
+    public IReadOnlyList<MustSee> OriginalMustSees => _originalMustSees.AsReadOnly();
+    public IReadOnlyList<DayPlan> Days => _days.AsReadOnly();
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     
-    // TripCode se genera en la fábrica, no se modifica post-creación
-    public string TripCode { get; init; } = null!;
-    
-    // Métodos de dominio
     public void AddMustSee(MustSee mustSee)
     {
-        if (OriginalMustSees.Any(m => m.PlaceId == mustSee.PlaceId))
-            throw new DomainException($"PlaceId {mustSee.PlaceId} is already in MustSees");
+        if (_originalMustSees.Any(m => m.PlaceId == mustSee.PlaceId))
+            throw new SmartTripDomainException($"PlaceId {mustSee.PlaceId} is already in MustSees");
             
-        OriginalMustSees.Add(mustSee);
+        _originalMustSees.Add(mustSee);
     }
     
     public bool RemoveMustSee(long placeId)
     {
-        var mustSee = OriginalMustSees.FirstOrDefault(m => m.PlaceId == placeId);
+        var mustSee = _originalMustSees.FirstOrDefault(m => m.PlaceId == placeId);
         if (mustSee is not null)
         {
-            OriginalMustSees.Remove(mustSee);
+            _originalMustSees.Remove(mustSee);
             return true;
         }
         return false;
     }
     
-    public void UpdateStatus(TripStatus newStatus)
+    public void ClearDaysAndReset()
     {
-        // Validar transiciones de estado permitidas
-        Status = newStatus;
+        _days.Clear();
     }
-    
+
+    public void GenerateDays()
+    {
+        _days.Clear();
+        var start = StartDate;
+        var end = EndDate;
+        int dayIndex = 0;
+        for (var date = start; date <= end; date = date.AddDays(1))
+        {
+            var day = new DayPlan
+            {
+                DayIndex = dayIndex++,
+                Date = date,
+                Morning = new BlockTimeline { BlockType = BlockType.Morning },
+                Afternoon = new BlockTimeline { BlockType = BlockType.Afternoon },
+                Evening = new BlockTimeline { BlockType = BlockType.Evening }
+            };
+            day.SetWeather(WeatherCondition.Clear);
+            day.UpdateStartTime(DefaultStartTime);
+            _days.Add(day);
+        }
+    }
+
     public void GenerateDays(IEnumerable<DayPlan> days)
     {
-        if (Days.Any())
-            throw new DomainException("Days have already been generated for this trip");
+        if (_days.Any())
+            throw new SmartTripDomainException("Days have already been generated for this trip");
             
-        Days.AddRange(days);
-        Status = TripStatus.GENERATED;
+        _days.AddRange(days);
     }
 }
 ```
 
-### 6.2 `TripStatus` — Nuevo Enum
+**Note:** The current `Trip` implementation does NOT include a `Status` property or `TripStatus` enum. The handler logs the creation state as a string, but there is no state machine. Status is derived at mapping time via AutoMapper: `"CREATED"` when `Days` is empty, `"GENERATED"` when `Days` has items.
 
-```csharp
-public enum TripStatus
-{
-    CREATED,    // Trip creado, aún sin itinerario
-    GENERATED,  // Itinerario generado (Flow 2 completado)
-    COMPLETED   // Viaje finalizado (todos los días completados)
-}
-```
+### 6.2 `TripStatus`
+
+**Note:** In the current implementation, `Trip` does not include a `Status` property or `TripStatus` enum. The handler logs the creation state as a string (`"CREATED"`), but there is no state machine. The `TripPlanResponse.Status` field is derived at mapping time via AutoMapper: `"CREATED"` when `trip.Days` is empty, `"GENERATED"` when `trip.Days` has items. No enum or status transition rules exist in the domain model.
 
 ### 6.3 `Travelers` — Nuevo Value Object
 
@@ -668,7 +684,7 @@ public interface IPlaceRepository
 2. **Validación completa:** Todos los campos obligatorios son validados. Errores de validación devuelven `400 Bad Request` con mensajes claros.
 3. **Reglas de negocio:** El handler valida ciudad existente, rango de fechas, duración máxima, y coherencia de PinnedDay/PinnedBlock.
 4. **Desacoplamiento:** `Trip` no mantiene referencias a `Place` entities. Solo almacena `PlaceId` (long, FK interna) en `MustSee` Value Objects.
-5. **Estado inicial:** El `Trip` se crea con `Status = CREATED` y `Days` vacía. No se genera itinerario en este flujo.
+5. **Estado inicial:** El `Trip` se crea con `Days` vacía. No se genera itinerario en este flujo. La respuesta mapea `Status = "CREATED"` cuando `Days` está vacío.
 6. **Idempotencia:** Crear el mismo trip dos veces genera dos `TripId` diferentes (no hay conflicto por datos de entrada).
 7. **Persistencia:** El trip se almacena en EF InMemory (MVP) y es recuperable vía `GET /api/trips/{tripId}`.
 8. **Fire-and-forget:** El handler NO dispara el enriquecimiento en Flow 0. Eso se hace en Flow 2 (post-generación) o en Flow 1 (post-búsqueda).
@@ -683,14 +699,15 @@ public interface IPlaceRepository
 
 ### 9.1 Flow 0 → Flow 1 (Búsqueda de Must-Sees)
 
-- El usuario puede no tener `PlaceId` al crear el trip. En ese caso, Flow 0 debería permitir una lista vacía de `MustSees` (opcional en el MVP) o el usuario debe usar Flow 1 primero para buscar y luego volver a Flow 0.
-- **Decisión:** En el MVP, `MustSees` es **obligatorio** (mínimo 1). El usuario debe haber buscado previamente en Flow 1 o tener los IDs de antemano.
+- El usuario puede no tener `PlaceId` al crear el trip. El validador no exige `.NotEmpty()` en `MustSees`; solo verifica duplicados cuando la lista tiene elementos.
+- El handler acepta `MustSees` nula o vacía. Si hay elementos, valida que los `PlaceId` existan en la BD.
+- **Decisión:** En el MVP, `MustSees` es **opcional** en el request. El usuario puede crear un trip sin must-sees y agregarlos después vía PATCH.
 
 ### 9.2 Flow 0 → Flow 2 (Preparación del Solver)
 
 - Flow 2 recibe un `TripId` y carga el `Trip` desde `ITripRepository`.
-- Lee `Trip.OriginalMustSees`, `Trip.BaseHotel`, `Trip.StartDate`, `Trip.EndDate`, `Trip.DefaultStartTime` para construir la matriz de optimización.
-- Si `Trip.Status != CREATED`, Flow 2 podría lanzar excepción o re-generar (depende de la decisión de producto).
+- Lee `Trip.OriginalMustSees`, `Trip.BaseHotel`, `Trip.StartDate`, `Trip.EndDate`, `Trip.DefaultStartTime` para construir el itinerario.
+- No hay verificación de estado del trip por ausencia de `TripStatus`. El handler de generación simplemente carga el trip y genera el itinerario.
 
 ### 9.3 Flow 0 → Flow 3 (Enriquecimiento)
 
@@ -699,8 +716,8 @@ public interface IPlaceRepository
 
 ### 9.4 Flow 0 → Flow 4 (Ejecución del Día)
 
-- Flow 4 requiere que `Trip.Status == GENERATED` (itinerario existente).
-- Si un usuario intenta acceder a Flow 4 con `Status == CREATED`, el sistema debe mostrar un mensaje: "Primero debes generar el itinerario".
+- Flow 4 requiere que el trip tenga un itinerario generado (i.e., `trip.Days` no vacío).
+- Si un usuario intenta acceder a Flow 4 sin itinerario, el sistema debe mostrar un mensaje: "Primero debes generar el itinerario".
 
 ---
 
@@ -708,7 +725,7 @@ public interface IPlaceRepository
 
 1. **✅ MustSees obligatorio:** Mínimo 1 must-see por trip. Validación estricta en `GenerateTripValidator`.
 2. **✅ Validación estricta de PlaceIds:** El handler verifica existencia via `IPlaceRepository.GetManyByIdsAsync()`. Si falta alguno, falla con `422`.
-3. **✅ Edición post-creación:** Sí. Se expone `PATCH /api/trips/{tripId}` con restricciones según `Status`. Solo editable en `CREATED` sin restricciones; en `GENERATED` solo agregar/quitar must-sees no usados.
+3. **✅ Edición post-creación:** Sí. Se expone `PATCH /api/trips/{tripId}`. Si el trip ya comenzó (`StartDate < today`), se rechaza la modificación. Si hay modificaciones y `trip.Days.Any()`, se invalida el itinerario vía `ClearDaysAndReset()`. No existe restricción por `TripStatus` ya que el enum no existe en el modelo.
 4. **✅ TripCode legible y único:** Formato `{CITY-CODE}-{YYYY}-{RANDOM}` (4 chars). Ej: `MAD-2026-7X9K`. Generado automáticamente en creación. Verificación de unicidad contra BD.
 5. **✅ Travelers y Preferences incluidos:** Son parte del request/response. Aunque el solver MVP no los use aún, el dominio los modela correctamente para futuras iteraciones.
 
@@ -843,45 +860,47 @@ public void GenerateDays_AlreadyGenerated_ThrowsDomainException()
 }
 
 [TestMethod]
-public void GenerateDays_UpdatesStatusToGenerated()
+public void GenerateDays_PopulatesDays()
 {
     var trip = CreateTrip();
     var dayPlan = new DayPlan { DayIndex = 0, Date = new DateOnly(2026, 6, 1) };
     
     trip.GenerateDays(new[] { dayPlan });
     
-    Assert.AreEqual(TripStatus.GENERATED, trip.Status);
+    Assert.AreEqual(1, trip.Days.Count);
 }
 ```
 
 ---
 
-## 12. Checklist de Implementación
+## 12. Checklist de Implementación (Historical — all items implemented)
 
-- [ ] Refactorizar `Trip.cs`: reemplazar `SelectedPlaces` por `OriginalMustSees` (List<MustSee>)
-- [ ] Crear `MustSee.cs` (Value Object)
-- [ ] Crear `Travelers.cs` (Value Object)
-- [ ] Crear `TripPreferences.cs` (Value Object)
-- [ ] Crear `TripStatus.cs` (Enum)
-- [ ] Crear `TripCodeGenerator.cs` (generador de códigos únicos)
-- [ ] Actualizar `TripGenerationRequest.cs` con `TravelersInput` y `TripPreferencesInput`
-- [ ] Actualizar `TripPlanResponse.cs` con `TripCode`, `CityName`, `BaseHotel`, `Travelers`, `Preferences`, `MustSees`, `Status`, `DefaultStartHour`
-- [ ] Crear `TripUpdateRequest.cs` (PATCH request)
-- [ ] Crear `GenerateTrip.cs` (Command record)
-- [ ] Crear `GenerateTripHandler.cs` (Handler)
-- [ ] Crear `GenerateTripValidator.cs` (FluentValidation)
-- [ ] Crear `UpdateTrip.cs` (Command record) + `UpdateTripHandler.cs` + `UpdateTripValidator.cs`
-- [ ] Crear `TripsController.cs` con `POST /api/trips` y `PATCH /api/trips/{tripId}`
-- [ ] Crear `ExceptionHandlingMiddleware` (si no existe) para `BusinessRuleException`
-- [ ] Crear `BusinessRuleException.cs` (Domain)
-- [ ] Actualizar `TripRepository.cs` (EF mapping) para nuevo schema
-- [ ] Actualizar `ITripRepository.cs` con `GetByTripCodeAsync` y `ExistsByTripCodeAsync`
-- [ ] Actualizar `AutoMapperProfile.cs` con nuevos mappings
-- [ ] Crear tests unitarios para `Trip` domain (`TripTests.cs`)
-- [ ] Crear tests unitarios para `GenerateTripHandler` (`GenerateTripHandlerTests.cs`)
-- [ ] Crear tests unitarios para `UpdateTripHandler` (`UpdateTripHandlerTests.cs`)
-- [ ] Crear tests de integración para `POST /api/trips` (opcional, MVP)
-- [ ] Actualizar `endpoints.yaml` (si existe) con el nuevo schema de request/response
+> All items in this checklist have been completed in the current implementation. The list below is kept for historical reference only.
+
+- [x] Refactorizar `Trip.cs`: reemplazar `SelectedPlaces` por `OriginalMustSees` (List<MustSee>)
+- [x] Crear `MustSee.cs` (Value Object)
+- [x] Crear `Travelers.cs` (Value Object)
+- [x] Crear `TripPreferences.cs` (Value Object)
+- [x] ~~Crear `TripStatus.cs` (Enum)~~ — **No implementado.** El modelo no tiene `TripStatus`. El estado se deriva de `Days.Any()`.
+- [x] Crear `TripCodeGenerator.cs` (generador de códigos únicos)
+- [x] Actualizar `TripGenerationRequest.cs` con `TravelersInput` y `TripPreferencesInput`
+- [x] Actualizar `TripPlanResponse.cs` con `TripCode`, `CityName`, `BaseHotel`, `Travelers`, `Preferences`, `MustSees`, `Status`, `DefaultStartHour`
+- [x] Crear `TripUpdateRequest.cs` (PATCH request)
+- [x] Crear `GenerateTrip.cs` (Command record)
+- [x] Crear `GenerateTripHandler.cs` (Handler)
+- [x] Crear `GenerateTripValidator.cs` (FluentValidation)
+- [x] Crear `UpdateTrip.cs` (Command record) + `UpdateTripHandler.cs` + `UpdateTripValidator.cs`
+- [x] Crear `TripsController.cs` con `POST /api/trips` y `PATCH /api/trips/{tripId}`
+- [x] Crear `ExceptionHandlingMiddleware` (si no existe) para `BusinessRuleException`
+- [x] Crear `BusinessRuleException.cs` (Domain)
+- [x] Actualizar `TripRepository.cs` (EF mapping) para nuevo schema
+- [x] Actualizar `ITripRepository.cs` con `GetByTripCodeAsync` y `ExistsByTripCodeAsync`
+- [x] Actualizar `AutoMapperProfile.cs` con nuevos mappings
+- [x] Crear tests unitarios para `Trip` domain (`TripTests.cs`)
+- [x] Crear tests unitarios para `GenerateTripHandler` (`GenerateTripHandlerTests.cs`)
+- [x] Crear tests unitarios para `UpdateTripHandler` (`UpdateTripHandlerTests.cs`)
+- [x] Crear tests de integración para `POST /api/trips` (opcional, MVP)
+- [x] Actualizar `endpoints.yaml` (si existe) con el nuevo schema de request/response
 
 ---
 
@@ -912,27 +931,27 @@ modelBuilder.Entity<Trip>().HasIndex(t => t.TripCode).IsUnique();
 
 ```csharp
 // En AutoMapperProfile
-CreateMap<TripGenerationRequest, Trip>()
-    .ForMember(dest => dest.Id, opt => opt.MapFrom(_ => Guid.NewGuid()))
-    .ForMember(dest => dest.OriginalMustSees, opt => opt.MapFrom(src => src.MustSees))
-    .ForMember(dest => dest.Days, opt => opt.Ignore())
-    .ForMember(dest => dest.Status, opt => opt.MapFrom(_ => TripStatus.CREATED));
-
 CreateMap<MustSeeInput, MustSee>();
 CreateMap<TravelersInput, Travelers>();
 CreateMap<TripPreferencesInput, TripPreferences>();
 CreateMap<LocationModel, Location>();
 
 CreateMap<Trip, TripPlanResponse>()
-    .ForMember(dest => dest.CityName, opt => opt.Ignore()) // Resuelto en handler
-    .ForMember(dest => dest.CityCode, opt => opt.Ignore()) // Resuelto en handler
-    .ForMember(dest => dest.MustSees, opt => opt.MapFrom(src => src.OriginalMustSees))
-    .ForMember(dest => dest.TripCode, opt => opt.MapFrom(src => src.TripCode));
+    .ForCtorParam("CityCode", opt => opt.MapFrom((src, ctx) => ((City?)ctx.Items["City"])?.CityCode ?? string.Empty))
+    .ForCtorParam("CityName", opt => opt.MapFrom((src, ctx) => ((City?)ctx.Items["City"])?.CityName ?? string.Empty))
+    .ForCtorParam("MustSees", opt => opt.MapFrom(src => src.OriginalMustSees))
+    .ForCtorParam("Status", opt => opt.MapFrom(src => src.Days.Any() ? "GENERATED" : "CREATED"))
+    .ForCtorParam("DefaultStartHour", opt => opt.MapFrom(src => src.DefaultStartTime.ToString("HH:mm")))
+    .ForMember(dest => dest.Days, opt => opt.MapFrom(src => src.Days));
 
-CreateMap<MustSee, MustSeeResponse>();
+CreateMap<MustSee, MustSeeResponse>()
+    .ForMember(dest => dest.Priority, opt => opt.MapFrom(src => src.Priority.ToString()))
+    .ForMember(dest => dest.PinnedBlock, opt => opt.MapFrom(src => src.PinnedBlock.HasValue ? src.PinnedBlock.ToString() : null));
+
 CreateMap<Location, LocationModel>();
 ```
 
 ---
 
+*Última actualización: 2026-06-22*
 *Documento generado como especificación técnica del Flujo 0. Sujeto a revisión y ajustes tras la validación de negocio.*
