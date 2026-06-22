@@ -53,7 +53,7 @@ public class CandidateFiller : ICandidateFiller
                             IsFamilyTrip: trip.Travelers.Children > 0,
                             IsBadWeather: isBadWeather && trip.Preferences.WeatherAwareEnabled,
                             DistanceFromBlockCenterKm: distance,
-                            PopularityRaw: 0.5);
+                            PopularityRaw: p.Popularity);
                         var score = _scorer.Score(p, context);
                         return (Place: p, Score: score);
                     })

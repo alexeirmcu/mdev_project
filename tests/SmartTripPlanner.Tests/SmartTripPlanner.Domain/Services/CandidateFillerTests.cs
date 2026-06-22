@@ -184,4 +184,27 @@ public sealed class CandidateFillerTests
         // Empty block → distance should be 0
         Assert.AreEqual(0, capturedDistance);
     }
+
+    [TestMethod]
+    public async Task FillAsync_PassesPlacePopularityToScoringContext()
+    {
+        var trip = CreateTrip(Array.Empty<MustSee>(), dayCount: 1);
+        var place = CreatePlace(1, "Test Place", 40.4168, -3.7038, duration: 60);
+        place.MarkEnriched(60, false, 3, 0.85);
+        var candidates = new List<Place> { place };
+
+        double? capturedPopularity = null;
+        _scorerMock
+            .Setup(s => s.Score(It.IsAny<Place>(), It.IsAny<ScoringContext>()))
+            .Callback<Place, ScoringContext>((_, ctx) => capturedPopularity = ctx.PopularityRaw)
+            .Returns(10.0);
+
+        await _filler.FillAsync(trip, candidates, new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        Assert.IsNotNull(capturedPopularity);
+        Assert.AreEqual(0.85, capturedPopularity, "Should use Place.Popularity, not hardcoded 0.5");
+    }
 }
