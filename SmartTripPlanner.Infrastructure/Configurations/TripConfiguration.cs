@@ -58,6 +58,9 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
             prefs.Property(p => p.Interests)
                 .HasColumnType("text[]")
                 .HasDefaultValueSql("ARRAY[]::text[]");
+            prefs.Property(p => p.AllowMustSeeOvertime)
+                .HasColumnName("PrefAllowMustSeeOvertime")
+                .HasDefaultValue(false);
         });
 
         builder.OwnsMany(t => t.OriginalMustSees, mustSee =>
@@ -89,6 +92,7 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
                     a.WithOwner().HasForeignKey("DayPlanId");
                     a.Property<long>("Id");
                     a.HasKey("Id");
+                    a.Property(ac => ac.OvertimeAlert).HasColumnName("OvertimeAlert").HasDefaultValue(false);
                     a.OwnsOne(ac => ac.TransitToNext);
                     a.OwnsOne(ac => ac.Location, loc =>
                     {
@@ -108,6 +112,7 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
                     a.WithOwner().HasForeignKey("DayPlanId");
                     a.Property<long>("Id");
                     a.HasKey("Id");
+                    a.Property(ac => ac.OvertimeAlert).HasColumnName("OvertimeAlert").HasDefaultValue(false);
                     a.OwnsOne(ac => ac.TransitToNext);
                     a.OwnsOne(ac => ac.Location, loc =>
                     {
@@ -127,6 +132,7 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
                     a.WithOwner().HasForeignKey("DayPlanId");
                     a.Property<long>("Id");
                     a.HasKey("Id");
+                    a.Property(ac => ac.OvertimeAlert).HasColumnName("OvertimeAlert").HasDefaultValue(false);
                     a.OwnsOne(ac => ac.TransitToNext);
                     a.OwnsOne(ac => ac.Location, loc =>
                     {

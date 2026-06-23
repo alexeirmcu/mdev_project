@@ -52,6 +52,47 @@ public sealed class TripPreferencesTests
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // AllowMustSeeOvertime tests
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Default_AllowMustSeeOvertime_IsFalse()
+    {
+        var prefs = new TripPreferences();
+        Assert.IsFalse(prefs.AllowMustSeeOvertime);
+    }
+
+    [TestMethod]
+    public void Constructor_WithAllowMustSeeOvertime_SetsCorrectly()
+    {
+        var prefs = new TripPreferences(allowMustSeeOvertime: true);
+        Assert.IsTrue(prefs.AllowMustSeeOvertime);
+
+        var prefs2 = new TripPreferences(allowMustSeeOvertime: false);
+        Assert.IsFalse(prefs2.AllowMustSeeOvertime);
+    }
+
+    [TestMethod]
+    public void Equals_DifferentAllowMustSeeOvertime_ReturnsFalse()
+    {
+        var a = new TripPreferences(allowMustSeeOvertime: true);
+        var b = new TripPreferences(allowMustSeeOvertime: false);
+
+        Assert.AreNotEqual(a, b);
+        Assert.AreNotEqual(a.GetHashCode(), b.GetHashCode());
+    }
+
+    [TestMethod]
+    public void Equals_SameAllowMustSeeOvertime_ReturnsTrue()
+    {
+        var a = new TripPreferences(allowMustSeeOvertime: true);
+        var b = new TripPreferences(allowMustSeeOvertime: true);
+
+        Assert.AreEqual(a, b);
+        Assert.AreEqual(a.GetHashCode(), b.GetHashCode());
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // ReturnToHotelStrategy tests
     // ─────────────────────────────────────────────────────────────────────────
 

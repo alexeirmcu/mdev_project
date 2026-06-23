@@ -94,6 +94,29 @@ public sealed class PlaceMappingProfileTests
     }
 
     [TestMethod]
+    public void Map_ActivityNodeToActivityResponse_OvertimeAlertTrue()
+    {
+        var mapper = CreateMapper();
+        var activity = new ActivityNode(1, "Test", 1, 60);
+        activity.MarkOvertime();
+
+        var response = mapper.Map<ActivityResponse>(activity);
+
+        Assert.IsTrue(response.OvertimeAlert);
+    }
+
+    [TestMethod]
+    public void Map_ActivityNodeToActivityResponse_OvertimeAlertFalse()
+    {
+        var mapper = CreateMapper();
+        var activity = new ActivityNode(1, "Test", 1, 60);
+
+        var response = mapper.Map<ActivityResponse>(activity);
+
+        Assert.IsFalse(response.OvertimeAlert);
+    }
+
+    [TestMethod]
     public void Map_PlaceToPlaceModel_ConfigurationIsValid()
     {
         var expression = new MapperConfigurationExpression();

@@ -10,12 +10,14 @@ public class TripPreferences : ValueObject
     public bool WeatherAwareEnabled { get; }
     public ReturnToHotelStrategy ReturnToHotelStrategy { get; }
     public List<string> Interests { get; private set; } = new();
+    public bool AllowMustSeeOvertime { get; }
 
     private TripPreferences() { }
 
     public TripPreferences(bool carAvailable = false, int maxWalkingMinutes = 30, bool weatherAwareEnabled = true,
         IEnumerable<string>? interests = null,
-        ReturnToHotelStrategy returnToHotelStrategy = ReturnToHotelStrategy.Always)
+        ReturnToHotelStrategy returnToHotelStrategy = ReturnToHotelStrategy.Always,
+        bool allowMustSeeOvertime = false)
     {
         if (maxWalkingMinutes < 0)
             throw new ArgumentException("MaxWalkingMinutes cannot be negative.", nameof(maxWalkingMinutes));
@@ -24,6 +26,7 @@ public class TripPreferences : ValueObject
         MaxWalkingMinutes = maxWalkingMinutes;
         WeatherAwareEnabled = weatherAwareEnabled;
         ReturnToHotelStrategy = returnToHotelStrategy;
+        AllowMustSeeOvertime = allowMustSeeOvertime;
         if (interests is not null)
             Interests = interests.ToList();
     }
@@ -34,6 +37,7 @@ public class TripPreferences : ValueObject
         yield return MaxWalkingMinutes;
         yield return WeatherAwareEnabled;
         yield return ReturnToHotelStrategy;
+        yield return AllowMustSeeOvertime;
         foreach (var interest in Interests)
             yield return interest;
     }

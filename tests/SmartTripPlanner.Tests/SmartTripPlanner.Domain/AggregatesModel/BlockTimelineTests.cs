@@ -177,6 +177,91 @@ public sealed class BlockTimelineTests
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // ForceAddActivity tests
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void ForceAddActivity_SkipsDurationCheck()
+    {
+        var block = CreateMorningBlock();
+        // Morning max is 210 min — add activity that exceeds it
+        var activity = CreateActivity(220);
+
+        block.ForceAddActivity(activity);
+
+        Assert.AreEqual(1, block.Activities.Count);
+        Assert.IsTrue(block.Activities[0].OvertimeAlert, "ForceAddActivity should mark OvertimeAlert");
+    }
+
+    [TestMethod]
+    public void ForceAddActivity_EnforcesMaxVisits()
+    {
+        var block = CreateEveningBlock();
+        block.AddActivity(CreateActivity(30));
+        block.AddActivity(CreateActivity(30));
+
+        try
+        {
+            block.ForceAddActivity(CreateActivity(15));
+            Assert.Fail("Expected InvalidOperationException for max visits");
+        }
+        catch (InvalidOperationException ex)
+        {
+            StringAssert.Contains(ex.Message, "maximum visits");
+        }
+    }
+
+    [TestMethod]
+    public void ForceAddActivity_MarksOvertimeAlertOnActivity()
+    {
+        var block = CreateMorningBlock();
+        var activity = CreateActivity(60);
+
+        block.ForceAddActivity(activity);
+
+        Assert.IsTrue(activity.OvertimeAlert);
+    }
+
+    [TestMethod]
+    public void ForceAddActivity_WithCapacity_AddsSuccessfully()
+    {
+        var block = CreateMorningBlock();
+        var activity = CreateActivity(60);
+
+        block.ForceAddActivity(activity);
+
+        Assert.AreEqual(1, block.Activities.Count);
+        Assert.AreEqual(activity, block.Activities[0]);
+        Assert.IsTrue(block.Activities[0].OvertimeAlert);
+    }
+
+    [TestMethod]
+    public void MaxDurationMinutes_ReturnsCorrectValue()
+    {
+        var morning = CreateMorningBlock();
+        Assert.AreEqual(210, morning.MaxDurationMinutes);
+
+        var afternoon = new BlockTimeline { BlockType = BlockType.Afternoon };
+        Assert.AreEqual(180, afternoon.MaxDurationMinutes);
+
+        var evening = CreateEveningBlock();
+        Assert.AreEqual(105, evening.MaxDurationMinutes);
+    }
+
+    [TestMethod]
+    public void MaxVisits_ReturnsCorrectValue()
+    {
+        var morning = CreateMorningBlock();
+        Assert.AreEqual(3, morning.MaxVisits);
+
+        var afternoon = new BlockTimeline { BlockType = BlockType.Afternoon };
+        Assert.AreEqual(3, afternoon.MaxVisits);
+
+        var evening = CreateEveningBlock();
+        Assert.AreEqual(2, evening.MaxVisits);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // InterBlockTransit tests
     // ─────────────────────────────────────────────────────────────────────────
 

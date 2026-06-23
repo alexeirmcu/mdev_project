@@ -116,6 +116,141 @@ public sealed class PinnedMustSeePlacerTests
             "Overflow should go to afternoon (adjacent to morning)");
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Overtime / Force-placement tests
+    // ─────────────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Place_WithOvertimeFlagOn_ForcePlacesWhenDurationExceeds()
+    {
+        // Must-see with 220 min duration exceeds Morning max (210).
+        // With AllowMustSeeOvertime=true, should force-place with OvertimeAlert.
+        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
+        // Set AllowMustSeeOvertime to true
+        typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
+            new TripPreferences(allowMustSeeOvertime: true));
+        var place = CreatePlace(1, "Long Activity", 40.4168, -3.7038, duration: 220);
+
+        var result = _placer.Place(trip, mustSee, place);
+
+        Assert.IsTrue(result, "Should force-place oversized must-see with flag on");
+        Assert.AreEqual(1, trip.Days[0].Morning.Activities.Count);
+        Assert.IsTrue(trip.Days[0].Morning.Activities[0].OvertimeAlert,
+            "Force-placed activity should have OvertimeAlert=true");
+    }
+
+    [TestMethod]
+    public void Place_WithOvertimeFlagOff_ReturnsFalseWhenDurationExceeds()
+    {
+        // Must-see with 220 min duration exceeds Morning max (210).
+        // With AllowMustSeeOvertime=false (default), should return false.
+        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
+        var place = CreatePlace(1, "Long Activity", 40.4168, -3.7038, duration: 220);
+
+        var result = _placer.Place(trip, mustSee, place);
+
+        Assert.IsFalse(result, "Should not place oversized must-see with flag off");
+        Assert.AreEqual(0, trip.Days[0].Morning.Activities.Count);
+    }
+
+    [TestMethod]
+    public void Place_WithOvertimeFlagOn_ForcePlacesInAdjacentBlock()
+    {
+        // Fill Morning to max visits, then try to place an oversized pinned must-see.
+        // Normal overflow to adjacent Afternoon should fail (duration),
+        // but force-placement should succeed with OvertimeAlert.
+        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
+        typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
+            new TripPreferences(allowMustSeeOvertime: true));
+        var loc = new PlaceLocation(40.4168, -3.7038);
+
+        // Fill Morning to max visits
+        var morning = trip.Days[0].Morning;
+        morning.AddActivity(new ActivityNode(1, "Existing 1", 1, 60, location: loc));
+        morning.AddActivity(new ActivityNode(2, "Existing 2", 2, 60, location: loc));
+        morning.AddActivity(new ActivityNode(3, "Existing 3", 3, 60, location: loc));
+
+        // Now place an oversized must-see that won't fit duration in Afternoon
+        // Afternoon max is 180 min — 200 min exceeds it
+        var place = CreatePlace(4, "Oversized Place", 40.4190, -3.7060, duration: 200);
+
+        var result = _placer.Place(trip, mustSee, place);
+
+        Assert.IsTrue(result, "Should force-place in adjacent block with flag on");
+        Assert.AreEqual(1, trip.Days[0].Afternoon.Activities.Count,
+            "Force-placed activity should be in Afternoon (adjacent to Morning)");
+        Assert.IsTrue(trip.Days[0].Afternoon.Activities[0].OvertimeAlert,
+            "Force-placed activity should have OvertimeAlert=true");
+    }
+
+    [TestMethod]
+    public void Place_WithOvertimeFlagOn_FitsNormally_NoOvertimeAlert()
+    {
+        // Must-see that fits normally — OvertimeAlert should remain false
+        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
+        typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
+            new TripPreferences(allowMustSeeOvertime: true));
+        var place = CreatePlace(1, "Normal Activity", 40.4168, -3.7038, duration: 60);
+
+        var result = _placer.Place(trip, mustSee, place);
+
+        Assert.IsTrue(result);
+        Assert.IsFalse(trip.Days[0].Morning.Activities[0].OvertimeAlert,
+            "Normally-placed activity should NOT have OvertimeAlert");
+    }
+
+    [TestMethod]
+    public void Place_WithOvertimeFlagOn_TargetBlockHasActivities_ForcePlacesInEmptyAdjacentBlock()
+    {
+        // Morning has 1 activity (not full, but NOT empty).
+        // Pinned must-see for Morning with overtime should NOT share the block;
+        // it should overflow to Afternoon (empty) via force-placement.
+        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
+        typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
+            new TripPreferences(allowMustSeeOvertime: true));
+        var loc = new PlaceLocation(40.4168, -3.7038);
+
+        // Put one normal activity in Morning so it's no longer empty
+        trip.Days[0].Morning.AddActivity(new ActivityNode(1, "Existing", 1, 60, location: loc));
+
+        // Oversized must-see that won't fit duration in Morning anyway (220 > 210)
+        var place = CreatePlace(2, "Oversized Place", 40.4190, -3.7060, duration: 220);
+
+        var result = _placer.Place(trip, mustSee, place);
+
+        Assert.IsTrue(result, "Should force-place in adjacent empty block");
+        Assert.AreEqual(1, trip.Days[0].Afternoon.Activities.Count,
+            "Force-placed activity should be in Afternoon because Morning is not empty");
+        Assert.IsTrue(trip.Days[0].Afternoon.Activities[0].OvertimeAlert,
+            "Force-placed activity should have OvertimeAlert=true");
+    }
+
+    [TestMethod]
+    public void Place_WithOvertimeFlagOn_NoEmptyBlock_ReturnsFalse()
+    {
+        // Every block has at least one activity — no empty block for exclusive overtime.
+        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
+        typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
+            new TripPreferences(allowMustSeeOvertime: true));
+        var loc = new PlaceLocation(40.4168, -3.7038);
+
+        trip.Days[0].Morning.AddActivity(new ActivityNode(1, "A", 1, 60, location: loc));
+        trip.Days[0].Afternoon.AddActivity(new ActivityNode(2, "B", 1, 60, location: loc));
+        trip.Days[0].Evening.AddActivity(new ActivityNode(3, "C", 1, 50, location: loc));
+
+        var place = CreatePlace(4, "Oversized Place", 40.4190, -3.7060, duration: 220);
+
+        var result = _placer.Place(trip, mustSee, place);
+
+        Assert.IsFalse(result, "Should return false when no empty block is available for overtime");
+    }
+
     [TestMethod]
     public void Place_AllBlocksFullOnTargetDay_ReturnsFalse()
     {

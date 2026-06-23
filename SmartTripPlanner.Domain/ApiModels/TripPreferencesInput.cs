@@ -7,4 +7,5 @@ public record TripPreferencesInput(
     int MaxWalkingMinutes = 30,
     bool WeatherAwareEnabled = true,
     IReadOnlyList<string>? Interests = null,
-    ReturnToHotelStrategy ReturnToHotelStrategy = ReturnToHotelStrategy.Always);
+    ReturnToHotelStrategy ReturnToHotelStrategy = ReturnToHotelStrategy.Always,
+    bool AllowMustSeeOvertime = false);

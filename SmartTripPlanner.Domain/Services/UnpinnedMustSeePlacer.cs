@@ -40,6 +40,29 @@ public class UnpinnedMustSeePlacer : IUnpinnedMustSeePlacer
             }
         }
 
+        // Force-placement: if normal placement failed and overtime flag is on,
+        // iterate days and force-place in the first block with a visit slot
+        if (trip.Preferences.AllowMustSeeOvertime)
+        {
+            foreach (var dayInfo in daysWithCapacity)
+            {
+                if (dayInfo.FreeSlots <= 0)
+                    continue;
+
+                foreach (var blockType in new[] { BlockType.Morning, BlockType.Afternoon, BlockType.Evening })
+                {
+                    var block = dayInfo.Day.GetBlock(blockType);
+                    // Overtime activities must occupy an EMPTY block exclusively.
+                    if (block.Activities.Count != 0 || block.Activities.Count >= block.MaxVisits)
+                        continue;
+
+                    var activity = ItineraryGeneratorHelpers.CreateActivityNode(place, block.Activities.Count + 1);
+                    dayInfo.Day.ForceAddActivity(blockType, activity);
+                    return true;
+                }
+            }
+        }
+
         return false;
     }
 }

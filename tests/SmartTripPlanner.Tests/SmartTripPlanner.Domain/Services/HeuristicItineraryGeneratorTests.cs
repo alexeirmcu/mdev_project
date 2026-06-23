@@ -91,7 +91,8 @@ public sealed class HeuristicItineraryGeneratorTests
 
     private static Trip CreateTrip(IReadOnlyList<MustSee> mustSees, int dayCount = 3,
         bool carAvailable = false, bool weatherAware = true, int children = 0,
-        ReturnToHotelStrategy returnToHotelStrategy = ReturnToHotelStrategy.Always)
+        ReturnToHotelStrategy returnToHotelStrategy = ReturnToHotelStrategy.Always,
+        bool allowMustSeeOvertime = false)
     {
         var trip = new Trip
         {
@@ -102,7 +103,7 @@ public sealed class HeuristicItineraryGeneratorTests
             EndDate = new DateOnly(2026, 7, 1 + dayCount - 1),
             BaseHotel = new Location("Test Hotel", 40.4168, -3.7038),
             Travelers = new Travelers(2, children, 0),
-            Preferences = new TripPreferences(carAvailable, 30, weatherAware, returnToHotelStrategy: returnToHotelStrategy),
+            Preferences = new TripPreferences(carAvailable, 30, weatherAware, returnToHotelStrategy: returnToHotelStrategy, allowMustSeeOvertime: allowMustSeeOvertime),
             DefaultStartTime = new TimeOnly(9, 0),
             OwnerUserId = "user-42",
             CreatedAt = DateTimeOffset.UtcNow
@@ -742,6 +743,124 @@ public sealed class HeuristicItineraryGeneratorTests
         Assert.IsTrue(
             afternoon.InterBlockTransit != null || morning.TransitToHotel != null,
             "ProximityBased must choose either direct or hotel route");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Overtime / Force-placement integration tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task GenerateAsync_OvertimeFlagOn_ForcePlacesOversizedMustSee()
+    {
+        // A must-see with 220 min duration exceeds ALL block max durations
+        // (Morning=210, Afternoon=180, Evening=105). With flag on, it should
+        // be force-placed with OvertimeAlert=true.
+        var mustSees = new List<MustSee>
+        {
+            new(1, Priority.High)
+        };
+        var trip = CreateTrip(mustSees, dayCount: 2, allowMustSeeOvertime: true);
+        var places = new List<Place>
+        {
+            CreatePlace(1, "Oversized Activity", 40.4168, -3.7038, duration: 220),
+        };
+
+        await _generator.GenerateAsync(trip, places, AllClearWeather(2), CancellationToken.None);
+
+        // Must-see should be placed in some block
+        var total = trip.Days.Sum(d =>
+            d.Morning.Activities.Count + d.Afternoon.Activities.Count + d.Evening.Activities.Count);
+        Assert.AreEqual(1, total);
+
+        // Find the placed activity and verify OvertimeAlert
+        var placedActivity = trip.Days
+            .SelectMany(d => d.Morning.Activities.Concat(d.Afternoon.Activities).Concat(d.Evening.Activities))
+            .First();
+        Assert.IsTrue(placedActivity.OvertimeAlert,
+            "Oversized must-see should have OvertimeAlert=true when flag is on");
+    }
+
+    [TestMethod]
+    public async Task GenerateAsync_OvertimeFlagOff_ThrowsOverConstrainedForOversizedMustSee()
+    {
+        // A must-see with 220 min duration exceeds ALL block max durations.
+        // With flag off (default), the system throws OverConstrainedRouteException.
+        var mustSees = new List<MustSee>
+        {
+            new(1, Priority.High)
+        };
+        var trip = CreateTrip(mustSees, dayCount: 2, allowMustSeeOvertime: false);
+        var places = new List<Place>
+        {
+            CreatePlace(1, "Oversized Activity", 40.4168, -3.7038, duration: 220),
+        };
+
+        var ex = await CatchExceptionAsync<OverConstrainedRouteException>(() =>
+            _generator.GenerateAsync(trip, places, AllClearWeather(2), CancellationToken.None));
+
+        Assert.IsNotNull(ex);
+        Assert.IsTrue(ex.ConflictingPlaceIds.Contains(1L),
+            "Exception should reference the oversized must-see PlaceId");
+    }
+
+    [TestMethod]
+    public async Task GenerateAsync_OvertimeFlagOn_FitsNormally_NoOvertimeAlert()
+    {
+        // Must-see that fits within block capacity should NOT get OvertimeAlert
+        // even when the flag is on.
+        var mustSees = new List<MustSee>
+        {
+            new(1, Priority.High)
+        };
+        var trip = CreateTrip(mustSees, dayCount: 1, allowMustSeeOvertime: true);
+        var places = new List<Place>
+        {
+            CreatePlace(1, "Normal Activity", 40.4168, -3.7038, duration: 60),
+        };
+
+        await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
+
+        var morning = trip.Days[0].Morning;
+        Assert.AreEqual(1, morning.Activities.Count);
+        Assert.IsFalse(morning.Activities[0].OvertimeAlert,
+            "Normally-placed activity should NOT have OvertimeAlert");
+    }
+
+    [TestMethod]
+    public async Task GenerateAsync_OvertimeFlagOn_LowPriorityForcePlaced_HighStillPlacedFirst()
+    {
+        // Two must-sees: one High that fits normally, one Low that exceeds duration.
+        // With flag on, both should be placed — High normally, Low as overtime.
+        var mustSees = new List<MustSee>
+        {
+            new(1, Priority.High),
+            new(2, Priority.Low)
+        };
+        var trip = CreateTrip(mustSees, dayCount: 1, allowMustSeeOvertime: true);
+        var places = new List<Place>
+        {
+            CreatePlace(1, "Fits Normally", 40.4168, -3.7038, duration: 60),
+            CreatePlace(2, "Oversized Low", 40.4170, -3.7040, duration: 220),
+        };
+
+        await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
+
+        var total = trip.Days[0].Morning.Activities.Count
+                  + trip.Days[0].Afternoon.Activities.Count
+                  + trip.Days[0].Evening.Activities.Count;
+        Assert.AreEqual(2, total);
+
+        // The normally-placed activity should NOT have OvertimeAlert
+        var normalActivity = trip.Days
+            .SelectMany(d => d.Morning.Activities.Concat(d.Afternoon.Activities).Concat(d.Evening.Activities))
+            .First(a => a.PlaceId == 1L);
+        Assert.IsFalse(normalActivity.OvertimeAlert);
+
+        // The force-placed activity SHOULD have OvertimeAlert
+        var overtimeActivity = trip.Days
+            .SelectMany(d => d.Morning.Activities.Concat(d.Afternoon.Activities).Concat(d.Evening.Activities))
+            .First(a => a.PlaceId == 2L);
+        Assert.IsTrue(overtimeActivity.OvertimeAlert);
     }
 
     [TestMethod]

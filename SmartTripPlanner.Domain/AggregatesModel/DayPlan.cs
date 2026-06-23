@@ -36,6 +36,11 @@ public class DayPlan : Entity
         GetBlock(blockType).AddActivity(activity);
     }
 
+    public void ForceAddActivity(BlockType blockType, ActivityNode activity)
+    {
+        GetBlock(blockType).ForceAddActivity(activity);
+    }
+
     public void RemoveActivity(BlockType blockType, ActivityNode activity)
     {
         GetBlock(blockType).RemoveActivity(activity);

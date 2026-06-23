@@ -16,8 +16,14 @@ public class ActivityNode : Entity
     public TransitDetails? TransitToNext { get; set; }
     public Priority Priority { get; init; } = Priority.Medium;
     public PlaceLocation Location { get; init; } = null!;
+    public bool OvertimeAlert { get; private set; }
 
     public ActivityNode() { }
+
+    public void MarkOvertime()
+    {
+        OvertimeAlert = true;
+    }
 
     public ActivityNode(long placeId, string name, int sequenceOrder, int durationMinutes,
         bool isIndoor = false, TransitDetails? transitToNext = null, Priority priority = Priority.Medium,

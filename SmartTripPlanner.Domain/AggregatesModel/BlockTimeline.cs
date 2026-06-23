@@ -17,6 +17,9 @@ public class BlockTimeline : Entity
         (TransitToHotel?.DurationMinutes ?? 0);
     public List<ActivityNode> Activities { get; private set; } = new();
 
+    public int MaxDurationMinutes => GetBlockConstraints().maxDuration;
+    public int MaxVisits => GetBlockConstraints().maxVisits;
+
     public void AddActivity(ActivityNode activity)
     {
         var (maxVisits, maxDuration) = GetBlockConstraints();
@@ -28,6 +31,17 @@ public class BlockTimeline : Entity
         if (newTotal > maxDuration)
             throw new InvalidOperationException($"Adding activity exceeds maximum duration ({maxDuration} min) for {BlockType} block.");
 
+        Activities.Add(activity);
+    }
+
+    public void ForceAddActivity(ActivityNode activity)
+    {
+        var (maxVisits, _) = GetBlockConstraints();
+
+        if (Activities.Count >= maxVisits)
+            throw new InvalidOperationException($"Block {BlockType} already has maximum visits ({maxVisits}).");
+
+        activity.MarkOvertime();
         Activities.Add(activity);
     }
 

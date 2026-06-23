@@ -54,6 +54,7 @@ public class ActivityResponse
     public int TransitDurationMinutes { get; set; }
     public int BufferMinutes { get; set; }
     public bool FrictionAlert { get; set; }
+    public bool OvertimeAlert { get; set; }
     public int? EstimatedArrival { get; set; }
     public int? EstimatedDeparture { get; set; }
 }

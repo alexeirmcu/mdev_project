@@ -56,6 +56,7 @@ public class AutoMapperProfile : Profile
             .ForMember(dest => dest.TransitDurationMinutes, opt => opt.MapFrom(src => src.TransitToNext != null ? src.TransitToNext.DurationMinutes : 0))
             .ForMember(dest => dest.BufferMinutes, opt => opt.MapFrom(src => src.TransitToNext != null ? src.TransitToNext.BufferMinutes : 0))
             .ForMember(dest => dest.FrictionAlert, opt => opt.MapFrom(src => src.TransitToNext != null ? src.TransitToNext.FrictionAlert : false))
+            .ForMember(dest => dest.OvertimeAlert, opt => opt.MapFrom(src => src.OvertimeAlert))
             .ForMember(dest => dest.EstimatedArrival, opt => opt.MapFrom(src => src.EstimatedArrival))
             .ForMember(dest => dest.EstimatedDeparture, opt => opt.MapFrom(src => src.EstimatedDeparture));
 
