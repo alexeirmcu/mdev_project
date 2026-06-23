@@ -121,6 +121,56 @@ public sealed class OpenMeteoApiClientTests
         }
     }
 
+    [TestMethod]
+    public async Task GetForecastAsync_UrlContainsExactStartAndEndDates()
+    {
+        var response = new OpenMeteoForecastResponse
+        {
+            Daily = new OpenMeteoDailyData
+            {
+                Time = new List<string> { "2026-06-25" },
+                WeatherCode = new List<int> { 0 },
+                TemperatureMax = new List<double> { 28.0 },
+                TemperatureMin = new List<double> { 15.0 }
+            }
+        };
+        var json = JsonSerializer.Serialize(response, JsonOptions);
+
+        var handler = new CapturingHttpMessageHandler(json, HttpStatusCode.OK);
+        using var httpClient = CreateClient(handler);
+        var client = new OpenMeteoApiClient(httpClient);
+
+        await client.GetForecastAsync(40.4168, -3.7038,
+            new DateOnly(2026, 6, 25), new DateOnly(2026, 6, 27));
+
+        StringAssert.Contains(handler.LastRequestUri!, "start_date=2026-06-25");
+        StringAssert.Contains(handler.LastRequestUri!, "end_date=2026-06-27");
+    }
+
+    private sealed class CapturingHttpMessageHandler : DelegatingHandler
+    {
+        private readonly string _responseContent;
+        private readonly HttpStatusCode _statusCode;
+
+        public string? LastRequestUri { get; private set; }
+
+        public CapturingHttpMessageHandler(string responseContent, HttpStatusCode statusCode)
+        {
+            _responseContent = responseContent;
+            _statusCode = statusCode;
+        }
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            LastRequestUri = request.RequestUri?.ToString();
+            var response = new HttpResponseMessage(_statusCode)
+            {
+                Content = new StringContent(_responseContent, Encoding.UTF8, "application/json")
+            };
+            return Task.FromResult(response);
+        }
+    }
+
     private sealed class MockHttpMessageHandler : DelegatingHandler
     {
         private readonly string _responseContent;

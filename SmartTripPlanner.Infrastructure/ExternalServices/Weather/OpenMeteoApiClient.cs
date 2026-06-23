@@ -28,10 +28,9 @@ internal class OpenMeteoApiClient : IWeatherApiClient
     {
         try
         {
-            var days = Math.Min((endDate.DayNumber - startDate.DayNumber) + 1, 16);
             var url = $"/v1/forecast?latitude={latitude}&longitude={longitude}" +
                       $"&daily=weather_code,temperature_2m_max,temperature_2m_min" +
-                      $"&timezone=auto&forecast_days={days}";
+                      $"&timezone=auto&start_date={startDate:yyyy-MM-dd}&end_date={endDate:yyyy-MM-dd}";
 
             var response = await _httpClient.GetAsync(url, ct);
 
