@@ -18,6 +18,9 @@ public class CityConfiguration : IEntityTypeConfiguration<City>
 
         builder.Property(c => c.CityName).IsRequired();
 
-        builder.HasData(new { Id = 1L, CityCode = "madrid", CityName = "Madrid", IsAllowed = true });
+        builder.Property(c => c.Latitude).HasColumnType("double precision");
+        builder.Property(c => c.Longitude).HasColumnType("double precision");
+
+        builder.HasData(new { Id = 1L, CityCode = "madrid", CityName = "Madrid", IsAllowed = true, Latitude = 40.4168, Longitude = -3.7038 });
     }
 }

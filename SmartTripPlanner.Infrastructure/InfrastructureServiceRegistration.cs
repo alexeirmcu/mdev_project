@@ -6,6 +6,8 @@ using SmartTripPlanner.Domain.Repository;
 using SmartTripPlanner.Infrastructure.Background;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Configuration;
+using SmartTripPlanner.Infrastructure.ExternalServices.Weather;
+using SmartTripPlanner.Infrastructure.ExternalServices.Weather.Configuration;
 using SmartTripPlanner.Infrastructure.LLM;
 using SmartTripPlanner.Infrastructure.Outbox;
 using SmartTripPlanner.Infrastructure.Repositories;
@@ -41,7 +43,18 @@ public static class InfrastructureServiceRegistration
         services.AddScoped<IPlaceExternalService, FoursquarePlaceService>();
 
         services.AddScoped<ITransitCalculator, HaversineTransitCalculator>();
-        services.AddScoped<IWeatherProvider, StubbedWeatherProvider>();
+
+        services.AddOptions<OpenMeteoApiOptions>()
+            .BindConfiguration(OpenMeteoApiOptions.SectionName);
+
+        services.AddHttpClient<IWeatherApiClient, OpenMeteoApiClient>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<OpenMeteoApiOptions>>().Value;
+            client.BaseAddress = new Uri(options.BaseUrl);
+            client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+        });
+
+        services.AddScoped<IWeatherProvider, OpenMeteoWeatherProvider>();
 
         services.AddOptions<LlmApiOptions>()
             .BindConfiguration(LlmApiOptions.SectionName);
