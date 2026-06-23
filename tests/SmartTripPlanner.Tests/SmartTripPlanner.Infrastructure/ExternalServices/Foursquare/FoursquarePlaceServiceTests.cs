@@ -1,5 +1,6 @@
 using Moq;
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.ApiModels;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Mapping;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Models;
@@ -267,5 +268,131 @@ public sealed class FoursquarePlaceServiceTests
             Assert.AreEqual(540, place.OpeningHours[i].OpenMinutes);
             Assert.AreEqual(1080, place.OpeningHours[i].CloseMinutes);
         }
+    }
+
+    [TestMethod]
+    public async Task SearchPlacesAsync_FilterByIsFamilyFriendly_FiltersClientSide()
+    {
+        // Note: All categories in FoursquareCategoryHeuristics map IsIndoor=true,
+        // so we test IsFamilyFriendly which differs between Museum (true) and Nightclub (false)
+        var mockClient = new Mock<IFoursquareApiClient>();
+        var apiPlaces = new List<FoursquarePlace>
+        {
+            CreateMuseumPlace(),   // IsFamilyFriendly = true
+            CreateNightclubPlace() // IsFamilyFriendly = false
+        };
+        mockClient
+            .Setup(c => c.SearchPlacesAsync("Museum", "madrid-es", 20))
+            .ReturnsAsync(apiPlaces);
+
+        var service = new FoursquarePlaceService(mockClient.Object);
+        var filter = new PlaceSearchFilter(null, null, true, null);
+        var results = await service.SearchPlacesAsync("Museum", "madrid-es", 1L, 20, filter);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Museo del Prado", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchPlacesAsync_FilterByIsNotFamilyFriendly_FiltersClientSide()
+    {
+        var mockClient = new Mock<IFoursquareApiClient>();
+        var apiPlaces = new List<FoursquarePlace>
+        {
+            CreateMuseumPlace(),   // IsFamilyFriendly = true
+            CreateNightclubPlace() // IsFamilyFriendly = false
+        };
+        mockClient
+            .Setup(c => c.SearchPlacesAsync("Museum", "madrid-es", 20))
+            .ReturnsAsync(apiPlaces);
+
+        var service = new FoursquarePlaceService(mockClient.Object);
+        var filter = new PlaceSearchFilter(null, null, false, null);
+        var results = await service.SearchPlacesAsync("Museum", "madrid-es", 1L, 20, filter);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Teatro de la Luz", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchPlacesAsync_FilterByMaxDuration_FiltersClientSide()
+    {
+        var mockClient = new Mock<IFoursquareApiClient>();
+        var apiPlaces = new List<FoursquarePlace>
+        {
+            CreateMuseumPlace(),   // duration 120
+            CreateNightclubPlace() // duration 60
+        };
+        mockClient
+            .Setup(c => c.SearchPlacesAsync("Museum", "madrid-es", 20))
+            .ReturnsAsync(apiPlaces);
+
+        var service = new FoursquarePlaceService(mockClient.Object);
+        var filter = new PlaceSearchFilter(null, null, null, 60);
+        var results = await service.SearchPlacesAsync("Museum", "madrid-es", 1L, 20, filter);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Teatro de la Luz", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchPlacesAsync_FilterByCategory_FiltersClientSide()
+    {
+        var mockClient = new Mock<IFoursquareApiClient>();
+        var apiPlaces = new List<FoursquarePlace>
+        {
+            CreateMuseumPlace(),   // category = "Museum"
+            CreateNightclubPlace() // category = "Nightclub"
+        };
+        mockClient
+            .Setup(c => c.SearchPlacesAsync("Museum", "madrid-es", 20))
+            .ReturnsAsync(apiPlaces);
+
+        var service = new FoursquarePlaceService(mockClient.Object);
+        var filter = new PlaceSearchFilter("Museum", null, null, null);
+        var results = await service.SearchPlacesAsync("Museum", "madrid-es", 1L, 20, filter);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Museo del Prado", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchPlacesAsync_FilterNull_PreservesExistingBehavior()
+    {
+        var mockClient = new Mock<IFoursquareApiClient>();
+        var apiPlaces = new List<FoursquarePlace>
+        {
+            CreateMuseumPlace(),
+            CreateNightclubPlace()
+        };
+        mockClient
+            .Setup(c => c.SearchPlacesAsync("Museum", "madrid-es", 20))
+            .ReturnsAsync(apiPlaces);
+
+        var service = new FoursquarePlaceService(mockClient.Object);
+        var results = await service.SearchPlacesAsync("Museum", "madrid-es", 1L, 20);
+
+        Assert.AreEqual(2, results.Count);
+    }
+
+    [TestMethod]
+    public async Task SearchPlacesAsync_FilterMultiple_AppliesAllFilters()
+    {
+        var mockClient = new Mock<IFoursquareApiClient>();
+        var apiPlaces = new List<FoursquarePlace>
+        {
+            CreateMuseumPlace(),   // IsFamilyFriendly=true, duration=120, cat=Museum
+            CreateNightclubPlace() // IsFamilyFriendly=false, duration=60, cat=Nightclub
+        };
+        mockClient
+            .Setup(c => c.SearchPlacesAsync("Museum", "madrid-es", 20))
+            .ReturnsAsync(apiPlaces);
+
+        var service = new FoursquarePlaceService(mockClient.Object);
+        var filter = new PlaceSearchFilter("Museum", null, true, 120);
+        var results = await service.SearchPlacesAsync("Museum", "madrid-es", 1L, 20, filter);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Museo del Prado", results[0].Name);
     }
 }

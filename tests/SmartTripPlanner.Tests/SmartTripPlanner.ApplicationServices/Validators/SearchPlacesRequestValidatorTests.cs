@@ -147,4 +147,118 @@ public sealed class SearchPlacesRequestValidatorTests
 
         result.ShouldNotHaveValidationErrorFor(x => x.SearchRequest.MaxResults);
     }
+
+    [TestMethod]
+    public async Task Category_WhenEmptyAndProvided_Fails()
+    {
+        var request = new SearchPlacesRequest(
+            new PlaceSearchRequest("Museo", "madrid-es", null, Category: ""));
+
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new City("madrid-es", "Madrid", true));
+
+        var result = await _sut.TestValidateAsync(request);
+
+        result.ShouldHaveValidationErrorFor(x => x.SearchRequest.Category)
+            .WithErrorCode(nameof(ErrorCode.REQUIRED_FIELD));
+    }
+
+    [TestMethod]
+    public async Task Category_WhenNull_Passes()
+    {
+        var request = new SearchPlacesRequest(
+            new PlaceSearchRequest("Museo", "madrid-es", null, Category: null));
+
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new City("madrid-es", "Madrid", true));
+
+        var result = await _sut.TestValidateAsync(request);
+
+        result.ShouldNotHaveValidationErrorFor(x => x.SearchRequest.Category);
+    }
+
+    [TestMethod]
+    public async Task Category_WhenNonEmpty_Passes()
+    {
+        var request = new SearchPlacesRequest(
+            new PlaceSearchRequest("Museo", "madrid-es", null, Category: "Museum"));
+
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new City("madrid-es", "Madrid", true));
+
+        var result = await _sut.TestValidateAsync(request);
+
+        result.ShouldNotHaveValidationErrorFor(x => x.SearchRequest.Category);
+    }
+
+    [TestMethod]
+    public async Task MaxDurationMinutes_WhenZero_Fails()
+    {
+        var request = new SearchPlacesRequest(
+            new PlaceSearchRequest("Museo", "madrid-es", null, MaxDurationMinutes: 0));
+
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new City("madrid-es", "Madrid", true));
+
+        var result = await _sut.TestValidateAsync(request);
+
+        result.ShouldHaveValidationErrorFor(x => x.SearchRequest.MaxDurationMinutes);
+    }
+
+    [TestMethod]
+    public async Task MaxDurationMinutes_WhenNegative_Fails()
+    {
+        var request = new SearchPlacesRequest(
+            new PlaceSearchRequest("Museo", "madrid-es", null, MaxDurationMinutes: -1));
+
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new City("madrid-es", "Madrid", true));
+
+        var result = await _sut.TestValidateAsync(request);
+
+        result.ShouldHaveValidationErrorFor(x => x.SearchRequest.MaxDurationMinutes);
+    }
+
+    [TestMethod]
+    public async Task MaxDurationMinutes_WhenPositive_Passes()
+    {
+        var request = new SearchPlacesRequest(
+            new PlaceSearchRequest("Museo", "madrid-es", null, MaxDurationMinutes: 120));
+
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new City("madrid-es", "Madrid", true));
+
+        var result = await _sut.TestValidateAsync(request);
+
+        result.ShouldNotHaveValidationErrorFor(x => x.SearchRequest.MaxDurationMinutes);
+    }
+
+    [TestMethod]
+    public async Task MaxDurationMinutes_WhenNull_Passes()
+    {
+        var request = new SearchPlacesRequest(
+            new PlaceSearchRequest("Museo", "madrid-es", null, MaxDurationMinutes: null));
+
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new City("madrid-es", "Madrid", true));
+
+        var result = await _sut.TestValidateAsync(request);
+
+        result.ShouldNotHaveValidationErrorFor(x => x.SearchRequest.MaxDurationMinutes);
+    }
+
+    [TestMethod]
+    public async Task AllNewFilters_WhenValid_Pass()
+    {
+        var request = new SearchPlacesRequest(
+            new PlaceSearchRequest("Museo", "madrid-es", 5,
+                Category: "Museum", IsIndoor: true, IsFamilyFriendly: true, MaxDurationMinutes: 120));
+
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new City("madrid-es", "Madrid", true));
+
+        var result = await _sut.TestValidateAsync(request);
+
+        result.ShouldNotHaveAnyValidationErrors();
+    }
 }

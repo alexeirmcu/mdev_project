@@ -37,5 +37,15 @@ public class SearchPlacesRequestValidator : AbstractValidator<SearchPlacesReques
             .Must((request, maxResults) => !maxResults.HasValue || maxResults.Value <= opts.MaxResults)
                 .WithErrorCode(nameof(ErrorCode.MAX_RESULTS_EXCEEDED))
                 .WithMessage($"Max results must be between 1 and {opts.MaxResults}.");
+
+        RuleFor(x => x.SearchRequest.Category)
+            .NotEmpty().WithErrorCode(nameof(ErrorCode.REQUIRED_FIELD))
+                .WithMessage("Category must not be empty when provided.")
+            .When(x => x.SearchRequest.Category is not null);
+
+        RuleFor(x => x.SearchRequest.MaxDurationMinutes)
+            .GreaterThan(0).WithErrorCode(nameof(ErrorCode.VALIDATION_ERROR))
+                .WithMessage("MaxDurationMinutes must be greater than 0.")
+            .When(x => x.SearchRequest.MaxDurationMinutes.HasValue);
     }
 }

@@ -1,4 +1,5 @@
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.ApiModels;
 using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Mapping;
 using SmartTripPlanner.Infrastructure.ExternalServices.Foursquare.Models;
@@ -14,17 +15,54 @@ internal sealed class FoursquarePlaceService : IPlaceExternalService
         _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
     }
 
-    public async Task<List<Place>> SearchPlacesAsync(string query, string cityCode, long cityId, int maxResults = 20)
+    public async Task<List<Place>> SearchPlacesAsync(string query, string cityCode, long cityId, int maxResults = 20, PlaceSearchFilter? filter = null)
     {
         try
         {
             var apiResults = await _apiClient.SearchPlacesAsync(query, cityCode, maxResults);
-            return apiResults.Select(p => MapToPlace(p, cityId)).ToList();
+            var places = apiResults.Select(p => MapToPlace(p, cityId)).ToList();
+
+            if (filter is not null)
+                places = ApplyClientFilters(places, filter);
+
+            return places;
         }
         catch (HttpRequestException)
         {
             return new List<Place>();
         }
+    }
+
+    private static List<Place> ApplyClientFilters(List<Place> places, PlaceSearchFilter filter)
+    {
+        var filtered = new List<Place>(places.Count);
+
+        foreach (var place in places)
+        {
+            bool include = true;
+
+            if (include && filter.IsIndoor.HasValue)
+                include = place.IsIndoor == filter.IsIndoor.Value;
+
+            if (include && filter.IsFamilyFriendly.HasValue)
+                include = place.IsFamilyFriendly == filter.IsFamilyFriendly.Value;
+
+            if (include && filter.MaxDurationMinutes.HasValue)
+                include = place.TypicalDurationMinutes <= filter.MaxDurationMinutes.Value;
+
+            if (include && !string.IsNullOrEmpty(filter.Category))
+            {
+                var lowerCategory = filter.Category.ToLowerInvariant();
+                include = place.Attributes.Any(a =>
+                    a.Key.Equals("category", StringComparison.OrdinalIgnoreCase) &&
+                    a.Value.Contains(lowerCategory, StringComparison.OrdinalIgnoreCase));
+            }
+
+            if (include)
+                filtered.Add(place);
+        }
+
+        return filtered;
     }
 
     private static Place MapToPlace(FoursquarePlace apiPlace, long cityId)

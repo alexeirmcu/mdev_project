@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.ApiModels;
 using SmartTripPlanner.Infrastructure;
 using SmartTripPlanner.Infrastructure.Repositories;
 
@@ -599,5 +600,194 @@ public sealed class PlaceRepositoryTests
 
         Assert.AreEqual(1, results.Count);
         Assert.AreEqual("Museo del Prado", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_FilterByIsIndoor_ReturnsIndoorOnly()
+    {
+        using var db = CreateDbContext();
+        var city = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(city);
+        await db.SaveChangesAsync();
+
+        db.Places.Add(new Place("f1", "Museo del Prado", city.Id,
+            new PlaceLocation(40.4168, -3.7038), 120, true, false));
+        db.Places.Add(new Place("f2", "Parque del Retiro", city.Id,
+            new PlaceLocation(40.415, -3.684), 90, false, true));
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var filter = new PlaceSearchFilter(null, true, null, null);
+        var results = await repo.SearchAsync("del", "madrid-es", 20, filter);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Museo del Prado", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_FilterByIsFamilyFriendly_ReturnsFamilyFriendlyOnly()
+    {
+        using var db = CreateDbContext();
+        var city = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(city);
+        await db.SaveChangesAsync();
+
+        db.Places.Add(new Place("f1", "Teatro de la Luz", city.Id,
+            new PlaceLocation(40.4169, -3.7039), 60, true, false));
+        db.Places.Add(new Place("f2", "Parque del Retiro", city.Id,
+            new PlaceLocation(40.415, -3.684), 90, false, true));
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var filter = new PlaceSearchFilter(null, null, true, null);
+        var results = await repo.SearchAsync("del", "madrid-es", 20, filter);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Parque del Retiro", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_FilterByMaxDuration_ReturnsPlacesWithinDuration()
+    {
+        using var db = CreateDbContext();
+        var city = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(city);
+        await db.SaveChangesAsync();
+
+        db.Places.Add(new Place("f1", "Museo del Prado", city.Id,
+            new PlaceLocation(40.4168, -3.7038), 120, true, false));
+        db.Places.Add(new Place("f2", "Museo Reina Sofia", city.Id,
+            new PlaceLocation(40.4089, -3.6944), 90, true, true));
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var filter = new PlaceSearchFilter(null, null, null, 100);
+        var results = await repo.SearchAsync("Museo", "madrid-es", 20, filter);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Museo Reina Sofia", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_FilterByCategory_ReturnsPlacesWithMatchingCategoryAttribute()
+    {
+        using var db = CreateDbContext();
+        var city = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(city);
+        await db.SaveChangesAsync();
+
+        var museum = new Place("f1", "Museo del Prado", city.Id,
+            new PlaceLocation(40.4168, -3.7038));
+        museum.AddAttribute(new PlaceAttribute("foursquare", "category", "Museum"));
+        db.Places.Add(museum);
+
+        var park = new Place("f2", "Parque del Retiro", city.Id,
+            new PlaceLocation(40.415, -3.684));
+        park.AddAttribute(new PlaceAttribute("foursquare", "category", "Park"));
+        db.Places.Add(park);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var filter = new PlaceSearchFilter("Museum", null, null, null);
+        var results = await repo.SearchAsync("del", "madrid-es", 20, filter);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Museo del Prado", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_FilterByCategory_MatchesAttributeValue()
+    {
+        using var db = CreateDbContext();
+        var city = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(city);
+        await db.SaveChangesAsync();
+
+        var museum = new Place("f1", "Museo del Prado", city.Id,
+            new PlaceLocation(40.4168, -3.7038));
+        museum.AddAttribute(new PlaceAttribute("foursquare", "category", "Museum"));
+        db.Places.Add(museum);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var filter = new PlaceSearchFilter("Museum", null, null, null);
+        var results = await repo.SearchAsync("Museo", "madrid-es", 20, filter);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Museo del Prado", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_FilterByCategory_IsCaseInsensitive()
+    {
+        using var db = CreateDbContext();
+        var city = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(city);
+        await db.SaveChangesAsync();
+
+        var museum = new Place("f1", "Museo del Prado", city.Id,
+            new PlaceLocation(40.4168, -3.7038));
+        museum.AddAttribute(new PlaceAttribute("foursquare", "category", "Museum"));
+        db.Places.Add(museum);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var filter = new PlaceSearchFilter("museum", null, null, null);
+        var results = await repo.SearchAsync("Museo", "madrid-es", 20, filter);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Museo del Prado", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_FilterByAll_ReturnsFilteredResults()
+    {
+        using var db = CreateDbContext();
+        var city = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(city);
+        await db.SaveChangesAsync();
+
+        var museum = new Place("f1", "Museo del Prado", city.Id,
+            new PlaceLocation(40.4168, -3.7038), 120, true, false);
+        museum.AddAttribute(new PlaceAttribute("foursquare", "category", "Museum"));
+        db.Places.Add(museum);
+
+        var shortMuseum = new Place("f2", "Museo Corto", city.Id,
+            new PlaceLocation(40.4089, -3.6944), 45, true, true);
+        shortMuseum.AddAttribute(new PlaceAttribute("foursquare", "category", "Museum"));
+        db.Places.Add(shortMuseum);
+
+        var park = new Place("f3", "Parque del Retiro", city.Id,
+            new PlaceLocation(40.415, -3.684), 90, false, true);
+        park.AddAttribute(new PlaceAttribute("foursquare", "category", "Park"));
+        db.Places.Add(park);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var filter = new PlaceSearchFilter("Museum", true, true, 60);
+        var results = await repo.SearchAsync("Museo", "madrid-es", 20, filter);
+
+        Assert.AreEqual(1, results.Count);
+        Assert.AreEqual("Museo Corto", results[0].Name);
+    }
+
+    [TestMethod]
+    public async Task SearchAsync_FilterNull_PreservesExistingBehavior()
+    {
+        using var db = CreateDbContext();
+        var city = new City("madrid-es", "Madrid", true);
+        db.Cities.Add(city);
+        await db.SaveChangesAsync();
+
+        db.Places.Add(new Place("f1", "Museo del Prado", city.Id,
+            new PlaceLocation(40.4168, -3.7038), 120, true, false));
+        db.Places.Add(new Place("f2", "Parque del Retiro", city.Id,
+            new PlaceLocation(40.415, -3.684), 90, false, true));
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var results = await repo.SearchAsync("del", "madrid-es");
+
+        Assert.AreEqual(2, results.Count);
     }
 }

@@ -4,8 +4,8 @@
 
 Este documento consolida las mejoras identificadas tras la finalización del MVP. Las items están organizadas por flujo funcional y área transversal, con priorización **MoSCoW** para guiar la planificación de iteraciones.
 
-**Fecha de referencia:** 2026-06-22  
-**Estado del MVP:** 4 flujos implementados, ~405 tests pasando.
+**Fecha de referencia:** 2026-06-23  
+**Estado del MVP:** 4 flujos implementados, ~477 tests pasando.
 
 ---
 
@@ -96,10 +96,12 @@ Este documento consolida las mejoras identificadas tras la finalización del MVP
 
 ## 10. Resumen Consolidado por Prioridad
 
+### Completados
+- ~~**F0-1** — OwnerUserId en Trip~~ ✅
+- ~~**F1-1** — Filtros avanzados de búsqueda~~ ✅
+- ~~**F2-1** — Popularity real en scoring~~ ✅
+
 ### Must (Próxima iteración)
-- **F0-1** — OwnerUserId en Trip
-- **F1-1** — Filtros avanzados de búsqueda
-- **F2-1** — Popularity real en scoring
 - **F2-2** — MaxWalkingMinutes efectivo
 - **F2-3** — Weather provider real
 - **F2-4** — Re-generación de un solo día

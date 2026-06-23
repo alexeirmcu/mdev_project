@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.ApiModels;
 using SmartTripPlanner.Domain.Base;
 using SmartTripPlanner.Domain.Constants;
 using SmartTripPlanner.Domain.Repository;
@@ -74,21 +75,47 @@ public class PlaceRepository : IPlaceRepository
         return resolved;
     }
 
-    public async Task<List<Place>> SearchAsync(string query, string cityCode, int maxResults = 20)
+    public async Task<List<Place>> SearchAsync(string query, string cityCode, int maxResults = 20, PlaceSearchFilter? filter = null)
     {
         // Database-agnostic case-insensitive search using ToLower() on both sides
         // This works across all SQL providers (PostgreSQL, SQL Server, SQLite, etc.)
         var lowerQuery = query.ToLowerInvariant();
 
-        return await _context.Places
+        // Apply text and city filters at the database level. Use a safety multiplier
+        // on the DB limit so client-side filtering has room to reduce the set.
+        var results = await _context.Places
             .Include(p => p.OpeningHours)
             .Include(p => p.Attributes)
             .Include(p => p.City)
             .Where(p => p.City.CityCode == cityCode
                 && (p.Name.ToLower().Contains(lowerQuery)
                     || p.Attributes.Any(a => a.Value.ToLower().Contains(lowerQuery))))
-            .Take(maxResults)
+            .Take(maxResults * 4)
             .ToListAsync();
+
+        // Apply optional filters client-side for maximum compatibility
+        // across all providers (InMemory, PostgreSQL, SQL Server, SQLite).
+        if (filter is not null)
+        {
+            if (filter.IsIndoor.HasValue)
+                results = results.Where(p => p.IsIndoor == filter.IsIndoor.Value).ToList();
+
+            if (filter.IsFamilyFriendly.HasValue)
+                results = results.Where(p => p.IsFamilyFriendly == filter.IsFamilyFriendly.Value).ToList();
+
+            if (filter.MaxDurationMinutes.HasValue)
+                results = results.Where(p => p.TypicalDurationMinutes <= filter.MaxDurationMinutes.Value).ToList();
+
+            if (!string.IsNullOrEmpty(filter.Category))
+            {
+                var lowerCategory = filter.Category.ToLowerInvariant();
+                results = results.Where(p => p.Attributes.Any(a =>
+                    a.Key.ToLower() == "category" &&
+                    a.Value.ToLower().Contains(lowerCategory))).ToList();
+            }
+        }
+
+        return results.Take(maxResults).ToList();
     }
 
     public async Task<Place?> GetByProviderReferenceIdAsync(string providerReferenceId)

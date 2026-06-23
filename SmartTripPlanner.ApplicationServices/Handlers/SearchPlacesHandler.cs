@@ -21,7 +21,13 @@ public class SearchPlacesHandler(
         var sr = request.SearchRequest;
         var maxResults = sr.MaxResults ?? request.DefaultMaxResults;
 
-        var places = await SearchLocalAsync(sr.Query, sr.CityCode, maxResults);
+        var filter = new PlaceSearchFilter(
+            sr.Category,
+            sr.IsIndoor,
+            sr.IsFamilyFriendly,
+            sr.MaxDurationMinutes);
+
+        var places = await SearchLocalAsync(sr.Query, sr.CityCode, maxResults, filter);
         if (places.Count > 0)
             return MapResponse(places);
 
@@ -29,7 +35,7 @@ public class SearchPlacesHandler(
         if (city is null)
             return MapResponse(new List<Place>().AsReadOnly());
 
-        var externalPlaces = await SearchExternalAsync(sr.Query, sr.CityCode, city.Id, maxResults, cancellationToken);
+        var externalPlaces = await SearchExternalAsync(sr.Query, sr.CityCode, city.Id, maxResults, filter, cancellationToken);
         if (externalPlaces is null || externalPlaces.Count == 0)
             return MapResponse(new List<Place>().AsReadOnly());
 
@@ -37,17 +43,17 @@ public class SearchPlacesHandler(
         return MapResponse(externalPlaces);
     }
 
-    private async Task<IReadOnlyList<Place>> SearchLocalAsync(string query, string cityCode, int maxResults)
+    private async Task<IReadOnlyList<Place>> SearchLocalAsync(string query, string cityCode, int maxResults, PlaceSearchFilter filter)
     {
-        return await repository.SearchAsync(query, cityCode, maxResults);
+        return await repository.SearchAsync(query, cityCode, maxResults, filter);
     }
 
     private async Task<IReadOnlyList<Place>?> SearchExternalAsync(
-        string query, string cityCode, long cityId, int maxResults, CancellationToken ct)
+        string query, string cityCode, long cityId, int maxResults, PlaceSearchFilter filter, CancellationToken ct)
     {
         try
         {
-            var places = await externalService.SearchPlacesAsync(query, cityCode, cityId, maxResults);
+            var places = await externalService.SearchPlacesAsync(query, cityCode, cityId, maxResults, filter);
             return places.Count == 0 ? null : places;
         }
         catch (HttpRequestException)
