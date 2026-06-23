@@ -9,6 +9,7 @@ using SmartTripPlanner.ApplicationServices.Handlers;
 using SmartTripPlanner.Domain.AggregatesModel;
 using SmartTripPlanner.Domain.ApiModels;
 using SmartTripPlanner.Domain.Exceptions;
+using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Domain.Repository;
 
 namespace SmartTripPlanner.Tests.ApplicationServices.Handlers;
@@ -17,11 +18,14 @@ namespace SmartTripPlanner.Tests.ApplicationServices.Handlers;
 public sealed class GetTripHandlerTests
 {
     private readonly Mock<ITripRepository> _tripRepoMock = new();
+    private readonly Mock<IUserContext> _userContextMock = new();
     private readonly IMapper _mapper;
     private readonly GetTripHandler _handler;
 
     public GetTripHandlerTests()
     {
+        _userContextMock.Setup(u => u.UserId).Returns("user-42");
+
         var expression = new MapperConfigurationExpression();
         expression.AddProfile<AutoMapperProfile>();
         var config = new MapperConfiguration(expression, NullLoggerFactory.Instance);
@@ -30,7 +34,8 @@ public sealed class GetTripHandlerTests
         _handler = new GetTripHandler(
             _tripRepoMock.Object,
             _mapper,
-            Mock.Of<ILogger<GetTripHandler>>());
+            Mock.Of<ILogger<GetTripHandler>>(),
+            _userContextMock.Object);
     }
 
     [TestMethod]
@@ -53,6 +58,7 @@ public sealed class GetTripHandlerTests
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
             DefaultStartTime = new TimeOnly(9, 0),
+            OwnerUserId = "user-42",
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -90,6 +96,44 @@ public sealed class GetTripHandlerTests
 
         // Assert
         Assert.IsNotNull(exception);
+        _tripRepoMock.Verify(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [TestMethod]
+    public async Task Handle_NonMatchingOwner_ThrowsTripForbiddenException()
+    {
+        // Arrange
+        var tripId = Guid.NewGuid();
+        var city = new City("madrid-es", "Madrid", true);
+        SetEntityId(city, 1L);
+
+        var trip = new Trip
+        {
+            TripId = tripId,
+            TripCode = "MAD-2026-TEST",
+            CityId = 1L,
+            City = city,
+            StartDate = new DateOnly(2026, 7, 1),
+            EndDate = new DateOnly(2026, 7, 3),
+            BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
+            Travelers = new Travelers(2, 0, 0),
+            Preferences = new TripPreferences(),
+            DefaultStartTime = new TimeOnly(9, 0),
+            OwnerUserId = "user-99",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+
+        _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(trip);
+
+        // Act
+        var exception = await CatchExceptionAsync<TripForbiddenException>(
+            () => _handler.Handle(new GetTrip(tripId), CancellationToken.None));
+
+        // Assert
+        Assert.IsNotNull(exception);
+        Assert.IsTrue(exception!.Message.Contains(tripId.ToString()));
+        Assert.IsTrue(exception.Message.Contains("user-42"));
         _tripRepoMock.Verify(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()), Times.Once);
     }
 

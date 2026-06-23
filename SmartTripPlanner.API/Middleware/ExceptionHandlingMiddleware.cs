@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using SmartTripPlanner.ApplicationServices.Behaviors;
 using SmartTripPlanner.Domain.ApiModels;
 using SmartTripPlanner.Domain.Base;
+using SmartTripPlanner.Domain.Exceptions;
 
 namespace SmartTripPlanner.API.Middleware;
 
@@ -61,6 +62,8 @@ internal sealed class ExceptionHandlingMiddleware : IMiddleware
 
     private static int GetStatusCode(Exception exception) => exception switch
     {
+        TripForbiddenException => StatusCodes.Status403Forbidden,
+        TripNotFoundException => StatusCodes.Status404NotFound,
         DomainException => StatusCodes.Status422UnprocessableEntity,
         _ => StatusCodes.Status500InternalServerError
     };

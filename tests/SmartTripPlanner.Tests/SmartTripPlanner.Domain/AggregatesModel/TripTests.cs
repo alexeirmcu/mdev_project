@@ -15,6 +15,7 @@ public sealed class TripTests
         StartDate = new DateOnly(2026, 6, 1),
         EndDate = new DateOnly(2026, 6, 3),
         BaseHotel = new Location("Hotel", 0, 0),
+        OwnerUserId = "user-42",
         CreatedAt = DateTimeOffset.UtcNow
     };
 

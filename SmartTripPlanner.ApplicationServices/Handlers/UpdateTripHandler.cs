@@ -14,7 +14,8 @@ public class UpdateTripHandler(
     ITripRepository tripRepository,
     IPlaceRepository placeRepository,
     IMapper mapper,
-    ILogger<UpdateTripHandler> logger)
+    ILogger<UpdateTripHandler> logger,
+    IUserContext userContext)
     : IRequestHandler<UpdateTrip, TripPlanResponse>
 {
     public async Task<TripPlanResponse> Handle(UpdateTrip request, CancellationToken ct)
@@ -22,6 +23,9 @@ public class UpdateTripHandler(
         var trip = await tripRepository.GetByIdAsync(request.TripId, ct);
         if (trip is null)
             throw new TripNotFoundException(request.TripId);
+
+        if (trip.OwnerUserId != userContext.UserId)
+            throw new TripForbiddenException(request.TripId, userContext.UserId);
 
         var payload = request.Payload;
 

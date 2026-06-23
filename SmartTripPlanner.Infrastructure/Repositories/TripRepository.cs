@@ -37,11 +37,12 @@ internal sealed class TripRepository : ITripRepository
         return await _dbContext.Trips.AnyAsync(t => t.TripCode == tripCode, ct);
     }
 
-    public async Task<IEnumerable<Trip>> ListAsync(long? cityId, DateOnly? startDate, DateOnly? endDate, CancellationToken ct)
+    public async Task<IEnumerable<Trip>> ListAsync(string ownerUserId, long? cityId, DateOnly? startDate, DateOnly? endDate, CancellationToken ct)
     {
         var query = _dbContext.Trips
             .Include(t => t.City)
             .Include(t => t.Days)
+            .Where(t => t.OwnerUserId == ownerUserId)
             .AsQueryable();
 
         if (cityId.HasValue)

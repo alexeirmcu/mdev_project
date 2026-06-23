@@ -1,19 +1,24 @@
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SmartTripPlanner.ApplicationServices.Commands;
 using SmartTripPlanner.Domain.ApiModels;
+using SmartTripPlanner.Domain.Ports;
 
 namespace SmartTripPlanner.API.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/trips")]
 public class TripsController : ControllerBase
 {
     private readonly IMediator _mediator;
+    private readonly IUserContext _userContext;
 
-    public TripsController(IMediator mediator)
+    public TripsController(IMediator mediator, IUserContext userContext)
     {
         _mediator = mediator ?? throw new ArgumentNullException(nameof(mediator));
+        _userContext = userContext ?? throw new ArgumentNullException(nameof(userContext));
     }
 
     /// <summary>
@@ -27,7 +32,7 @@ public class TripsController : ControllerBase
         [FromBody] TripGenerationRequest request,
         CancellationToken ct)
     {
-        var command = new GenerateTrip(request);
+        var command = new GenerateTrip(request, _userContext.UserId);
         var response = await _mediator.Send(command, ct);
 
         return CreatedAtAction(nameof(GetTrip), new { tripId = response.TripId }, response);
@@ -79,5 +84,21 @@ public class TripsController : ControllerBase
         var query = new GetTrip(tripId);
         var response = await _mediator.Send(query, ct);
         return Ok(response);
+    }
+
+    /// <summary>
+    /// Deletes a trip by its TripId. Only the owner can delete.
+    /// </summary>
+    [HttpDelete("{tripId:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> DeleteTrip(
+        Guid tripId,
+        CancellationToken ct)
+    {
+        var command = new DeleteTrip(tripId);
+        await _mediator.Send(command, ct);
+        return NoContent();
     }
 }

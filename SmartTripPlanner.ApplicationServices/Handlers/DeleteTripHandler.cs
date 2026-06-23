@@ -1,22 +1,19 @@
-using AutoMapper;
 using MediatR;
 using Microsoft.Extensions.Logging;
 using SmartTripPlanner.ApplicationServices.Commands;
-using SmartTripPlanner.Domain.ApiModels;
 using SmartTripPlanner.Domain.Exceptions;
 using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Domain.Repository;
 
 namespace SmartTripPlanner.ApplicationServices.Handlers;
 
-public class GetTripHandler(
+public class DeleteTripHandler(
     ITripRepository tripRepository,
-    IMapper mapper,
-    ILogger<GetTripHandler> logger,
-    IUserContext userContext)
-    : IRequestHandler<GetTrip, TripPlanResponse>
+    IUserContext userContext,
+    ILogger<DeleteTripHandler> logger)
+    : IRequestHandler<DeleteTrip, Unit>
 {
-    public async Task<TripPlanResponse> Handle(GetTrip request, CancellationToken ct)
+    public async Task<Unit> Handle(DeleteTrip request, CancellationToken ct)
     {
         var trip = await tripRepository.GetByIdAsync(request.TripId, ct);
         if (trip is null)
@@ -25,10 +22,10 @@ public class GetTripHandler(
         if (trip.OwnerUserId != userContext.UserId)
             throw new TripForbiddenException(request.TripId, userContext.UserId);
 
-        var response = mapper.Map<TripPlanResponse>(trip, opts => opts.Items["City"] = trip.City);
+        await tripRepository.DeleteAsync(request.TripId, ct);
 
-        logger.LogInformation("Trip {TripId} retrieved", trip.TripId);
+        logger.LogInformation("Trip {TripId} deleted by user {UserId}", request.TripId, userContext.UserId);
 
-        return response;
+        return Unit.Value;
     }
 }

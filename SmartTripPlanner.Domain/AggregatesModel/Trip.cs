@@ -22,6 +22,7 @@ public class Trip : Entity, IAggregateRoot
     public TimeOnly DefaultStartTime { get; set; } = new TimeOnly(9, 0);
     public IReadOnlyList<MustSee> OriginalMustSees => _originalMustSees.AsReadOnly();
     public IReadOnlyList<DayPlan> Days => _days.AsReadOnly();
+    public required string OwnerUserId { get; init; }
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
 
     public void AddMustSee(MustSee mustSee)

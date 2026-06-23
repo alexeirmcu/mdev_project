@@ -396,6 +396,18 @@ After `IItineraryGenerator.GenerateAsync` populates `Trip.Days`, the `GenerateTr
 - THEN the itinerary response SHALL still be returned (enrichment is best-effort, non-blocking)
 - AND the exception is logged
 
+### Requirement: GenerateTripItineraryHandler enforces ownership before regeneration
+
+`GenerateTripItineraryHandler` MUST load the trip, verify `trip.OwnerUserId == IUserContext.UserId`, and throw an ownership exception (→ `403`) **before** invoking `IItineraryGenerator.GenerateAsync` or enqueuing outbox messages (FR15). The existing outbox trigger behavior (FR15) is otherwise unchanged.
+
+#### Scenario: Regeneration blocked for non-owner
+
+- GIVEN a trip owned by `"user-42"` and a regenerate request with `sub = "user-99"`
+- WHEN `GenerateTripItineraryHandler` runs
+- THEN a `403 Forbidden` is returned
+- AND `IItineraryGenerator.GenerateAsync` is never called
+- AND no outbox messages are enqueued
+
 ## 3. Acceptance Criteria
 
 | ID | Criterion |

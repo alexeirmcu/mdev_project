@@ -104,6 +104,7 @@ public sealed class HeuristicItineraryGeneratorTests
             Travelers = new Travelers(2, children, 0),
             Preferences = new TripPreferences(carAvailable, 30, weatherAware, returnToHotelStrategy: returnToHotelStrategy),
             DefaultStartTime = new TimeOnly(9, 0),
+            OwnerUserId = "user-42",
             CreatedAt = DateTimeOffset.UtcNow
         };
 

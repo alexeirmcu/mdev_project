@@ -1,14 +1,19 @@
+using System.Text;
 using AutoMapper;
 using AutoMapper.Configuration;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Builder;
 using OpenAI;
 using SmartTripPlanner.API.Middleware;
+using SmartTripPlanner.API.Services;
 using SmartTripPlanner.ApplicationServices;
 using SmartTripPlanner.ApplicationServices.Configurations;
+using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Infrastructure;
 using SmartTripPlanner.Infrastructure.LLM;
 
@@ -19,6 +24,31 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
+
+builder.Services.AddHttpContextAccessor();
+
+var jwtSecret = builder.Configuration["Jwt:Secret"] ?? throw new InvalidOperationException("Jwt:Secret is not configured");
+var jwtIssuer = builder.Configuration["Jwt:Issuer"] ?? throw new InvalidOperationException("Jwt:Issuer is not configured");
+var jwtAudience = builder.Configuration["Jwt:Audience"] ?? throw new InvalidOperationException("Jwt:Audience is not configured");
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
+        };
+    });
+
+builder.Services.AddAuthorization();
+
+builder.Services.AddScoped<IUserContext, HttpUserContext>();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddInfrastructure(connectionString!);
@@ -54,11 +84,14 @@ builder.Services.AddSingleton<IMapper>(sp =>
 
 var app = builder.Build();
 
-// Apply pending EF Core migrations on startup.
-using (var scope = app.Services.CreateScope())
+// Apply pending EF Core migrations on startup (skip in Test environment for integration tests).
+if (!app.Environment.IsEnvironment("Test"))
 {
-    var db = scope.ServiceProvider.GetRequiredService<PlannerDbContext>();
-    await db.Database.MigrateAsync();
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<PlannerDbContext>();
+        await db.Database.MigrateAsync();
+    }
 }
 
 // Configure the HTTP request pipeline.
@@ -71,6 +104,9 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 app.MapControllers();

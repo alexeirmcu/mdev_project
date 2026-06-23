@@ -16,7 +16,8 @@ public class GenerateTripItineraryHandler(
     IWeatherProvider weatherProvider,
     IOutboxWriter outboxWriter,
     IMapper mapper,
-    ILogger<GenerateTripItineraryHandler> logger)
+    ILogger<GenerateTripItineraryHandler> logger,
+    IUserContext userContext)
     : IRequestHandler<GenerateTripItinerary, TripPlanResponse>
 {
     public async Task<TripPlanResponse> Handle(GenerateTripItinerary request, CancellationToken ct)
@@ -24,6 +25,9 @@ public class GenerateTripItineraryHandler(
         var trip = await tripRepository.GetByIdAsync(request.TripId, ct);
         if (trip is null)
             throw new TripNotFoundException(request.TripId);
+
+        if (trip.OwnerUserId != userContext.UserId)
+            throw new TripForbiddenException(request.TripId, userContext.UserId);
 
         if (trip.BaseHotel is null)
             throw new BusinessRuleException("BaseHotel is required to generate an itinerary.");

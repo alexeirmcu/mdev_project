@@ -75,3 +75,13 @@ EF Core MUST persist `TripPreferences.Interests` as a PostgreSQL `text[]` array 
 - WHEN the migration is applied
 - THEN the column is added with NULL default
 - AND existing rows return an empty list when accessed (not null)
+
+### Requirement: GenerateTrip command and handler carry OwnerUserId
+
+`GenerateTrip` MUST include an `OwnerUserId` parameter. `GenerateTripHandler` MUST set `Trip.OwnerUserId` from the command (sourced from `IUserContext.UserId`) **before** `ITripRepository.AddAsync`. No request DTO change is required (owner is never client-supplied).
+
+#### Scenario: Owner captured on create from user context
+
+- GIVEN `IUserContext.UserId == "user-42"` and a valid `GenerateTrip` command
+- WHEN `GenerateTripHandler` constructs the `Trip`
+- THEN `Trip.OwnerUserId == "user-42"` before persistence

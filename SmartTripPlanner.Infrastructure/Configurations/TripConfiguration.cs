@@ -29,6 +29,9 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
 
         builder.Property(t => t.CreatedAt).IsRequired();
 
+        builder.Property(t => t.OwnerUserId).IsRequired().HasMaxLength(100);
+        builder.HasIndex(t => t.OwnerUserId);
+
         builder.OwnsOne(t => t.BaseHotel, hotel =>
         {
             hotel.Property(h => h.Name).HasColumnName("HotelName").IsRequired().HasMaxLength(200);

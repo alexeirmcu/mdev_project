@@ -6,6 +6,7 @@ using SmartTripPlanner.API.Controllers;
 using SmartTripPlanner.ApplicationServices.Commands;
 using SmartTripPlanner.Domain.ApiModels;
 using SmartTripPlanner.Domain.Enums;
+using SmartTripPlanner.Domain.Ports;
 
 namespace SmartTripPlanner.Tests.SmartTripPlanner.API.Controllers;
 
@@ -13,12 +14,15 @@ namespace SmartTripPlanner.Tests.SmartTripPlanner.API.Controllers;
 public sealed class TripsControllerTests
 {
     private readonly Mock<IMediator> _mediatorMock;
+    private readonly Mock<IUserContext> _userContextMock;
     private readonly TripsController _controller;
 
     public TripsControllerTests()
     {
         _mediatorMock = new Mock<IMediator>();
-        _controller = new TripsController(_mediatorMock.Object);
+        _userContextMock = new Mock<IUserContext>();
+        _userContextMock.Setup(u => u.UserId).Returns("user-42");
+        _controller = new TripsController(_mediatorMock.Object, _userContextMock.Object);
     }
 
     private static TripPlanResponse CreateResponseWithDays()
@@ -135,7 +139,7 @@ public sealed class TripsControllerTests
             "09:00");
 
         _mediatorMock
-            .Setup(m => m.Send(It.IsAny<GenerateTrip>(), It.IsAny<CancellationToken>()))
+            .Setup(m => m.Send(It.Is<GenerateTrip>(c => c.OwnerUserId == "user-42"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(response);
 
         var act = await _controller.CreateTrip(request, CancellationToken.None);
@@ -149,6 +153,8 @@ public sealed class TripsControllerTests
         Assert.IsNotNull(body.Days);
         Assert.AreEqual(3, body.Days.Count);
         Assert.AreEqual("GENERATED", body.Status);
+
+        _mediatorMock.Verify(m => m.Send(It.Is<GenerateTrip>(c => c.OwnerUserId == "user-42"), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -170,7 +176,7 @@ public sealed class TripsControllerTests
             "09:00");
 
         _mediatorMock
-            .Setup(m => m.Send(It.IsAny<GenerateTrip>(), It.IsAny<CancellationToken>()))
+            .Setup(m => m.Send(It.Is<GenerateTrip>(c => c.OwnerUserId == "user-42"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(response);
 
         var act = await _controller.CreateTrip(request, CancellationToken.None);
@@ -217,7 +223,7 @@ public sealed class TripsControllerTests
             "09:00");
 
         _mediatorMock
-            .Setup(m => m.Send(It.IsAny<GenerateTrip>(), It.IsAny<CancellationToken>()))
+            .Setup(m => m.Send(It.Is<GenerateTrip>(c => c.OwnerUserId == "user-42"), It.IsAny<CancellationToken>()))
             .ReturnsAsync(response);
 
         var act = await _controller.CreateTrip(request, CancellationToken.None);
@@ -269,5 +275,27 @@ public sealed class TripsControllerTests
         Assert.IsNotNull(okResult);
         Assert.AreEqual(StatusCodes.Status200OK, okResult.StatusCode);
         Assert.AreSame(expectedResponse, okResult.Value);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Test 5: DELETE /api/trips/{id}
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task DeleteTrip_Returns204NoContent()
+    {
+        var tripId = Guid.NewGuid();
+
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<DeleteTrip>(c => c.TripId == tripId), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Unit.Value);
+
+        var act = await _controller.DeleteTrip(tripId, CancellationToken.None);
+
+        var noContentResult = act as NoContentResult;
+        Assert.IsNotNull(noContentResult);
+        Assert.AreEqual(StatusCodes.Status204NoContent, noContentResult.StatusCode);
+
+        _mediatorMock.Verify(m => m.Send(It.Is<DeleteTrip>(c => c.TripId == tripId), It.IsAny<CancellationToken>()), Times.Once);
     }
 }

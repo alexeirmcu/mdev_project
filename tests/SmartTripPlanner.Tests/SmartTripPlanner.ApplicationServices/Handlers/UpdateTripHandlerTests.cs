@@ -18,10 +18,13 @@ public sealed class UpdateTripHandlerTests
     private readonly Mock<ITripRepository> _tripRepoMock = new();
     private readonly Mock<IPlaceRepository> _placeRepoMock = new();
     private readonly Mock<IMapper> _mapperMock = new();
+    private readonly Mock<IUserContext> _userContextMock = new();
     private readonly UpdateTripHandler _handler;
 
     public UpdateTripHandlerTests()
     {
+        _userContextMock.Setup(u => u.UserId).Returns("user-42");
+
         // Default mapper setup for MustSee mapping used in AddMustSeeAsync
         _mapperMock
             .Setup(m => m.Map<MustSee>(It.IsAny<MustSeeInput>()))
@@ -31,7 +34,8 @@ public sealed class UpdateTripHandlerTests
             _tripRepoMock.Object,
             _placeRepoMock.Object,
             _mapperMock.Object,
-            Mock.Of<ILogger<UpdateTripHandler>>());
+            Mock.Of<ILogger<UpdateTripHandler>>(),
+            _userContextMock.Object);
     }
 
     private static Trip CreateTrip()
@@ -51,6 +55,7 @@ public sealed class UpdateTripHandlerTests
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
             DefaultStartTime = new TimeOnly(9, 0),
+            OwnerUserId = "user-42",
             CreatedAt = DateTimeOffset.UtcNow
         };
 
@@ -68,6 +73,39 @@ public sealed class UpdateTripHandlerTests
             () => _handler.Handle(new UpdateTrip(tripId, new TripUpdateRequest()), CancellationToken.None));
 
         Assert.IsNotNull(exception);
+    }
+
+    [TestMethod]
+    public async Task Handle_NonMatchingOwner_ThrowsTripForbiddenException()
+    {
+        var city = new City("madrid-es", "Madrid", true);
+        SetEntityId(city, 1L);
+
+        var trip = new Trip
+        {
+            TripId = Guid.NewGuid(),
+            TripCode = "MAD-2026-TEST",
+            CityId = 1L,
+            City = city,
+            StartDate = new DateOnly(2026, 7, 1),
+            EndDate = new DateOnly(2026, 7, 3),
+            BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
+            Travelers = new Travelers(2, 0, 0),
+            Preferences = new TripPreferences(),
+            DefaultStartTime = new TimeOnly(9, 0),
+            OwnerUserId = "user-99",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        var tripId = trip.TripId;
+
+        _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(trip);
+
+        var exception = await CatchExceptionAsync<TripForbiddenException>(
+            () => _handler.Handle(new UpdateTrip(tripId, new TripUpdateRequest()), CancellationToken.None));
+
+        Assert.IsNotNull(exception);
+        _tripRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestMethod]

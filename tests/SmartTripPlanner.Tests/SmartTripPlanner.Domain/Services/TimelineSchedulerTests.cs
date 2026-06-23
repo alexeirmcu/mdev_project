@@ -43,6 +43,7 @@ public sealed class TimelineSchedulerTests
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
             DefaultStartTime = new TimeOnly(9, 0),
+            OwnerUserId = "user-42",
             CreatedAt = DateTimeOffset.UtcNow
         };
 

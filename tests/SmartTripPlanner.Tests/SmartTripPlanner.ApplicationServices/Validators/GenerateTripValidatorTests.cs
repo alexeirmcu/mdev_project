@@ -19,7 +19,7 @@ public sealed class GenerateTripValidatorTests
         new List<MustSeeInput> { new(1L, Priority.High) },
         new TravelersInput(2, 0, 0),
         new TripPreferencesInput(false, 30, true, new List<string> { "culture", "food" }),
-        "09:00"));
+        "09:00"), "user-42");
 
     [TestMethod]
     public async Task ValidRequest_PassesValidation()

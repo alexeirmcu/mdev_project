@@ -17,13 +17,17 @@ public class GenerateTripHandler(
     IPlaceRepository placeRepository,
     ITripCodeGenerator tripCodeGenerator,
     IMapper mapper,
-    ILogger<GenerateTripHandler> logger)
+    ILogger<GenerateTripHandler> logger,
+    IUserContext userContext)
     : IRequestHandler<GenerateTrip, TripPlanResponse>
 {
     private const int MaxTripDurationDays = 14;
 
     public async Task<TripPlanResponse> Handle(GenerateTrip request, CancellationToken ct)
     {
+        if (request.OwnerUserId != userContext.UserId)
+            throw new BusinessRuleException("OwnerUserId mismatch: the command owner does not match the authenticated user.");
+
         var payload = request.Payload;
 
         var city = await ValidateCityAsync(payload.CityCode, ct);
@@ -45,7 +49,7 @@ public class GenerateTripHandler(
 
         var tripCode = await tripCodeGenerator.GenerateAsync(city.CityCode, payload.StartDate.Year, ct);
 
-        var trip = CreateTripAggregate(city, payload, tripCode);
+        var trip = CreateTripAggregate(city, payload, tripCode, request.OwnerUserId);
 
         await tripRepository.AddAsync(trip, ct);
 
@@ -99,7 +103,7 @@ public class GenerateTripHandler(
         }
     }
 
-    private Trip CreateTripAggregate(City city, TripGenerationRequest payload, string tripCode)
+    private Trip CreateTripAggregate(City city, TripGenerationRequest payload, string tripCode, string ownerUserId)
     {
         var trip = new Trip
         {
@@ -112,6 +116,7 @@ public class GenerateTripHandler(
             Travelers = payload.Travelers is not null ? mapper.Map<Travelers>(payload.Travelers) : new Travelers(2, 0, 0),
             Preferences = payload.Preferences is not null ? mapper.Map<TripPreferences>(payload.Preferences) : new TripPreferences(),
             DefaultStartTime = TimeOnly.Parse(payload.DefaultStartHour),
+            OwnerUserId = ownerUserId,
             CreatedAt = DateTimeOffset.UtcNow
         };
 

@@ -23,6 +23,7 @@ public sealed class GenerateTripHandlerTests
     private readonly Mock<ICityRepository> _cityRepoMock = new();
     private readonly Mock<IPlaceRepository> _placeRepoMock = new();
     private readonly Mock<ITripCodeGenerator> _codeGenMock = new();
+    private readonly Mock<IUserContext> _userContextMock = new();
     private readonly IMapper _mapper;
     private readonly GenerateTripHandler _handler;
 
@@ -31,6 +32,8 @@ public sealed class GenerateTripHandlerTests
         _tripRepoMock
             .Setup(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()))
             .Returns(Task.CompletedTask);
+
+        _userContextMock.Setup(u => u.UserId).Returns("user-42");
 
         var expression = new MapperConfigurationExpression();
         expression.AddProfile<AutoMapperProfile>();
@@ -43,7 +46,8 @@ public sealed class GenerateTripHandlerTests
             _placeRepoMock.Object,
             _codeGenMock.Object,
             _mapper,
-            Mock.Of<ILogger<GenerateTripHandler>>());
+            Mock.Of<ILogger<GenerateTripHandler>>(),
+            _userContextMock.Object);
     }
 
     private static TripGenerationRequest CreateValidRequest(int? pinnedDayIndex = null)
@@ -85,8 +89,14 @@ public sealed class GenerateTripHandlerTests
         _codeGenMock.Setup(g => g.GenerateAsync("madrid-es", 2026, It.IsAny<CancellationToken>()))
             .ReturnsAsync("MAD-2026-X7K9");
 
+        Trip? capturedTrip = null;
+        _tripRepoMock
+            .Setup(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()))
+            .Callback<Trip, CancellationToken>((t, _) => capturedTrip = t)
+            .Returns(Task.CompletedTask);
+
         // Act
-        var result = await _handler.Handle(new GenerateTrip(request), CancellationToken.None);
+        var result = await _handler.Handle(new GenerateTrip(request, "user-42"), CancellationToken.None);
 
         // Assert
         Assert.IsNotNull(result);
@@ -102,6 +112,9 @@ public sealed class GenerateTripHandlerTests
         Assert.AreEqual(2, result.MustSees.Count);
         Assert.AreEqual("CREATED", result.Status);
 
+        Assert.IsNotNull(capturedTrip);
+        Assert.AreEqual("user-42", capturedTrip!.OwnerUserId);
+
         _tripRepoMock.Verify(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Once);
         _tripRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
     }
@@ -114,7 +127,7 @@ public sealed class GenerateTripHandlerTests
             .ReturnsAsync((City?)null);
 
         var exception = await CatchExceptionAsync<CityNotFoundException>(
-            () => _handler.Handle(new GenerateTrip(request), CancellationToken.None));
+            () => _handler.Handle(new GenerateTrip(request, "user-42"), CancellationToken.None));
 
         Assert.IsNotNull(exception);
         _tripRepoMock.Verify(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -131,7 +144,7 @@ public sealed class GenerateTripHandlerTests
             .ReturnsAsync(city);
 
         var exception = await CatchExceptionAsync<BusinessRuleException>(
-            () => _handler.Handle(new GenerateTrip(request), CancellationToken.None));
+            () => _handler.Handle(new GenerateTrip(request, "user-42"), CancellationToken.None));
 
         Assert.IsNotNull(exception);
         _tripRepoMock.Verify(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -153,7 +166,7 @@ public sealed class GenerateTripHandlerTests
             .ReturnsAsync(new List<Place> { CreatePlace(1L) });
 
         var exception = await CatchExceptionAsync<BusinessRuleException>(
-            () => _handler.Handle(new GenerateTrip(request), CancellationToken.None));
+            () => _handler.Handle(new GenerateTrip(request, "user-42"), CancellationToken.None));
 
         Assert.IsNotNull(exception);
         _tripRepoMock.Verify(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -175,7 +188,7 @@ public sealed class GenerateTripHandlerTests
             .ReturnsAsync(new List<Place> { CreatePlace(1L), CreatePlace(2L) });
 
         var exception = await CatchExceptionAsync<BusinessRuleException>(
-            () => _handler.Handle(new GenerateTrip(request), CancellationToken.None));
+            () => _handler.Handle(new GenerateTrip(request, "user-42"), CancellationToken.None));
 
         Assert.IsNotNull(exception);
         _tripRepoMock.Verify(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -204,7 +217,7 @@ public sealed class GenerateTripHandlerTests
             .ReturnsAsync(new List<Place> { CreatePlace(1L) });
 
         var exception = await CatchExceptionAsync<BusinessRuleException>(
-            () => _handler.Handle(new GenerateTrip(request), CancellationToken.None));
+            () => _handler.Handle(new GenerateTrip(request, "user-42"), CancellationToken.None));
 
         Assert.IsNotNull(exception);
         _tripRepoMock.Verify(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -232,7 +245,7 @@ public sealed class GenerateTripHandlerTests
             .ReturnsAsync(new List<Place> { CreatePlace(1L) });
 
         var exception = await CatchExceptionAsync<BusinessRuleException>(
-            () => _handler.Handle(new GenerateTrip(request), CancellationToken.None));
+            () => _handler.Handle(new GenerateTrip(request, "user-42"), CancellationToken.None));
 
         Assert.IsNotNull(exception);
         StringAssert.Contains(exception.Message, "PinnedBlock cannot be set without PinnedDayIndex");
@@ -275,7 +288,7 @@ public sealed class GenerateTripHandlerTests
             .ReturnsAsync("MAD-2026-NOG");
 
         // Act
-        var result = await _handler.Handle(new GenerateTrip(request), CancellationToken.None);
+        var result = await _handler.Handle(new GenerateTrip(request, "user-42"), CancellationToken.None);
 
         // Assert
         Assert.IsNotNull(result);
@@ -309,7 +322,7 @@ public sealed class GenerateTripHandlerTests
             .ReturnsAsync("MAD-2026-NOM");
 
         // Act
-        var result = await _handler.Handle(new GenerateTrip(request), CancellationToken.None);
+        var result = await _handler.Handle(new GenerateTrip(request, "user-42"), CancellationToken.None);
 
         // Assert
         Assert.IsNotNull(result);
@@ -353,7 +366,7 @@ public sealed class GenerateTripHandlerTests
             .ReturnsAsync("MAD-2026-NOH");
 
         // Act
-        var result = await _handler.Handle(new GenerateTrip(request), CancellationToken.None);
+        var result = await _handler.Handle(new GenerateTrip(request, "user-42"), CancellationToken.None);
 
         // Assert
         Assert.IsNotNull(result);
@@ -361,6 +374,39 @@ public sealed class GenerateTripHandlerTests
         Assert.AreEqual("CREATED", result.Status);
 
         _tripRepoMock.Verify(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [TestMethod]
+    public async Task Handle_OwnerUserIdMismatch_ThrowsBusinessRuleException()
+    {
+        // Arrange - OwnerUserId in command ("user-99") doesn't match IUserContext ("user-42")
+        var request = CreateValidRequest();
+        var city = new City("madrid-es", "Madrid", true);
+        SetEntityId(city, 1L);
+
+        _cityRepoMock.Setup(r => r.GetByCodeAsync("madrid-es", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(city);
+
+        _placeRepoMock.Setup(r => r.GetManyByIdsAsync(
+                It.IsAny<IEnumerable<long>>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<Place>
+            {
+                CreatePlace(1L),
+                CreatePlace(2L)
+            });
+
+        _codeGenMock.Setup(g => g.GenerateAsync("madrid-es", 2026, It.IsAny<CancellationToken>()))
+            .ReturnsAsync("MAD-2026-X7K9");
+
+        // Use a different owner in the command than what IUserContext returns
+        var command = new GenerateTrip(request, "user-99");
+
+        var exception = await CatchExceptionAsync<BusinessRuleException>(
+            () => _handler.Handle(command, CancellationToken.None));
+
+        Assert.IsNotNull(exception);
+        StringAssert.Contains(exception!.Message, "OwnerUserId mismatch");
+        _tripRepoMock.Verify(r => r.AddAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestMethod]
@@ -394,7 +440,7 @@ public sealed class GenerateTripHandlerTests
             .ReturnsAsync("MAD-2026-DEF");
 
         // Act
-        var result = await _handler.Handle(new GenerateTrip(request), CancellationToken.None);
+        var result = await _handler.Handle(new GenerateTrip(request, "user-42"), CancellationToken.None);
 
         // Assert
         Assert.IsNotNull(result);

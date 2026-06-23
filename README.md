@@ -76,8 +76,42 @@ The project is configured for zero-dependency local development using an In-Memo
 
 ---
 
+## 🚀 Deployment
+
+> **TODO**: CI/CD pipeline documentation will be added here.
+
+The application requires the following secrets to be configured via **User Secrets** (development) or **environment variables** (production). None of these values are committed to the repository.
+
+| Secret Key | Description | Example |
+|---|---|---|
+| `ConnectionStrings:DefaultConnection` | PostgreSQL connection string | `Host=localhost;Database=SmartTripPlanner;Username=postgres;Password=postgres` |
+| `FoursquareApi:ApiKey` | Foursquare Places API key | `23IO1KPSLVSTBCG5...` |
+| `LlmApi:ApiKey` | LLM provider API key | `AQ.Ab8RN6Jiwv_6...` |
+| `Jwt:Secret` | JWT signing secret (min 32 bytes) | `dev-secret-key-that-is-at-least-32-bytes-long-for-hs256` |
+| `Jwt:Issuer` | JWT issuer claim | `smart-trip-planner` |
+| `Jwt:Audience` | JWT audience claim | `smart-trip-planner-api` |
+
+### Setting secrets in development
+
+```bash
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "your-connection-string" --project SmartTripPlanner.API
+dotnet user-secrets set "FoursquareApi:ApiKey" "your-foursquare-key" --project SmartTripPlanner.API
+dotnet user-secrets set "LlmApi:ApiKey" "your-llm-key" --project SmartTripPlanner.API
+dotnet user-secrets set "Jwt:Secret" "your-jwt-secret-min-32-bytes" --project SmartTripPlanner.API
+dotnet user-secrets set "Jwt:Issuer" "your-issuer" --project SmartTripPlanner.API
+dotnet user-secrets set "Jwt:Audience" "your-audience" --project SmartTripPlanner.API
+```
+
+View configured secrets:
+```bash
+dotnet user-secrets list --project SmartTripPlanner.API
+```
+
+---
+
 ## 📑 Documentation
 
 - [Solution Architecture](doc/architecture/solution_arch.md) — Deep dive into the layers and models.
 - [ADR-001: Hybrid Planning Engine](doc/adr/ADR-v1.md) — The "Why" behind OR-Tools + LLM.
 - [MVP Product Spec](doc/spec/spec-v1.md) — Requirements, scoring, and business rules.
+- [JWT Authentication Guide](doc/jwt-auth.md) — How to generate and use JWT Bearer tokens for API access.

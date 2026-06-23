@@ -21,10 +21,13 @@ public sealed class GenerateTripItineraryHandlerTests
     private readonly Mock<IWeatherProvider> _weatherProviderMock = new();
     private readonly Mock<IOutboxWriter> _outboxWriterMock = new();
     private readonly Mock<IMapper> _mapperMock = new();
+    private readonly Mock<IUserContext> _userContextMock = new();
     private readonly GenerateTripItineraryHandler _handler;
 
     public GenerateTripItineraryHandlerTests()
     {
+        _userContextMock.Setup(u => u.UserId).Returns("user-42");
+
         _handler = new GenerateTripItineraryHandler(
             _tripRepoMock.Object,
             _placeRepoMock.Object,
@@ -32,7 +35,8 @@ public sealed class GenerateTripItineraryHandlerTests
             _weatherProviderMock.Object,
             _outboxWriterMock.Object,
             _mapperMock.Object,
-            Mock.Of<ILogger<GenerateTripItineraryHandler>>());
+            Mock.Of<ILogger<GenerateTripItineraryHandler>>(),
+            _userContextMock.Object);
     }
 
     [TestMethod]
@@ -51,6 +55,44 @@ public sealed class GenerateTripItineraryHandlerTests
             It.IsAny<IReadOnlyList<Place>>(),
             It.IsAny<Dictionary<DateOnly, WeatherCondition>>(),
             It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task Handle_NonMatchingOwner_ThrowsTripForbiddenException()
+    {
+        var city = new City("madrid-es", "Madrid", true);
+        SetEntityId(city, 1L);
+
+        var trip = new Trip
+        {
+            TripId = Guid.NewGuid(),
+            TripCode = "MAD-2026-TEST",
+            CityId = 1L,
+            City = city,
+            StartDate = new DateOnly(2026, 7, 1),
+            EndDate = new DateOnly(2026, 7, 3),
+            BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
+            Travelers = new Travelers(2, 0, 0),
+            Preferences = new TripPreferences(),
+            DefaultStartTime = new TimeOnly(9, 0),
+            OwnerUserId = "user-99",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        var tripId = trip.TripId;
+
+        _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(trip);
+
+        var exception = await CatchExceptionAsync<TripForbiddenException>(
+            () => _handler.Handle(new GenerateTripItinerary(tripId), CancellationToken.None));
+
+        Assert.IsNotNull(exception);
+        _itineraryGenMock.Verify(g => g.GenerateAsync(
+            It.IsAny<Trip>(),
+            It.IsAny<IReadOnlyList<Place>>(),
+            It.IsAny<Dictionary<DateOnly, WeatherCondition>>(),
+            It.IsAny<CancellationToken>()), Times.Never);
+        _tripRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [TestMethod]
@@ -184,6 +226,7 @@ public sealed class GenerateTripItineraryHandlerTests
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
             DefaultStartTime = new TimeOnly(9, 0),
+            OwnerUserId = "user-42",
             CreatedAt = DateTimeOffset.UtcNow
         };
 
