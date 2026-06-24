@@ -23,6 +23,7 @@ public class DayPlanResponse
     public int DayIndex { get; set; }
     public DateOnly Date { get; set; }
     public string WeatherSummary { get; set; } = string.Empty;
+    public bool IsStale { get; set; }
     public List<BlockResponse> Blocks { get; set; } = new();
 }
 

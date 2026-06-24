@@ -101,4 +101,76 @@ public class TripsController : ControllerBase
         await _mediator.Send(command, ct);
         return NoContent();
     }
+
+    /// <summary>
+    /// Refreshes weather data for all days in a trip and marks stale days where weather changed.
+    /// </summary>
+    [HttpPost("{tripId:guid}/weather-refresh")]
+    [ProducesResponseType(typeof(WeatherRefreshResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> RefreshWeather(
+        Guid tripId,
+        CancellationToken ct)
+    {
+        var command = new RefreshWeather(tripId, _userContext.UserId);
+        var result = await _mediator.Send(command, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Regenerates activities for a specific day using the replanning engine.
+    /// </summary>
+    [HttpPost("{tripId:guid}/days/{dayIndex:int}/regenerate")]
+    [ProducesResponseType(typeof(TripPlanResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> RegenerateDay(
+        Guid tripId,
+        int dayIndex,
+        CancellationToken ct)
+    {
+        var command = new RegenerateDay(tripId, dayIndex, _userContext.UserId);
+        var result = await _mediator.Send(command, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Smart replan from the current point forward with scope and weather awareness.
+    /// </summary>
+    [HttpPost("{tripId:guid}/replan")]
+    [ProducesResponseType(typeof(TripPlanResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> TripSmartReplan(
+        Guid tripId,
+        [FromBody] TripSmartReplanRequest request,
+        CancellationToken ct)
+    {
+        var command = new TripSmartReplan(tripId, request, _userContext.UserId);
+        var result = await _mediator.Send(command, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Toggles the completion status of an activity within a specific day.
+    /// </summary>
+    [HttpPatch("{tripId:guid}/days/{dayIndex:int}/activities/{placeId:long}/complete")]
+    [ProducesResponseType(typeof(ActivityCompletionResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ToggleActivityCompletion(
+        Guid tripId,
+        int dayIndex,
+        long placeId,
+        [FromBody] ActivityCompletionRequest request,
+        CancellationToken ct)
+    {
+        var command = new ToggleActivityCompletion(tripId, dayIndex, placeId, request, _userContext.UserId);
+        var result = await _mediator.Send(command, ct);
+        return Ok(result);
+    }
 }

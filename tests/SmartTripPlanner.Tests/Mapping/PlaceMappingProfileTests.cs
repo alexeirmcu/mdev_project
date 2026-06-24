@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using SmartTripPlanner.Domain.AggregatesModel;
 using SmartTripPlanner.Domain.ApiModels;
 using SmartTripPlanner.API.Configurations;
+using SmartTripPlanner.Domain.Enums;
 using SmartTripPlanner.Tests.Helpers;
 
 namespace SmartTripPlanner.Tests.Mapping;
@@ -123,5 +124,64 @@ public sealed class PlaceMappingProfileTests
         expression.AddProfile<AutoMapperProfile>();
         var config = new MapperConfiguration(expression, NullLoggerFactory.Instance);
         config.AssertConfigurationIsValid();
+    }
+
+    [TestMethod]
+    public void Map_MustSeeToMustSeeResponse_MapsForceIncludeDespiteWeather()
+    {
+        var mapper = CreateMapper();
+        var mustSee = new MustSee(42L, global::SmartTripPlanner.Domain.Enums.Priority.High, forceIncludeDespiteWeather: true);
+
+        var response = mapper.Map<MustSeeResponse>(mustSee);
+
+        Assert.IsTrue(response.ForceIncludeDespiteWeather);
+    }
+
+    [TestMethod]
+    public void Map_MustSeeToMustSeeResponse_ForceIncludeDespiteWeatherDefaultsFalse()
+    {
+        var mapper = CreateMapper();
+        var mustSee = new MustSee(42L, global::SmartTripPlanner.Domain.Enums.Priority.High);
+
+        var response = mapper.Map<MustSeeResponse>(mustSee);
+
+        Assert.IsFalse(response.ForceIncludeDespiteWeather);
+    }
+
+    [TestMethod]
+    public void Map_DayPlanToDayPlanResponse_MapsIsStale()
+    {
+        var mapper = CreateMapper();
+        var day = new DayPlan
+        {
+            DayIndex = 0,
+            Date = new DateOnly(2026, 7, 1),
+            Morning = new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Morning },
+            Afternoon = new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Afternoon },
+            Evening = new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Evening }
+        };
+        day.MarkStale();
+
+        var response = mapper.Map<DayPlanResponse>(day);
+
+        Assert.IsTrue(response.IsStale);
+    }
+
+    [TestMethod]
+    public void Map_DayPlanToDayPlanResponse_IsStaleDefaultsFalse()
+    {
+        var mapper = CreateMapper();
+        var day = new DayPlan
+        {
+            DayIndex = 0,
+            Date = new DateOnly(2026, 7, 1),
+            Morning = new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Morning },
+            Afternoon = new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Afternoon },
+            Evening = new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Evening }
+        };
+
+        var response = mapper.Map<DayPlanResponse>(day);
+
+        Assert.IsFalse(response.IsStale);
     }
 }

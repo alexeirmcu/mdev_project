@@ -3,4 +3,6 @@ using SmartTripPlanner.Domain.Enums;
 namespace SmartTripPlanner.Domain.ApiModels;
 
 public record TripSmartReplanRequest(
-    string Scope);
+    DateTime CurrentDateTime,
+    string Scope,
+    WeatherCondition CurrentBlockWeather);

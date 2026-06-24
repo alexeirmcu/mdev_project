@@ -564,12 +564,11 @@ public sealed class ItineraryReplanningEngineTests
         // Act
         await engine.ReplanAsync(trip, context, new List<Place>(), weather, CancellationToken.None);
 
-        // Assert: completed and high remain, low non-must-see may be pruned
+        // Assert: completed and high remain, low non-must-see is pruned when behind schedule
         var morning = trip.Days[0].GetBlock(BlockType.Morning);
         Assert.IsTrue(morning.Activities.Any(a => a.PlaceId == 1), "Completed should remain");
         Assert.IsTrue(morning.Activities.Any(a => a.PlaceId == 2), "High priority should remain");
-        // Low priority non-must-see may be pruned when behind schedule
-        // (actual behavior depends on capacity calculation)
+        Assert.IsFalse(morning.Activities.Any(a => a.PlaceId == 3), "Low priority should be pruned when behind schedule");
     }
 
     [TestMethod]

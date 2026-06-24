@@ -54,19 +54,19 @@ Chain strategy: stacked-to-main
 - [x] 3.1 Create ApiModel records: `WeatherRefreshResult`, `DayWeatherChange` in `Domain/ApiModels/`
 - [x] 3.2 Create ApiModel records: `TripSmartReplanRequest`, `ActivityCompletionRequest`, `ActivityCompletionResponse` in `Domain/ApiModels/`
 - [x] 3.3 Update `MustSeeInput` and `MustSeeResponse` to include `ForceIncludeDespiteWeather`
-- [ ] 3.4 Create command records: `RefreshWeather`, `RegenerateDay`, `TripSmartReplan`, `ToggleActivityCompletion` in `ApplicationServices/Commands/`
-- [ ] 3.5 Create validators: `RefreshWeatherValidator`, `RegenerateDayValidator`, `TripSmartReplanValidator`, `ToggleActivityCompletionValidator` in `ApplicationServices/Validators/`
+- [x] 3.4 Create command records: `RefreshWeather`, `RegenerateDay`, `TripSmartReplan`, `ToggleActivityCompletion` in `ApplicationServices/Commands/`
+- [x] 3.5 Create validators: `RefreshWeatherValidator`, `RegenerateDayValidator`, `TripSmartReplanValidator`, `ToggleActivityCompletionValidator` in `ApplicationServices/Validators/`
 
 ## Phase 4: Handlers + API Layer
 
-- [ ] 4.1 Implement `RefreshWeatherHandler` (ownership, weather fetch, stale marking, conditional persist)
-- [ ] 4.2 Implement `RegenerateDayHandler` (ownership, dayIndex validation, delegate to engine, persist, map)
-- [ ] 4.3 Implement `TripSmartReplanHandler` (ownership, resolve current day/block, after-trip-end check, delegate to engine)
-- [ ] 4.4 Implement `ToggleActivityCompletionHandler` (ownership, locate day/activity across 3 blocks, future-day rejection, toggle, count aggregation)
-- [ ] 4.5 Add 4 endpoints to `TripsController.cs` (POST weather-refresh, POST days/regenerate, POST replan, PATCH complete)
+- [x] 4.1 Implement `RefreshWeatherHandler` (ownership, weather fetch, stale marking, conditional persist)
+- [x] 4.2 Implement `RegenerateDayHandler` (ownership, dayIndex validation, delegate to engine, persist, map)
+- [x] 4.3 Implement `TripSmartReplanHandler` (ownership, resolve current day/block, after-trip-end check, delegate to engine)
+- [x] 4.4 Implement `ToggleActivityCompletionHandler` (ownership, locate day/activity across 3 blocks, future-day rejection, toggle, count aggregation)
+- [x] 4.5 Add 4 endpoints to `TripsController.cs` (POST weather-refresh, POST days/regenerate, POST replan, PATCH complete)
 - [x] 4.6 Update `ExceptionHandlingMiddleware.GetStatusCode`: add `DayNotFoundException` and `ActivityNotFoundException` → 404 before DomainException catch-all
-- [ ] 4.7 Update `AutoMapperProfile.cs`: map `ForceIncludeDespiteWeather` and `IsStale`
-- [ ] 4.8 Update `doc/architecture/endpoints.yaml`: replace replan stub, replace complete stub, add new schema fields
+- [x] 4.7 Update `AutoMapperProfile.cs`: map `ForceIncludeDespiteWeather` and `IsStale`
+- [x] 4.8 Update `doc/architecture/endpoints.yaml`: replace replan stub, replace complete stub, add new schema fields
 
 ## Phase 5: Testing
 
@@ -75,8 +75,8 @@ Chain strategy: stacked-to-main
 - [x] 5.3 Extend `MustSeeTests`: equality with/without flag, default false
 - [x] 5.4 Extend `CandidateScorerTests`: forced outdoor skips penalty+bonus, non-forced penalized, indoor unaffected
 - [x] 5.5 Create `ItineraryReplanningEngineTests`: completed/must-see preservation, scope isolation (3 scopes), outdoor→indoor swap, forced retention, nice-to-have pruning, stale reset, no-op
-- [ ] 5.6 Create `RefreshWeatherHandlerTests`: ownership, stale on change, UpdateAsync iff changes, past-trip no-op, empty-days no provider
-- [ ] 5.7 Create `RegenerateDayHandlerTests`: ownership, dayIndex validation, delegation, UpdateAsync, mapping, over-constrained
-- [ ] 5.8 Create `TripSmartReplanHandlerTests`: current day/block resolution, after-trip-end rejection, ownership, delegation
-- [ ] 5.9 Create `ToggleActivityCompletionHandlerTests`: locate across 3 blocks, 404 paths, future-day rejection, count aggregation
-- [ ] 5.10 Extend `MustSeeMappingTests`: round-trip preserves flag, omitted defaults false
+- [x] 5.6 Create `RefreshWeatherHandlerTests`: ownership, stale on change, UpdateAsync iff changes, past-trip no-op, empty-days no provider
+- [x] 5.7 Create `RegenerateDayHandlerTests`: ownership, dayIndex validation, delegation, UpdateAsync, mapping, over-constrained
+- [x] 5.8 Create `TripSmartReplanHandlerTests`: current day/block resolution, after-trip-end rejection, ownership, delegation
+- [x] 5.9 Create `ToggleActivityCompletionHandlerTests`: locate across 3 blocks, 404 paths, future-day rejection, count aggregation
+- [x] 5.10 Extend `MustSeeMappingTests`: round-trip preserves flag, omitted defaults false

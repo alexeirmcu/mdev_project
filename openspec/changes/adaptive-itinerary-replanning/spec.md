@@ -106,14 +106,14 @@ public record RefreshWeather(Guid TripId, string UserId) : IRequest<WeatherRefre
 
 // Response (Domain/ApiModels)
 public record WeatherRefreshResult(
-    Guid TripId,
-    IReadOnlyList<DayWeatherChange> ChangedDays);
+    bool Updated,
+    int DaysRefreshed,
+    IReadOnlyList<DayWeatherChange> Changes);
 
 public record DayWeatherChange(
     int DayIndex,
-    DateOnly Date,
     string PreviousWeather,   // WeatherCondition name
-    string CurrentWeather);   // WeatherCondition name
+    string NewWeather);       // WeatherCondition name
 ```
 
 | Status | Condition |
@@ -136,7 +136,7 @@ Validator (`RefreshWeatherValidator`): `TripId` NotEmpty.
 | Trip not found | `TripNotFoundException` → 404 |
 | Non-owner | `TripForbiddenException` → 403 |
 | Weather provider throws | Propagates → 500 (no silent swallow; refresh is explicit) |
-| Trip has no days | 200 with empty `ChangedDays` |
+| Trip has no days | 200 with `Updated=false, DaysRefreshed=0, Changes=[]` |
 
 ### Test Strategy
 - **Handler tests** (`RefreshWeatherHandlerTests`, Moq): verify ownership check
