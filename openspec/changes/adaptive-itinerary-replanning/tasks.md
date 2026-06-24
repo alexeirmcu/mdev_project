@@ -44,10 +44,10 @@ Chain strategy: stacked-to-main
 
 ## Phase 2: Replanning Engine (Core Domain Service)
 
-- [ ] 2.1 Create `IItineraryReplanningEngine` port + `ReplanContext` record in `Domain/Ports/IItineraryReplanningEngine.cs`
-- [ ] 2.2 Implement `ItineraryReplanningEngine.RegenerateDayAsync` in `Domain/Services/` (lock/preserve/clear/refill/enrich/schedule/stale-reset)
-- [ ] 2.3 Implement `ItineraryReplanningEngine.ReplanAsync` (scope resolution, weather swap, nice-to-have pruning, stale-reset)
-- [ ] 2.4 Register `ItineraryReplanningEngine` in Infrastructure DI (`InfrastructureServiceRegistration.cs`)
+- [x] 2.1 Create `IItineraryReplanningEngine` port + `ReplanContext` record in `Domain/Ports/IItineraryReplanningEngine.cs`
+- [x] 2.2 Implement `ItineraryReplanningEngine.RegenerateDayAsync` in `Domain/Services/` (lock/preserve/clear/refill/enrich/schedule/stale-reset)
+- [x] 2.3 Implement `ItineraryReplanningEngine.ReplanAsync` (scope resolution, weather swap, nice-to-have pruning, stale-reset)
+- [x] 2.4 Register `ItineraryReplanningEngine` in Domain DI (`ApplicationServicesRegistration.cs`)
 
 ## Phase 3: API Models + Commands + Validators
 
@@ -74,7 +74,7 @@ Chain strategy: stacked-to-main
 - [x] 5.2 Extend `ActivityNodeTests`: `SetCompleted(true/false)` toggle, `MarkAsCompleted` still true-only
 - [x] 5.3 Extend `MustSeeTests`: equality with/without flag, default false
 - [x] 5.4 Extend `CandidateScorerTests`: forced outdoor skips penalty+bonus, non-forced penalized, indoor unaffected
-- [ ] 5.5 Create `ItineraryReplanningEngineTests`: completed/must-see preservation, scope isolation (3 scopes), outdoor→indoor swap, forced retention, nice-to-have pruning, stale reset, no-op
+- [x] 5.5 Create `ItineraryReplanningEngineTests`: completed/must-see preservation, scope isolation (3 scopes), outdoor→indoor swap, forced retention, nice-to-have pruning, stale reset, no-op
 - [ ] 5.6 Create `RefreshWeatherHandlerTests`: ownership, stale on change, UpdateAsync iff changes, past-trip no-op, empty-days no provider
 - [ ] 5.7 Create `RegenerateDayHandlerTests`: ownership, dayIndex validation, delegation, UpdateAsync, mapping, over-constrained
 - [ ] 5.8 Create `TripSmartReplanHandlerTests`: current day/block resolution, after-trip-end rejection, ownership, delegation
