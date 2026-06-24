@@ -4,12 +4,8 @@ namespace SmartTripPlanner.Infrastructure.ExternalServices.Weather.Mapping;
 
 internal static class WeatherCodeMapper
 {
-    public static WeatherCondition Map(int wmoCode, double tempMax, double tempMin)
+    public static WeatherCondition Map(int wmoCode)
     {
-        // Temperature extremes override: strict inequality (boundary values NOT Bad)
-        if (tempMax > 35.0 || tempMin < 0.0)
-            return WeatherCondition.Bad;
-
         // Precipitation codes: drizzle, rain, snow, thunderstorm, hail
         if (IsInRange(wmoCode, 51, 67) ||
             IsInRange(wmoCode, 71, 77) ||

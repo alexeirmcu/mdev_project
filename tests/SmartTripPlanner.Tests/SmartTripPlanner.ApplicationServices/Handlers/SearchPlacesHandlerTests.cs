@@ -68,11 +68,11 @@ public sealed class SearchPlacesHandlerTests
 
         var mappedModels = new List<PlaceModel>
         {
-            new("fsq-prado-123", "Museo del Prado", 1L,
+            new(1L, "fsq-prado-123", "Museo del Prado", 1L,
                 new PlaceLocationModel(40.4168, -3.7038), 120, true, false, true, [], []),
-            new("fsq-louvre-456", "Musée du Louvre", 2L,
+            new(2L, "fsq-louvre-456", "Musée du Louvre", 2L,
                 new PlaceLocationModel(48.8566, 2.3522), 180, true, true, true, [], []),
-            new("fsq-colosseum-789", "Colosseum", 3L,
+            new(3L, "fsq-colosseum-789", "Colosseum", 3L,
                 new PlaceLocationModel(41.9028, 12.4964), 90, false, true, true, [], []),
         };
 
@@ -104,7 +104,7 @@ public sealed class SearchPlacesHandlerTests
 
         var mappedModels = new List<PlaceModel>
         {
-            new("fsq-prado-123", "Museo del Prado", 1L,
+            new(1L, "fsq-prado-123", "Museo del Prado", 1L,
                 new PlaceLocationModel(40.4168, -3.7038), 120, true, false, true, [], []),
         };
 
@@ -142,7 +142,7 @@ public sealed class SearchPlacesHandlerTests
 
         var mappedModels = new List<PlaceModel>
         {
-            new("fsq-api-1", "Museo del Prado", 1L,
+            new(1L, "fsq-api-1", "Museo del Prado", 1L,
                 new PlaceLocationModel(40.4168, -3.7038), 120, true, true, true, [], [])
         };
 
@@ -306,7 +306,7 @@ public sealed class SearchPlacesHandlerTests
             .ReturnsAsync(new List<Place> { place });
 
         var mappedPlace = new PlaceModel(
-            "fsq-gran-palace", "Gran Palace", 1L,
+            1L, "fsq-gran-palace", "Gran Palace", 1L,
             new PlaceLocationModel(40.4168, -3.7038), 120, true, true, true,
             new List<OpeningHoursWindowModel>(),
             new List<PlaceAttributeModel>

@@ -26,7 +26,7 @@ public sealed class PlacesControllerTests
         var request = new PlaceSearchRequest("Museo", "madrid-es", 5);
         var results = new List<PlaceModel>
         {
-            new("fsq_1", "Museo del Prado", 1L,
+            new(1L, "fsq_1", "Museo del Prado", 1L,
                 new PlaceLocationModel(40.4168, -3.7038), 120, true, true, true,
                 new List<OpeningHoursWindowModel>(),
                 new List<PlaceAttributeModel>())

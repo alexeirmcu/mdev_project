@@ -13,8 +13,7 @@ public class AutoMapperProfile : Profile
         CreateMap<PlaceAttribute, PlaceAttributeModel>();
 
         CreateMap<Place, PlaceModel>()
-            .ForMember(dest => dest.Attributes, opt => opt.MapFrom(src => src.Attributes))
-            .ForMember(dest => dest.IsAutoUpdateEnabled, opt => opt.MapFrom(src => src.IsAutoUpdateEnabled));
+            .ForCtorParam("PlaceId", opt => opt.MapFrom(src => src.Id));
 
         // Trip mappings
         CreateMap<MustSeeInput, MustSee>();
