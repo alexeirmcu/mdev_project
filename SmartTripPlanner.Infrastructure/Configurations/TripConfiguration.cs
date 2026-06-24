@@ -72,6 +72,7 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
             mustSee.Property(m => m.Priority).HasConversion<string>().IsRequired();
             mustSee.Property(m => m.PinnedDayIndex);
             mustSee.Property(m => m.PinnedBlock).HasConversion<string>();
+            mustSee.Property(m => m.ForceIncludeDespiteWeather).HasColumnName("ForceIncludeDespiteWeather").HasDefaultValue(false);
             mustSee.ToTable("TripMustSees");
         });
 
@@ -80,6 +81,8 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
             day.WithOwner().HasForeignKey("TripId");
             day.Property<long>("Id");
             day.HasKey("Id");
+            day.Property(d => d.IsStale).HasColumnName("IsStale").HasDefaultValue(false);
+            day.Property(d => d.WeatherLastUpdatedAt).HasColumnName("WeatherLastUpdatedAt");
 
             day.OwnsOne(d => d.Morning, m =>
             {
