@@ -43,4 +43,9 @@ public class ActivityNode : Entity
     {
         IsCompleted = true;
     }
+
+    public void SetCompleted(bool value)
+    {
+        IsCompleted = value;
+    }
 }

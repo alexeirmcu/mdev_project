@@ -46,4 +46,42 @@ public sealed class ActivityNodeTests
         node.MarkAsCompleted();
         Assert.IsTrue(node.IsCompleted);
     }
+
+    [TestMethod]
+    public void SetCompleted_True_SetsIsCompletedTrue()
+    {
+        var node = CreateNode();
+        node.SetCompleted(true);
+        Assert.IsTrue(node.IsCompleted);
+    }
+
+    [TestMethod]
+    public void SetCompleted_False_SetsIsCompletedFalse()
+    {
+        var node = CreateNode();
+        node.SetCompleted(true);
+        Assert.IsTrue(node.IsCompleted);
+        node.SetCompleted(false);
+        Assert.IsFalse(node.IsCompleted);
+    }
+
+    [TestMethod]
+    public void SetCompleted_False_AfterMarkAsCompleted_SetsIsCompletedFalse()
+    {
+        var node = CreateNode();
+        node.MarkAsCompleted();
+        Assert.IsTrue(node.IsCompleted);
+        node.SetCompleted(false);
+        Assert.IsFalse(node.IsCompleted);
+    }
+
+    [TestMethod]
+    public void MarkAsCompleted_StillWorks_AfterSetCompleted()
+    {
+        var node = CreateNode();
+        node.SetCompleted(false);
+        Assert.IsFalse(node.IsCompleted);
+        node.MarkAsCompleted();
+        Assert.IsTrue(node.IsCompleted);
+    }
 }
