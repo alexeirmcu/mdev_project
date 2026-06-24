@@ -89,6 +89,69 @@ public class TransitEnricher : ITransitEnricher
         }
     }
 
+    public async Task EnrichScopedAsync(Trip trip, ReplanScope scope, IReadOnlyDictionary<long, Place> placesById, Dictionary<DateOnly, WeatherCondition> weatherData, CancellationToken ct)
+    {
+        foreach (var dayPlan in trip.Days)
+        {
+            if (weatherData.TryGetValue(dayPlan.Date, out var weather))
+                dayPlan.SetWeather(weather);
+
+            foreach (var blockType in new[] { BlockType.Morning, BlockType.Afternoon, BlockType.Evening })
+            {
+                var block = dayPlan.GetBlock(blockType);
+                var activities = block.Activities;
+                for (int i = 0; i < activities.Count; i++)
+                {
+                    if (i < activities.Count - 1)
+                    {
+                        var fromActivity = activities[i];
+                        var toActivity = activities[i + 1];
+
+                        if (fromActivity.Location is not null && toActivity.Location is not null)
+                        {
+                            var transit = await AssignTransitAsync(
+                                fromActivity.Location,
+                                toActivity.Location,
+                                trip.Preferences,
+                                ct);
+
+                            fromActivity.TransitToNext = transit;
+                        }
+                    }
+                }
+
+                if (trip.BaseHotel is not null && activities.Count > 0)
+                {
+                    var hotelLocation = new PlaceLocation(trip.BaseHotel.Latitude, trip.BaseHotel.Longitude);
+
+                    if (activities[0].Location is not null)
+                    {
+                        block.TransitFromHotel = await AssignTransitAsync(
+                            hotelLocation,
+                            activities[0].Location,
+                            trip.Preferences,
+                            ct);
+                    }
+
+                    if (activities[^1].Location is not null)
+                    {
+                        block.TransitToHotel = await AssignTransitAsync(
+                            activities[^1].Location,
+                            hotelLocation,
+                            trip.Preferences,
+                            ct);
+                    }
+                }
+            }
+
+            if (trip.Preferences.ReturnToHotelStrategy != ReturnToHotelStrategy.Always
+                && trip.BaseHotel is not null)
+            {
+                await ApplyStrategyAsync(dayPlan, trip.Preferences, trip.BaseHotel, ct);
+            }
+        }
+    }
+
     /// <summary>
     /// Applies Never or ProximityBased strategy to replace hotel-return transit
     /// with direct inter-block transit where beneficial.

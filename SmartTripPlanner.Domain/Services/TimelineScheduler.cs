@@ -73,4 +73,59 @@ public class TimelineScheduler : ITimelineScheduler
             }
         }
     }
+
+    public void ScheduleScoped(Trip trip, List<int> dayIndices, int seedPreviousBlockEnd)
+    {
+        var daysToSchedule = trip.Days.Where(d => dayIndices.Contains(d.DayIndex)).ToList();
+
+        foreach (var dayPlan in daysToSchedule)
+        {
+            var startMinutes = dayPlan.StartTime.Hour * 60 + dayPlan.StartTime.Minute;
+            var previousBlockEnd = seedPreviousBlockEnd;
+
+            foreach (var blockType in new[] { BlockType.Morning, BlockType.Afternoon, BlockType.Evening })
+            {
+                var block = dayPlan.GetBlock(blockType);
+                if (block.Activities.Count == 0)
+                {
+                    continue;
+                }
+
+                int currentTime;
+
+                if (block.TransitFromHotel is not null)
+                {
+                    currentTime = startMinutes;
+                    currentTime += block.TransitFromHotel.DurationMinutes;
+                    currentTime += block.TransitFromHotel.BufferMinutes;
+                }
+                else if (block.InterBlockTransit is not null
+                         && dayPlan.GetBlock(BlockType.Morning) != block)
+                {
+                    currentTime = previousBlockEnd;
+                    currentTime += block.InterBlockTransit.DurationMinutes;
+                    currentTime += block.InterBlockTransit.BufferMinutes;
+                }
+                else
+                {
+                    currentTime = startMinutes;
+                }
+
+                foreach (var activity in block.Activities)
+                {
+                    activity.EstimatedArrival = currentTime;
+                    currentTime += activity.DurationMinutes;
+                    activity.EstimatedDeparture = currentTime;
+
+                    if (activity.TransitToNext is not null)
+                    {
+                        currentTime += activity.TransitToNext.DurationMinutes;
+                        currentTime += activity.TransitToNext.BufferMinutes;
+                    }
+                }
+
+                previousBlockEnd = currentTime;
+            }
+        }
+    }
 }
