@@ -18,4 +18,5 @@ public record ScoringContext(
     bool IsFamilyTrip,
     bool IsBadWeather,
     double DistanceFromBlockCenterKm,
-    double PopularityRaw = 0.5);
+    double PopularityRaw = 0.5,
+    bool ForceIncludeDespiteWeather = false);

@@ -10,4 +10,10 @@ namespace SmartTripPlanner.Domain.Ports;
 public interface ITimelineScheduler
 {
     void Schedule(Trip trip);
+
+    /// <summary>
+    /// Schedules only the specified day indices, starting the first block
+    /// at seedPreviousBlockEnd (minutes from midnight).
+    /// </summary>
+    void ScheduleScoped(Trip trip, List<int> dayIndices, int seedPreviousBlockEnd);
 }

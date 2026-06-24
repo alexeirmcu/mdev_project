@@ -188,11 +188,11 @@ paths:
                 items:
                   $ref: '#/components/schemas/ValidationResult'
 
-  /trips/{tripId}/places/{placeId}/complete:
-    patch:
-      summary: Mark an activity as completed
-      description: Atomically updates the completion status of a specific activity within the trip itinerary.
-      operationId: completePlace
+  /trips/{tripId}/weather-refresh:
+    post:
+      summary: Refresh weather data for a trip
+      description: Fetches updated weather forecasts for all trip days and marks days as stale when the weather condition changes. Returns a summary of which days changed and their previous/new weather states.
+      operationId: refreshWeather
       parameters:
         - name: tripId
           in: path
@@ -200,33 +200,110 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: placeId
+      responses:
+        '200':
+          description: Weather refreshed successfully. Returns changes summary even if no days changed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeatherRefreshResult'
+        '404':
+          description: Trip not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: User does not own the trip.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trips/{tripId}/days/{dayIndex}/regenerate:
+    post:
+      summary: Regenerate activities for a specific day
+      description: Uses the replanning engine to rebuild all activities for a single day while preserving completed activities and must-see constraints. Useful when a day becomes stale after weather changes or manual adjustments.
+      operationId: regenerateDay
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: dayIndex
           in: path
           required: true
           schema:
             type: integer
-            format: int64
-          description: Internal PlaceId (long), not the ProviderReferenceId.
-          example: 42
+            minimum: 0
+            description: Zero-based day index within the trip itinerary.
+      responses:
+        '200':
+          description: Day regenerated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripPlanResponse'
+        '404':
+          description: Trip or day not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: User does not own the trip.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Itinerary not generated yet or day index out of range.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValidationResult'
+
+  /trips/{tripId}/days/{dayIndex}/completion:
+    patch:
+      summary: Toggle an activity completion status
+      description: Atomically toggles the completion status of a specific activity within a day block of the trip itinerary.
+      operationId: toggleActivityCompletion
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: dayIndex
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 0
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              type: object
-              required:
-                - isCompleted
-              properties:
-                isCompleted:
-                  type: boolean
-                  example: true
+              $ref: '#/components/schemas/ActivityCompletionRequest'
       responses:
-        '204':
-          description: Place completion status updated successfully. No response body.
+        '200':
+          description: Activity completion status updated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActivityCompletionResponse'
         '404':
-          description: Trip or place not found in the itinerary.
+          description: Trip, day, or activity not found in the itinerary.
+        '403':
+          description: User does not own the trip.
         '422':
-          description: Validation error.
+          description: Validation error or business rule violation (e.g. future day completion).
           content:
             application/json:
               schema:
@@ -265,9 +342,9 @@ paths:
 
   /trips/{tripId}/replan:
     post:
-      summary: Replan the remainder of the day (NOT IMPLEMENTED)
-      description: Low-latency endpoint that instantly recalculates the remaining blocks of the current day based on completed items, current location, and sudden weather changes. This endpoint is planned for Flow 4 and is not yet implemented.
-      operationId: replanTrip
+      summary: Smart replan from current point forward
+      description: Replans activities from the traveler's current day and block forward, with scope (current block, current day, or remaining trip) and weather-aware outdoor→indoor swapping.
+      operationId: smartReplan
       parameters:
         - name: tripId
           in: path
@@ -280,10 +357,34 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/TripReplanRequest'
+              $ref: '#/components/schemas/TripSmartReplanRequest'
       responses:
-        '501':
-          description: Not Implemented. This endpoint will be available in a future release.
+        '200':
+          description: Trip replanned successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripPlanResponse'
+        '404':
+          description: Trip not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: User does not own the trip.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Business rule violation (e.g. current time after trip end).
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValidationResult'
 
 components:
   schemas:
@@ -474,20 +575,30 @@ components:
         pinnedBlock:
           type: string
           enum: [Morning, Afternoon, Evening]
+        forceIncludeDespiteWeather:
+          type: boolean
+          default: false
+          description: When true, this must-see is included in the itinerary even if bad weather would normally swap it for an indoor alternative.
 
-    TripReplanRequest:
+    TripSmartReplanRequest:
       type: object
       required:
         - currentDateTime
-        - currentLocation
+        - scope
         - currentBlockWeather
       properties:
         currentDateTime:
           type: string
           format: date-time
           example: "2026-06-15T14:15:00Z"
-        currentLocation:
-          $ref: '#/components/schemas/Location'
+        scope:
+          type: string
+          enum: [CurrentBlock, CurrentDay, RemainingTrip]
+          description: |
+            Determines the replanning boundary from the traveler's current day and block forward.
+            - `CurrentBlock`: Replanifies only the current block (Morning, Afternoon, or Evening). Use when only the immediate block is affected.
+            - `CurrentDay`: Replanifies the current block and all remaining blocks in the current day. This is the default if an unrecognized scope is provided.
+            - `RemainingTrip`: Replanifies from the current block through the end of the trip. Use for major disruptions (weather, cancellations) that affect the entire remaining itinerary.
         currentBlockWeather:
           type: string
           enum: [Good, Bad]
@@ -560,6 +671,9 @@ components:
         pinnedBlock:
           type: string
           enum: [Morning, Afternoon, Evening]
+        forceIncludeDespiteWeather:
+          type: boolean
+          default: false
 
     DayPlan:
       type: object
@@ -575,6 +689,10 @@ components:
           type: string
           enum: [Clear, Good, Bad]
           example: "Clear"
+        isStale:
+          type: boolean
+          default: false
+          description: Indicates the day's itinerary needs regeneration due to weather changes.
         blocks:
           type: array
           items:
@@ -785,3 +903,72 @@ components:
         description:
           type: string
           example: "The search query must be at least 3 characters long."
+
+    ErrorResponse:
+      type: object
+      properties:
+        errorId:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        title:
+          type: string
+          example: "Trip not found."
+        statusCode:
+          type: integer
+          example: 404
+
+    ActivityCompletionRequest:
+      type: object
+      required:
+        - placeId
+        - isCompleted
+      properties:
+        placeId:
+          type: integer
+          format: int64
+          example: 42
+        isCompleted:
+          type: boolean
+          example: true
+
+    ActivityCompletionResponse:
+      type: object
+      properties:
+        placeId:
+          type: integer
+          format: int64
+          example: 42
+        isCompleted:
+          type: boolean
+          example: true
+        completedCount:
+          type: integer
+          example: 3
+
+    WeatherRefreshResult:
+      type: object
+      properties:
+        updated:
+          type: boolean
+          example: true
+        daysRefreshed:
+          type: integer
+          example: 2
+        changes:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayWeatherChange'
+
+    DayWeatherChange:
+      type: object
+      properties:
+        dayIndex:
+          type: integer
+          example: 0
+        previousWeather:
+          type: string
+          example: "Clear"
+        newWeather:
+          type: string
+          example: "Bad"

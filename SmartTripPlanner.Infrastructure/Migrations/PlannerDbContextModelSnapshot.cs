@@ -392,11 +392,21 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                             b1.Property<int>("DayIndex")
                                 .HasColumnType("integer");
 
+                            b1.Property<bool>("IsStale")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("boolean")
+                                .HasDefaultValue(false)
+                                .HasColumnName("IsStale");
+
                             b1.Property<TimeOnly>("StartTime")
                                 .HasColumnType("time without time zone");
 
                             b1.Property<long>("TripId")
                                 .HasColumnType("bigint");
+
+                            b1.Property<DateTimeOffset?>("WeatherLastUpdatedAt")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("WeatherLastUpdatedAt");
 
                             b1.Property<int>("WeatherSummary")
                                 .HasColumnType("integer");
@@ -1078,6 +1088,12 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                                 .HasColumnType("bigint");
 
                             NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<long>("Id"));
+
+                            b1.Property<bool>("ForceIncludeDespiteWeather")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("boolean")
+                                .HasDefaultValue(false)
+                                .HasColumnName("ForceIncludeDespiteWeather");
 
                             b1.Property<string>("PinnedBlock")
                                 .HasColumnType("text");

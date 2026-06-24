@@ -63,6 +63,8 @@ internal sealed class ExceptionHandlingMiddleware : IMiddleware
     private static int GetStatusCode(Exception exception) => exception switch
     {
         TripForbiddenException => StatusCodes.Status403Forbidden,
+        DayNotFoundException => StatusCodes.Status404NotFound,
+        ActivityNotFoundException => StatusCodes.Status404NotFound,
         TripNotFoundException => StatusCodes.Status404NotFound,
         DomainException => StatusCodes.Status422UnprocessableEntity,
         _ => StatusCodes.Status500InternalServerError

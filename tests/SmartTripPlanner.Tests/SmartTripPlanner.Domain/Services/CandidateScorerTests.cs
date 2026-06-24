@@ -104,6 +104,51 @@ public sealed class CandidateScorerTests
     }
 
     [TestMethod]
+    public void Score_ForcedOutdoorOnBadWeather_SkipsPenaltyAndBonus()
+    {
+        var place = CreatePlace(isIndoor: false);
+        var context = new ScoringContext(
+            IsFamilyTrip: false,
+            IsBadWeather: true,
+            DistanceFromBlockCenterKm: 0,
+            ForceIncludeDespiteWeather: true);
+
+        var score = _scorer.Score(place, context);
+        // popularity (10) only — no penalty, no bonus since forced outdoor
+        Assert.AreEqual(10, score, 0.001);
+    }
+
+    [TestMethod]
+    public void Score_NonForcedOutdoorOnBadWeather_StillPenalized()
+    {
+        var place = CreatePlace(isIndoor: false);
+        var context = new ScoringContext(
+            IsFamilyTrip: false,
+            IsBadWeather: true,
+            DistanceFromBlockCenterKm: 0,
+            ForceIncludeDespiteWeather: false);
+
+        var score = _scorer.Score(place, context);
+        // popularity (10) + penalty (-20) = -10
+        Assert.AreEqual(-10, score, 0.001);
+    }
+
+    [TestMethod]
+    public void Score_ForcedIndoorOnBadWeather_StillGetsBonus()
+    {
+        var place = CreatePlace(isIndoor: true);
+        var context = new ScoringContext(
+            IsFamilyTrip: false,
+            IsBadWeather: true,
+            DistanceFromBlockCenterKm: 0,
+            ForceIncludeDespiteWeather: true);
+
+        var score = _scorer.Score(place, context);
+        // popularity (10) + indoor bonus (20) = 30 (force only skips for outdoor)
+        Assert.AreEqual(30, score, 0.001);
+    }
+
+    [TestMethod]
     public void Score_HighPopularity_OutranksLowPopularity()
     {
         var placeA = CreatePlace();

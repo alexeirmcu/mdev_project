@@ -13,8 +13,7 @@ public class AutoMapperProfile : Profile
         CreateMap<PlaceAttribute, PlaceAttributeModel>();
 
         CreateMap<Place, PlaceModel>()
-            .ForMember(dest => dest.Attributes, opt => opt.MapFrom(src => src.Attributes))
-            .ForMember(dest => dest.IsAutoUpdateEnabled, opt => opt.MapFrom(src => src.IsAutoUpdateEnabled));
+            .ForCtorParam("PlaceId", opt => opt.MapFrom(src => src.Id));
 
         // Trip mappings
         CreateMap<MustSeeInput, MustSee>();
@@ -28,7 +27,8 @@ public class AutoMapperProfile : Profile
 
         CreateMap<MustSee, MustSeeResponse>()
             .ForMember(dest => dest.Priority, opt => opt.MapFrom(src => src.Priority.ToString()))
-            .ForMember(dest => dest.PinnedBlock, opt => opt.MapFrom(src => src.PinnedBlock.HasValue ? src.PinnedBlock.ToString() : null));
+            .ForMember(dest => dest.PinnedBlock, opt => opt.MapFrom(src => src.PinnedBlock.HasValue ? src.PinnedBlock.ToString() : null))
+            .ForMember(dest => dest.ForceIncludeDespiteWeather, opt => opt.MapFrom(src => src.ForceIncludeDespiteWeather));
 
         CreateMap<Location, LocationModel>();
 
@@ -70,6 +70,7 @@ public class AutoMapperProfile : Profile
 
         CreateMap<DayPlan, DayPlanResponse>()
             .ForMember(dest => dest.WeatherSummary, opt => opt.MapFrom(src => src.WeatherSummary.ToString()))
+            .ForMember(dest => dest.IsStale, opt => opt.MapFrom(src => src.IsStale))
             .ForMember(dest => dest.Blocks, opt => opt.MapFrom(src => new[]
             {
                 src.Morning,

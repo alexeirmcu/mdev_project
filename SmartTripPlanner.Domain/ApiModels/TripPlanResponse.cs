@@ -23,6 +23,7 @@ public class DayPlanResponse
     public int DayIndex { get; set; }
     public DateOnly Date { get; set; }
     public string WeatherSummary { get; set; } = string.Empty;
+    public bool IsStale { get; set; }
     public List<BlockResponse> Blocks { get; set; } = new();
 }
 
@@ -55,6 +56,7 @@ public class ActivityResponse
     public int BufferMinutes { get; set; }
     public bool FrictionAlert { get; set; }
     public bool OvertimeAlert { get; set; }
+    public bool IsCompleted { get; set; }
     public int? EstimatedArrival { get; set; }
     public int? EstimatedDeparture { get; set; }
 }

@@ -25,11 +25,19 @@ public class CandidateScorer : ICandidateScorer
         score -= context.DistanceFromBlockCenterKm * TripPlanningConstants.DistancePenaltyWeight;
 
         // Weather adjustment: prefer indoor on bad weather, penalize outdoor
+        // When forceIncludeDespiteWeather is set for outdoor places, skip both penalty and bonus
         if (context.IsBadWeather)
         {
-            score += place.IsIndoor
-                ? TripPlanningConstants.IndoorWeatherBonus
-                : TripPlanningConstants.OutdoorWeatherPenalty;
+            if (context.ForceIncludeDespiteWeather && !place.IsIndoor)
+            {
+                // Forced outdoor place: no penalty, no indoor bonus
+            }
+            else
+            {
+                score += place.IsIndoor
+                    ? TripPlanningConstants.IndoorWeatherBonus
+                    : TripPlanningConstants.OutdoorWeatherPenalty;
+            }
         }
 
         return score;

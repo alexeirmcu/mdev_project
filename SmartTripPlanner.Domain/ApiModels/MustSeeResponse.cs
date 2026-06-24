@@ -4,4 +4,5 @@ public record MustSeeResponse(
     long PlaceId,
     string Priority,
     int? PinnedDayIndex,
-    string? PinnedBlock);
+    string? PinnedBlock,
+    bool ForceIncludeDespiteWeather = false);

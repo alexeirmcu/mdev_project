@@ -36,6 +36,7 @@ public static class ApplicationServicesRegistration
         services.AddScoped<ICandidateFiller, CandidateFiller>();
         services.AddScoped<ITransitEnricher, TransitEnricher>();
         services.AddScoped<ITimelineScheduler, TimelineScheduler>();
+        services.AddScoped<IItineraryReplanningEngine, ItineraryReplanningEngine>();
 
         return services;
     }

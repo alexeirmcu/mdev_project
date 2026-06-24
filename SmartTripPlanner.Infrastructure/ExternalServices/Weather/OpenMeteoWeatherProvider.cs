@@ -61,8 +61,7 @@ internal sealed class OpenMeteoWeatherProvider : IWeatherProvider
         {
             if (result.ContainsKey(forecast.Date))
             {
-                result[forecast.Date] = WeatherCodeMapper.Map(
-                    forecast.WeatherCode, forecast.TempMax, forecast.TempMin);
+                result[forecast.Date] = WeatherCodeMapper.Map(forecast.WeatherCode);
             }
         }
 

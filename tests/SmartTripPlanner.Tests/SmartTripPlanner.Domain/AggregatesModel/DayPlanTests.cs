@@ -47,4 +47,49 @@ public sealed class DayPlanTests
         dayPlan.SetWeather(WeatherCondition.Good);
         Assert.AreEqual(WeatherCondition.Good, dayPlan.WeatherSummary);
     }
+
+    [TestMethod]
+    public void IsStale_DefaultIsFalse()
+    {
+        var dayPlan = CreateDayPlan();
+        Assert.IsFalse(dayPlan.IsStale);
+    }
+
+    [TestMethod]
+    public void MarkStale_SetsIsStaleTrue()
+    {
+        var dayPlan = CreateDayPlan();
+        dayPlan.MarkStale();
+        Assert.IsTrue(dayPlan.IsStale);
+    }
+
+    [TestMethod]
+    public void ClearStale_SetsIsStaleFalse()
+    {
+        var dayPlan = CreateDayPlan();
+        dayPlan.MarkStale();
+        Assert.IsTrue(dayPlan.IsStale);
+        dayPlan.ClearStale();
+        Assert.IsFalse(dayPlan.IsStale);
+    }
+
+    [TestMethod]
+    public void WeatherLastUpdatedAt_DefaultIsNull()
+    {
+        var dayPlan = CreateDayPlan();
+        Assert.IsNull(dayPlan.WeatherLastUpdatedAt);
+    }
+
+    [TestMethod]
+    public void UpdateWeatherTimestamp_SetsTimestamp()
+    {
+        var dayPlan = CreateDayPlan();
+        var before = DateTimeOffset.UtcNow;
+        dayPlan.UpdateWeatherTimestamp();
+        var after = DateTimeOffset.UtcNow;
+
+        Assert.IsNotNull(dayPlan.WeatherLastUpdatedAt);
+        Assert.IsTrue(dayPlan.WeatherLastUpdatedAt >= before);
+        Assert.IsTrue(dayPlan.WeatherLastUpdatedAt <= after);
+    }
 }

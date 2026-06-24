@@ -12,6 +12,8 @@ public class DayPlan : Entity
     public required BlockTimeline Afternoon { get; init; }
     public required BlockTimeline Evening { get; init; }
     public TimeOnly StartTime { get; private set; } = new TimeOnly(9, 0);
+    public bool IsStale { get; private set; }
+    public DateTimeOffset? WeatherLastUpdatedAt { get; private set; }
 
     public void UpdateStartTime(TimeOnly newStart)
     {
@@ -22,6 +24,23 @@ public class DayPlan : Entity
     {
         WeatherSummary = weather;
     }
+
+    public void MarkStale()
+    {
+        IsStale = true;
+    }
+
+    public void ClearStale()
+    {
+        IsStale = false;
+    }
+
+    public void UpdateWeatherTimestamp()
+    {
+        WeatherLastUpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+
 
     internal BlockTimeline GetBlock(BlockType blockType) => blockType switch
     {
