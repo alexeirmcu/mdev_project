@@ -40,6 +40,8 @@ public class DayPlan : Entity
         WeatherLastUpdatedAt = DateTimeOffset.UtcNow;
     }
 
+
+
     internal BlockTimeline GetBlock(BlockType blockType) => blockType switch
     {
         BlockType.Morning => Morning,

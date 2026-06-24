@@ -39,15 +39,6 @@ public sealed class ActivityNodeTests
     }
 
     [TestMethod]
-    public void MarkAsCompleted_SetsIsCompletedTrue()
-    {
-        var node = CreateNode();
-        Assert.IsFalse(node.IsCompleted);
-        node.MarkAsCompleted();
-        Assert.IsTrue(node.IsCompleted);
-    }
-
-    [TestMethod]
     public void SetCompleted_True_SetsIsCompletedTrue()
     {
         var node = CreateNode();
@@ -66,22 +57,12 @@ public sealed class ActivityNodeTests
     }
 
     [TestMethod]
-    public void SetCompleted_False_AfterMarkAsCompleted_SetsIsCompletedFalse()
+    public void SetCompleted_False_AfterTrue_SetsIsCompletedFalse()
     {
         var node = CreateNode();
-        node.MarkAsCompleted();
+        node.SetCompleted(true);
         Assert.IsTrue(node.IsCompleted);
         node.SetCompleted(false);
         Assert.IsFalse(node.IsCompleted);
-    }
-
-    [TestMethod]
-    public void MarkAsCompleted_StillWorks_AfterSetCompleted()
-    {
-        var node = CreateNode();
-        node.SetCompleted(false);
-        Assert.IsFalse(node.IsCompleted);
-        node.MarkAsCompleted();
-        Assert.IsTrue(node.IsCompleted);
     }
 }

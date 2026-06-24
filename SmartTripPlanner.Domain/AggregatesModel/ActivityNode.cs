@@ -39,11 +39,6 @@ public class ActivityNode : Entity
         Location = location ?? null!;
     }
 
-    public void MarkAsCompleted()
-    {
-        IsCompleted = true;
-    }
-
     public void SetCompleted(bool value)
     {
         IsCompleted = value;
