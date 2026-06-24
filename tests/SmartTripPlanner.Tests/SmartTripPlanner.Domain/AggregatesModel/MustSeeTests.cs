@@ -73,4 +73,37 @@ public sealed class MustSeeTests
 
         Assert.AreNotEqual(a, b);
     }
+
+    [TestMethod]
+    public void ForceIncludeDespiteWeather_DefaultIsFalse()
+    {
+        var mustSee = new MustSee(42L, Priority.High);
+        Assert.IsFalse(mustSee.ForceIncludeDespiteWeather);
+    }
+
+    [TestMethod]
+    public void ForceIncludeDespiteWeather_CanSetToTrue()
+    {
+        var mustSee = new MustSee(42L, Priority.High, forceIncludeDespiteWeather: true);
+        Assert.IsTrue(mustSee.ForceIncludeDespiteWeather);
+    }
+
+    [TestMethod]
+    public void Equals_SameValuesWithForceIncludeTrue_ReturnsTrue()
+    {
+        var a = new MustSee(42L, Priority.High, 0, BlockType.Morning, forceIncludeDespiteWeather: true);
+        var b = new MustSee(42L, Priority.High, 0, BlockType.Morning, forceIncludeDespiteWeather: true);
+
+        Assert.AreEqual(a, b);
+        Assert.AreEqual(a.GetHashCode(), b.GetHashCode());
+    }
+
+    [TestMethod]
+    public void Equals_DifferentForceInclude_ReturnsFalse()
+    {
+        var a = new MustSee(42L, Priority.High, forceIncludeDespiteWeather: true);
+        var b = new MustSee(42L, Priority.High, forceIncludeDespiteWeather: false);
+
+        Assert.AreNotEqual(a, b);
+    }
 }
