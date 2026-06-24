@@ -90,7 +90,7 @@ public sealed class ToggleActivityCompletionHandlerTests
 
         // Act - toggle activity 100 (Museum, day 0, morning block) to completed
         var result = await _handler.Handle(
-            new ToggleActivityCompletion(tripId, 0, 100L, request, "user-42"),
+            new ToggleActivityCompletion(tripId, 0, request, "user-42"),
             CancellationToken.None);
 
         // Assert
@@ -119,7 +119,7 @@ public sealed class ToggleActivityCompletionHandlerTests
 
         // Act
         var result = await _handler.Handle(
-            new ToggleActivityCompletion(tripId, 0, 100L, request, "user-42"),
+            new ToggleActivityCompletion(tripId, 0, request, "user-42"),
             CancellationToken.None);
 
         // Assert
@@ -144,7 +144,7 @@ public sealed class ToggleActivityCompletionHandlerTests
 
         var request = new ActivityCompletionRequest(101L, true);
         var result = await _handler.Handle(
-            new ToggleActivityCompletion(tripId, 0, 101L, request, "user-42"),
+            new ToggleActivityCompletion(tripId, 0, request, "user-42"),
             CancellationToken.None);
 
         Assert.IsNotNull(result);
@@ -165,7 +165,7 @@ public sealed class ToggleActivityCompletionHandlerTests
 
         var request = new ActivityCompletionRequest(200L, true);
         var result = await _handler.Handle(
-            new ToggleActivityCompletion(tripId, 0, 200L, request, "user-42"),
+            new ToggleActivityCompletion(tripId, 0, request, "user-42"),
             CancellationToken.None);
 
         Assert.IsNotNull(result);
@@ -186,7 +186,7 @@ public sealed class ToggleActivityCompletionHandlerTests
 
         var request = new ActivityCompletionRequest(300L, true);
         var result = await _handler.Handle(
-            new ToggleActivityCompletion(tripId, 0, 300L, request, "user-42"),
+            new ToggleActivityCompletion(tripId, 0, request, "user-42"),
             CancellationToken.None);
 
         Assert.IsNotNull(result);
@@ -208,7 +208,7 @@ public sealed class ToggleActivityCompletionHandlerTests
         var request = new ActivityCompletionRequest(999L, true);
         var exception = await CatchExceptionAsync<ActivityNotFoundException>(
             () => _handler.Handle(
-                new ToggleActivityCompletion(tripId, 0, 999L, request, "user-42"),
+                new ToggleActivityCompletion(tripId, 0, request, "user-42"),
                 CancellationToken.None));
 
         Assert.IsNotNull(exception);
@@ -227,7 +227,7 @@ public sealed class ToggleActivityCompletionHandlerTests
         var request = new ActivityCompletionRequest(100L, true);
         var exception = await CatchExceptionAsync<DayNotFoundException>(
             () => _handler.Handle(
-                new ToggleActivityCompletion(tripId, 99, 100L, request, "user-42"),
+                new ToggleActivityCompletion(tripId, 99, request, "user-42"),
                 CancellationToken.None));
 
         Assert.IsNotNull(exception);
@@ -266,11 +266,51 @@ public sealed class ToggleActivityCompletionHandlerTests
 
         var exception = await CatchExceptionAsync<BusinessRuleException>(
             () => _handler.Handle(
-                new ToggleActivityCompletion(tripId, 0, 100L, request, "user-42"),
+                new ToggleActivityCompletion(tripId, 0, request, "user-42"),
                 CancellationToken.None));
 
         Assert.IsNotNull(exception);
         StringAssert.Contains(exception!.Message, "Cannot complete an activity in a future day");
+        _tripRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task Handle_NoDays_ThrowsBusinessRuleException()
+    {
+        // Arrange - trip with no days (itinerary not generated)
+        var city = new City("madrid-es", "Madrid", true);
+        var trip = new Trip
+        {
+            TripId = Guid.NewGuid(),
+            TripCode = "MAD-2026-NOD",
+            CityId = 1L,
+            City = city,
+            StartDate = new DateOnly(2026, 7, 1),
+            EndDate = new DateOnly(2026, 7, 3),
+            BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
+            Travelers = new Travelers(2, 0, 0),
+            Preferences = new TripPreferences(),
+            DefaultStartTime = new TimeOnly(9, 0),
+            OwnerUserId = "user-42",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        // No days generated
+        var tripId = trip.TripId;
+
+        _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(trip);
+
+        var request = new ActivityCompletionRequest(100L, true);
+
+        // Act
+        var exception = await CatchExceptionAsync<BusinessRuleException>(
+            () => _handler.Handle(
+                new ToggleActivityCompletion(tripId, 0, request, "user-42"),
+                CancellationToken.None));
+
+        // Assert
+        Assert.IsNotNull(exception);
+        StringAssert.Contains(exception!.Message, "Itinerary not generated");
         _tripRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
@@ -284,7 +324,7 @@ public sealed class ToggleActivityCompletionHandlerTests
         var request = new ActivityCompletionRequest(100L, true);
         var exception = await CatchExceptionAsync<TripNotFoundException>(
             () => _handler.Handle(
-                new ToggleActivityCompletion(tripId, 0, 100L, request, "user-42"),
+                new ToggleActivityCompletion(tripId, 0, request, "user-42"),
                 CancellationToken.None));
 
         Assert.IsNotNull(exception);
@@ -302,7 +342,7 @@ public sealed class ToggleActivityCompletionHandlerTests
         var request = new ActivityCompletionRequest(100L, true);
         var exception = await CatchExceptionAsync<TripForbiddenException>(
             () => _handler.Handle(
-                new ToggleActivityCompletion(tripId, 0, 100L, request, "user-42"),
+                new ToggleActivityCompletion(tripId, 0, request, "user-42"),
                 CancellationToken.None));
 
         Assert.IsNotNull(exception);
@@ -323,7 +363,7 @@ public sealed class ToggleActivityCompletionHandlerTests
 
         var request = new ActivityCompletionRequest(100L, true);
         var result = await _handler.Handle(
-            new ToggleActivityCompletion(tripId, 0, 100L, request, "user-42"),
+            new ToggleActivityCompletion(tripId, 0, request, "user-42"),
             CancellationToken.None);
 
         // 3 completed: 100 (just toggled) + 200 + 300

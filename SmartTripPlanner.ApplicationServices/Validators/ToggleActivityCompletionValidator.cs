@@ -12,8 +12,5 @@ public class ToggleActivityCompletionValidator : AbstractValidator<ToggleActivit
 
         RuleFor(x => x.DayIndex)
             .GreaterThanOrEqualTo(0);
-
-        RuleFor(x => x.PlaceId)
-            .GreaterThan(0);
     }
 }

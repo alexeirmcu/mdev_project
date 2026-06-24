@@ -27,10 +27,7 @@ public class RefreshWeatherHandler(
             throw new TripForbiddenException(request.TripId, userContext.UserId);
 
         if (trip.Days.Count == 0)
-        {
-            logger.LogInformation("Trip {TripId} has no days — refresh weather is a no-op", request.TripId);
-            return new WeatherRefreshResult(false, 0, Array.Empty<DayWeatherChange>());
-        }
+            throw new BusinessRuleException("Itinerary not generated");
 
         var forecast = await weatherProvider.GetWeatherAsync(
             trip.CityId, trip.StartDate, trip.EndDate, ct);

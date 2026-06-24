@@ -30,8 +30,15 @@ public class TripSmartReplanHandler(
         if (trip.OwnerUserId != userContext.UserId)
             throw new TripForbiddenException(request.TripId, userContext.UserId);
 
+        if (trip.Days.Count == 0)
+            throw new BusinessRuleException("Itinerary not generated");
+
         var currentDateTime = request.Request.CurrentDateTime;
         var currentDate = DateOnly.FromDateTime(currentDateTime);
+        if (currentDate < trip.StartDate)
+            throw new BusinessRuleException(
+                $"Cannot replan a trip that hasn't started yet — current date {currentDate:yyyy-MM-dd} is before trip start {trip.StartDate:yyyy-MM-dd}");
+
         if (currentDate > trip.EndDate)
             throw new BusinessRuleException("Current time is after the trip end");
 

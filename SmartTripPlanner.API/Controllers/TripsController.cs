@@ -157,7 +157,7 @@ public class TripsController : ControllerBase
     /// <summary>
     /// Toggles the completion status of an activity within a specific day.
     /// </summary>
-    [HttpPatch("{tripId:guid}/days/{dayIndex:int}/activities/{placeId:long}/complete")]
+    [HttpPatch("{tripId:guid}/days/{dayIndex:int}/completion")]
     [ProducesResponseType(typeof(ActivityCompletionResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -165,11 +165,10 @@ public class TripsController : ControllerBase
     public async Task<IActionResult> ToggleActivityCompletion(
         Guid tripId,
         int dayIndex,
-        long placeId,
         [FromBody] ActivityCompletionRequest request,
         CancellationToken ct)
     {
-        var command = new ToggleActivityCompletion(tripId, dayIndex, placeId, request, _userContext.UserId);
+        var command = new ToggleActivityCompletion(tripId, dayIndex, request, _userContext.UserId);
         var result = await _mediator.Send(command, ct);
         return Ok(result);
     }

@@ -169,49 +169,9 @@ public sealed class RefreshWeatherHandlerTests
     }
 
     [TestMethod]
-    public async Task Handle_PastTrip_NoOpReturnsEmpty()
+    public async Task Handle_NoDays_ThrowsBusinessRuleException()
     {
-        // Arrange - past trip (no days generated)
-        var city = new City("madrid-es", "Madrid", true);
-        var trip = new Trip
-        {
-            TripId = Guid.NewGuid(),
-            TripCode = "MAD-2026-PAST",
-            CityId = 1L,
-            City = city,
-            StartDate = new DateOnly(2020, 1, 1),
-            EndDate = new DateOnly(2020, 1, 3),
-            BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
-            Travelers = new Travelers(2, 0, 0),
-            Preferences = new TripPreferences(),
-            DefaultStartTime = new TimeOnly(9, 0),
-            OwnerUserId = "user-42",
-            CreatedAt = DateTimeOffset.UtcNow
-        };
-        // Do NOT generate days - simulate a past trip with no itinerary
-        var tripId = trip.TripId;
-
-        _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(trip);
-
-        // Act
-        var result = await _handler.Handle(new RefreshWeather(tripId, "user-42"), CancellationToken.None);
-
-        // Assert
-        Assert.IsFalse(result.Updated);
-        Assert.AreEqual(0, result.DaysRefreshed);
-        Assert.AreEqual(0, result.Changes.Count);
-
-        _weatherProviderMock.Verify(
-            w => w.GetWeatherAsync(It.IsAny<long>(), It.IsAny<DateOnly>(), It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()),
-            Times.Never);
-        _tripRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
-    }
-
-    [TestMethod]
-    public async Task Handle_EmptyDays_NoOpReturnsEmpty()
-    {
-        // Arrange - trip with no days
+        // Arrange - trip with no days (itinerary not generated)
         var city = new City("madrid-es", "Madrid", true);
         var trip = new Trip
         {
@@ -235,13 +195,12 @@ public sealed class RefreshWeatherHandlerTests
             .ReturnsAsync(trip);
 
         // Act
-        var result = await _handler.Handle(new RefreshWeather(tripId, "user-42"), CancellationToken.None);
+        var exception = await CatchExceptionAsync<BusinessRuleException>(
+            () => _handler.Handle(new RefreshWeather(tripId, "user-42"), CancellationToken.None));
 
         // Assert
-        Assert.IsFalse(result.Updated);
-        Assert.AreEqual(0, result.DaysRefreshed);
-        Assert.AreEqual(0, result.Changes.Count);
-
+        Assert.IsNotNull(exception);
+        StringAssert.Contains(exception!.Message, "Itinerary not generated");
         _weatherProviderMock.Verify(
             w => w.GetWeatherAsync(It.IsAny<long>(), It.IsAny<DateOnly>(), It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()),
             Times.Never);

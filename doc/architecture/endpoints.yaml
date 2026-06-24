@@ -188,7 +188,86 @@ paths:
                 items:
                   $ref: '#/components/schemas/ValidationResult'
 
-  /trips/{tripId}/days/{dayIndex}/activities/{placeId}/complete:
+  /trips/{tripId}/weather-refresh:
+    post:
+      summary: Refresh weather data for a trip
+      description: Fetches updated weather forecasts for all trip days and marks days as stale when the weather condition changes. Returns a summary of which days changed and their previous/new weather states.
+      operationId: refreshWeather
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Weather refreshed successfully. Returns changes summary even if no days changed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeatherRefreshResult'
+        '404':
+          description: Trip not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: User does not own the trip.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /trips/{tripId}/days/{dayIndex}/regenerate:
+    post:
+      summary: Regenerate activities for a specific day
+      description: Uses the replanning engine to rebuild all activities for a single day while preserving completed activities and must-see constraints. Useful when a day becomes stale after weather changes or manual adjustments.
+      operationId: regenerateDay
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: dayIndex
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 0
+            description: Zero-based day index within the trip itinerary.
+      responses:
+        '200':
+          description: Day regenerated successfully.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TripPlanResponse'
+        '404':
+          description: Trip or day not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: User does not own the trip.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Itinerary not generated yet or day index out of range.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValidationResult'
+
+  /trips/{tripId}/days/{dayIndex}/completion:
     patch:
       summary: Toggle an activity completion status
       description: Atomically toggles the completion status of a specific activity within a day block of the trip itinerary.
@@ -206,14 +285,6 @@ paths:
           schema:
             type: integer
             minimum: 0
-        - name: placeId
-          in: path
-          required: true
-          schema:
-            type: integer
-            format: int64
-          description: Internal PlaceId (long), not the ProviderReferenceId.
-          example: 42
       requestBody:
         required: true
         content:
@@ -523,7 +594,11 @@ components:
         scope:
           type: string
           enum: [CurrentBlock, CurrentDay, RemainingTrip]
-          example: "CurrentDay"
+          description: |
+            Determines the replanning boundary from the traveler's current day and block forward.
+            - `CurrentBlock`: Replanifies only the current block (Morning, Afternoon, or Evening). Use when only the immediate block is affected.
+            - `CurrentDay`: Replanifies the current block and all remaining blocks in the current day. This is the default if an unrecognized scope is provided.
+            - `RemainingTrip`: Replanifies from the current block through the end of the trip. Use for major disruptions (weather, cancellations) that affect the entire remaining itinerary.
         currentBlockWeather:
           type: string
           enum: [Good, Bad]

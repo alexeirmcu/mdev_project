@@ -268,43 +268,67 @@ public sealed class TripSmartReplanHandlerTests
     }
 
     [TestMethod]
-    public async Task Handle_CurrentDateTimeBeforeTripStart_ResolvesDay0()
+    public async Task Handle_BeforeTripStart_ThrowsBusinessRuleException()
     {
         var trip = CreateTrip();
         var tripId = trip.TripId;
 
         _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(trip);
-        _placeRepoMock.Setup(r => r.GetManyByCityIdAsync(
-                It.IsAny<long>(), null, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<Place>());
-        _weatherProviderMock.Setup(w => w.GetWeatherAsync(
-                It.IsAny<long>(), It.IsAny<DateOnly>(), It.IsAny<DateOnly>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Dictionary<DateOnly, WeatherCondition>());
-        _engineMock.Setup(e => e.ReplanAsync(
-                It.IsAny<Trip>(), It.IsAny<ReplanContext>(),
-                It.IsAny<IReadOnlyList<Place>>(),
-                It.IsAny<Dictionary<DateOnly, WeatherCondition>>(),
-                It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
 
-        // Before trip start
+        // CurrentDateTime before trip start (June 30, trip starts July 1)
         var payload = new TripSmartReplanRequest(
             new DateTime(2026, 6, 30, 10, 0, 0, DateTimeKind.Utc),
             "CurrentDay",
             WeatherCondition.Good);
-        var result = await _handler.Handle(
-            new TripSmartReplan(tripId, payload, "user-42"), CancellationToken.None);
 
-        Assert.IsNotNull(result);
-        _engineMock.Verify(e => e.ReplanAsync(
-            trip,
-            It.Is<ReplanContext>(ctx =>
-                ctx.CurrentDayIndex == 0 &&
-                ctx.CurrentBlock == BlockType.Morning),
-            It.IsAny<IReadOnlyList<Place>>(),
-            It.IsAny<Dictionary<DateOnly, WeatherCondition>>(),
-            It.IsAny<CancellationToken>()), Times.Once);
+        var exception = await CatchExceptionAsync<BusinessRuleException>(
+            () => _handler.Handle(new TripSmartReplan(tripId, payload, "user-42"), CancellationToken.None));
+
+        Assert.IsNotNull(exception);
+        StringAssert.Contains(exception!.Message, "hasn't started yet");
+        _tripRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task Handle_NoDays_ThrowsBusinessRuleException()
+    {
+        // Arrange - trip with no days (itinerary not generated)
+        var city = new City("madrid-es", "Madrid", true);
+        var trip = new Trip
+        {
+            TripId = Guid.NewGuid(),
+            TripCode = "MAD-2026-NOD",
+            CityId = 1L,
+            City = city,
+            StartDate = new DateOnly(2026, 7, 1),
+            EndDate = new DateOnly(2026, 7, 3),
+            BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
+            Travelers = new Travelers(2, 0, 0),
+            Preferences = new TripPreferences(),
+            DefaultStartTime = new TimeOnly(9, 0),
+            OwnerUserId = "user-42",
+            CreatedAt = DateTimeOffset.UtcNow
+        };
+        // No days generated
+        var tripId = trip.TripId;
+
+        _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(trip);
+
+        var payload = new TripSmartReplanRequest(
+            new DateTime(2026, 7, 1, 10, 0, 0, DateTimeKind.Utc),
+            "CurrentDay",
+            WeatherCondition.Good);
+
+        // Act
+        var exception = await CatchExceptionAsync<BusinessRuleException>(
+            () => _handler.Handle(new TripSmartReplan(tripId, payload, "user-42"), CancellationToken.None));
+
+        // Assert
+        Assert.IsNotNull(exception);
+        StringAssert.Contains(exception!.Message, "Itinerary not generated");
+        _tripRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Trip>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     private static async Task<T?> CatchExceptionAsync<T>(Func<Task> action) where T : Exception

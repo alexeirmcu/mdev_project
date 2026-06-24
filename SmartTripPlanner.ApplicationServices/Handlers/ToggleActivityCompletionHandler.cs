@@ -26,6 +26,9 @@ public class ToggleActivityCompletionHandler(
         if (trip.OwnerUserId != userContext.UserId)
             throw new TripForbiddenException(request.TripId, userContext.UserId);
 
+        if (trip.Days.Count == 0)
+            throw new BusinessRuleException("Itinerary not generated");
+
         if (request.DayIndex < 0 || request.DayIndex >= trip.Days.Count)
             throw new DayNotFoundException(request.TripId, request.DayIndex);
 
