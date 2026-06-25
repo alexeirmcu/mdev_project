@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: smart-trip-planner-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    plan: free
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: Jwt__Secret
+        generateValue: true
+      - key: Jwt__Issuer
+        value: smart-trip-planner
+      - key: Jwt__Audience
+        value: smart-trip-planner-api
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: FoursquareApi__ApiKey
+        sync: false
+      - key: LlmApi__ApiKey
+        sync: false
