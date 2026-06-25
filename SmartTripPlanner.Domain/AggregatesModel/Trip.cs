@@ -114,4 +114,25 @@ public class Trip : Entity, IAggregateRoot
 
         _days.AddRange(days);
     }
+
+    public void GenerateDaysFrom(DateOnly startDate)
+    {
+        _days.Clear();
+
+        int dayIndex = 0;
+        for (var date = startDate; date <= EndDate; date = date.AddDays(1))
+        {
+            var day = new DayPlan
+            {
+                DayIndex = dayIndex++,
+                Date = date,
+                Morning = new BlockTimeline { BlockType = BlockType.Morning },
+                Afternoon = new BlockTimeline { BlockType = BlockType.Afternoon },
+                Evening = new BlockTimeline { BlockType = BlockType.Evening }
+            };
+            day.SetWeather(WeatherCondition.Clear);
+            day.UpdateStartTime(DefaultStartTime);
+            _days.Add(day);
+        }
+    }
 }

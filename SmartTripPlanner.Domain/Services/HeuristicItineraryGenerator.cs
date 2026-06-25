@@ -38,7 +38,9 @@ public class HeuristicItineraryGenerator : IItineraryGenerator
         CancellationToken ct)
     {
         // Phase 1: Create empty DayPlans for each trip day
-        trip.GenerateDays();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var effectiveStart = trip.StartDate < today ? today : trip.StartDate;
+        trip.GenerateDaysFrom(effectiveStart);
 
         // Build lookup structures
         var placesById = allPlaces.ToDictionary(p => p.Id);
