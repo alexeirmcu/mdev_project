@@ -8,9 +8,9 @@ public class DayPlan : Entity
     public int DayIndex { get; init; }
     public DateOnly Date { get; init; }
     public WeatherCondition WeatherSummary { get; private set; }
-    public required BlockTimeline Morning { get; init; }
-    public required BlockTimeline Afternoon { get; init; }
-    public required BlockTimeline Evening { get; init; }
+    public required BlockTimeline Morning { get; set; }
+    public required BlockTimeline Afternoon { get; set; }
+    public required BlockTimeline Evening { get; set; }
     public TimeOnly StartTime { get; private set; } = new TimeOnly(9, 0);
     public bool IsStale { get; private set; }
     public DateTimeOffset? WeatherLastUpdatedAt { get; private set; }

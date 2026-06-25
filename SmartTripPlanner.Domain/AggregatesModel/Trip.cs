@@ -83,38 +83,6 @@ public class Trip : Entity, IAggregateRoot
         _days.Clear();
     }
 
-    public void GenerateDays()
-    {
-        _days.Clear();
-
-        var start = StartDate;
-        var end = EndDate;
-        int dayIndex = 0;
-
-        for (var date = start; date <= end; date = date.AddDays(1))
-        {
-            var day = new DayPlan
-            {
-                DayIndex = dayIndex++,
-                Date = date,
-                Morning = new BlockTimeline { BlockType = BlockType.Morning },
-                Afternoon = new BlockTimeline { BlockType = BlockType.Afternoon },
-                Evening = new BlockTimeline { BlockType = BlockType.Evening }
-            };
-            day.SetWeather(WeatherCondition.Clear);
-            day.UpdateStartTime(DefaultStartTime);
-            _days.Add(day);
-        }
-    }
-
-    public void GenerateDays(IEnumerable<DayPlan> days)
-    {
-        if (_days.Any())
-            throw new SmartTripDomainException("Days have already been generated for this trip");
-
-        _days.AddRange(days);
-    }
-
     public void GenerateDaysFrom(DateOnly startDate)
     {
         _days.Clear();
@@ -135,4 +103,5 @@ public class Trip : Entity, IAggregateRoot
             _days.Add(day);
         }
     }
+
 }

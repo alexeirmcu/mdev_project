@@ -63,7 +63,7 @@ public sealed class RegenerateDayHandlerTests
             OwnerUserId = ownerUserId,
             CreatedAt = DateTimeOffset.UtcNow
         };
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         return trip;
     }
 

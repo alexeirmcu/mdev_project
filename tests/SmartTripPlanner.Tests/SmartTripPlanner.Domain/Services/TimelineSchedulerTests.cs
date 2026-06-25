@@ -47,16 +47,11 @@ public sealed class TimelineSchedulerTests
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        var day = new DayPlan
-        {
-            DayIndex = 0,
-            Date = new DateOnly(2026, 7, 1),
-            Morning = morning,
-            Afternoon = afternoon ?? new BlockTimeline { BlockType = BlockType.Afternoon },
-            Evening = evening ?? new BlockTimeline { BlockType = BlockType.Evening }
-        };
-
-        trip.GenerateDays(new[] { day });
+        trip.GenerateDaysFrom(trip.StartDate);
+        var day = trip.Days[0];
+        day.Morning = morning;
+        day.Afternoon = afternoon ?? new BlockTimeline { BlockType = BlockType.Afternoon };
+        day.Evening = evening ?? new BlockTimeline { BlockType = BlockType.Evening };
         return trip;
     }
 

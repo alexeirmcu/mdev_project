@@ -166,7 +166,7 @@ public sealed class GenerateTripItineraryHandlerTests
     public async Task Handle_GeneratedTrip_RegeneratesItinerary()
     {
         var trip = CreateTrip();
-        trip.GenerateDays(); // creates skeleton days
+        trip.GenerateDaysFrom(trip.StartDate); // creates skeleton days
         var tripId = trip.TripId;
         var initialDayCount = trip.Days.Count;
 
@@ -266,7 +266,7 @@ public sealed class GenerateTripItineraryHandlerTests
     {
         var trip = CreateTrip();
         var tripId = trip.TripId;
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         var place1 = CreatePlaceEntity(100L);
         var place2 = CreatePlaceEntity(101L);
         var place3 = CreatePlaceEntity(102L);
@@ -320,7 +320,7 @@ public sealed class GenerateTripItineraryHandlerTests
     {
         var trip = CreateTrip();
         var tripId = trip.TripId;
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         var enrichedPlace1 = CreatePlaceEntity(100L);
         typeof(Place).GetProperty("IsEnriched")!.SetValue(enrichedPlace1, true);
 
@@ -367,7 +367,7 @@ public sealed class GenerateTripItineraryHandlerTests
     {
         var trip = CreateTrip();
         var tripId = trip.TripId;
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         var unenrichedPlace = CreatePlaceEntity(100L);
 
         trip.Days[0].AddActivity(BlockType.Morning, new ActivityNode(unenrichedPlace.Id, "Activity 1", 0, 60));

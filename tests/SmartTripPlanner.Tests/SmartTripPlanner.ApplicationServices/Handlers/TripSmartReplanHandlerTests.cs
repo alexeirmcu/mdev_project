@@ -63,7 +63,7 @@ public sealed class TripSmartReplanHandlerTests
             OwnerUserId = ownerUserId,
             CreatedAt = DateTimeOffset.UtcNow
         };
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         return trip;
     }
 

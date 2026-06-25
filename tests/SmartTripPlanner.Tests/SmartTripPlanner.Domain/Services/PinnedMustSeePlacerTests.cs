@@ -42,7 +42,7 @@ public sealed class PinnedMustSeePlacerTests
             trip.AddMustSee(ms);
 
         // Pre-generate days manually to test placement without running full generator
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
 
         return trip;
     }

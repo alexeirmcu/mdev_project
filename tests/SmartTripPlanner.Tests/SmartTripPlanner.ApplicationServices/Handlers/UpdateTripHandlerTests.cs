@@ -305,7 +305,7 @@ public sealed class UpdateTripHandlerTests
     public async Task Handle_UpdateOnGeneratedTrip_ClearsDaysAndResetsStatus()
     {
         var trip = CreateTrip();
-        trip.GenerateDays(); // creates skeleton days
+        trip.GenerateDaysFrom(trip.StartDate); // creates skeleton days
         var tripId = trip.TripId;
 
         _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
@@ -331,7 +331,7 @@ public sealed class UpdateTripHandlerTests
     public async Task Handle_UpdateMustSeeOnGeneratedTrip_ClearsDaysAndResetsStatus()
     {
         var trip = CreateTrip();
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         trip.AddMustSee(new MustSee(1L, Priority.High));
         var tripId = trip.TripId;
 
@@ -359,7 +359,7 @@ public sealed class UpdateTripHandlerTests
     public async Task Handle_EmptyUpdate_DoesNotChangeStatus()
     {
         var trip = CreateTrip();
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         var tripId = trip.TripId;
         var initialDayCount = trip.Days.Count;
 

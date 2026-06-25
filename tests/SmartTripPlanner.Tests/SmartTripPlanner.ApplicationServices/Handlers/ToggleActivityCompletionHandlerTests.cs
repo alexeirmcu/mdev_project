@@ -56,7 +56,7 @@ public sealed class ToggleActivityCompletionHandlerTests
             OwnerUserId = ownerUserId,
             CreatedAt = DateTimeOffset.UtcNow
         };
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
 
         // Add activities across blocks
         trip.Days[0].Morning.ForceAddActivity(
@@ -254,7 +254,7 @@ public sealed class ToggleActivityCompletionHandlerTests
             OwnerUserId = "user-42",
             CreatedAt = DateTimeOffset.UtcNow
         };
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         trip.Days[0].Morning.ForceAddActivity(
             new ActivityNode(100L, "Museum", 1, 120, true));
         var tripId = trip.TripId;

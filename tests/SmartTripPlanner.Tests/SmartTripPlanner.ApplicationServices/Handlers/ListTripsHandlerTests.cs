@@ -75,7 +75,7 @@ public sealed class ListTripsHandlerTests
     {
         var city = CreateCity();
         var trip = CreateTrip(city: city);
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
 
         // Day 0 - Morning: 1 activity, Afternoon: 1 activity, Evening: 0
         trip.Days[0].Morning.ForceAddActivity(

@@ -57,7 +57,7 @@ public sealed class UnpinnedMustSeePlacerTests
         foreach (var ms in mustSees)
             trip.AddMustSee(ms);
 
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
 
         return trip;
     }

@@ -27,10 +27,10 @@ public sealed class TripTests
     }
 
     [TestMethod]
-    public void GenerateDays_CreatesCorrectNumberOfDayPlans()
+    public void GenerateDaysFrom_CreatesCorrectNumberOfDayPlans()
     {
         var trip = CreateTrip(); // June 1 to June 3 = 3 days
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         Assert.AreEqual(3, trip.Days.Count);
         Assert.AreEqual(new DateOnly(2026, 6, 1), trip.Days[0].Date);
         Assert.AreEqual(new DateOnly(2026, 6, 2), trip.Days[1].Date);
@@ -38,22 +38,22 @@ public sealed class TripTests
     }
 
     [TestMethod]
-    public void GenerateDays_ClearsExistingDays()
+    public void GenerateDaysFrom_ClearsExistingDays()
     {
         var trip = CreateTrip();
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         Assert.AreEqual(3, trip.Days.Count);
 
-        // Call GenerateDays again — must clear and regenerate
-        trip.GenerateDays();
+        // Call GenerateDaysFrom again — must clear and regenerate
+        trip.GenerateDaysFrom(trip.StartDate);
         Assert.AreEqual(3, trip.Days.Count);
     }
 
     [TestMethod]
-    public void GenerateDays_SetsCorrectBlockTypes()
+    public void GenerateDaysFrom_SetsCorrectBlockTypes()
     {
         var trip = CreateTrip();
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         var day = trip.Days[0];
         Assert.AreEqual(BlockType.Morning, day.Morning.BlockType);
         Assert.AreEqual(BlockType.Afternoon, day.Afternoon.BlockType);
@@ -61,10 +61,10 @@ public sealed class TripTests
     }
 
     [TestMethod]
-    public void GenerateDays_SetsDayIndexSequentially()
+    public void GenerateDaysFrom_SetsDayIndexSequentially()
     {
         var trip = CreateTrip();
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         for (int i = 0; i < trip.Days.Count; i++)
             Assert.AreEqual(i, trip.Days[i].DayIndex);
     }
@@ -118,7 +118,7 @@ public sealed class TripTests
     public void ClearDaysAndReset_ClearsDays()
     {
         var trip = CreateTrip();
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         Assert.AreEqual(3, trip.Days.Count);
 
         trip.ClearDaysAndReset();

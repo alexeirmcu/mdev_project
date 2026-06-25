@@ -143,7 +143,7 @@ public sealed class ItineraryReplanningEngineTests
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         return trip;
     }
 

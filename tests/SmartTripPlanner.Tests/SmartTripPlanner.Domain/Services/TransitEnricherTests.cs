@@ -66,7 +66,7 @@ public sealed class TransitEnricherTests
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         return trip;
     }
 

@@ -54,7 +54,7 @@ public sealed class CandidateFillerTests
         foreach (var ms in mustSees)
             trip.AddMustSee(ms);
 
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
 
         return trip;
     }
@@ -114,7 +114,7 @@ public sealed class CandidateFillerTests
             .Returns(10.0);
 
         // Manually place the must-see
-        trip.GenerateDays();
+        trip.GenerateDaysFrom(trip.StartDate);
         var activity = ItineraryGeneratorHelpers.CreateActivityNode(mustSeePlace, 1);
         trip.Days[0].AddActivity(BlockType.Morning, activity);
 
