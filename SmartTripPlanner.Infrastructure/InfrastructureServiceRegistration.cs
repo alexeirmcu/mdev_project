@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using SmartTripPlanner.Domain.Base;
 using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Domain.Repository;
@@ -22,6 +23,19 @@ public static class InfrastructureServiceRegistration
         services.AddDbContext<PlannerDbContext>(options =>
             options.UseNpgsql(connectionString));
 
+        return services.RegisterInfrastructureServices();
+    }
+
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, NpgsqlDataSource dataSource)
+    {
+        services.AddDbContext<PlannerDbContext>(options =>
+            options.UseNpgsql(dataSource));
+
+        return services.RegisterInfrastructureServices();
+    }
+
+    private static IServiceCollection RegisterInfrastructureServices(this IServiceCollection services)
+    {
         services.AddScoped<IUnitOfWork>(provider => provider.GetRequiredService<PlannerDbContext>());
 
         services.AddScoped<ICityRepository, CityRepository>();
