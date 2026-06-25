@@ -183,6 +183,119 @@ public sealed class TransitEnricherTests
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
+    // MaxWalkingMinutes tests
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task EnrichAsync_WalkingBelowMaxWalkingMinutes_KeepsExistingBehavior()
+    {
+        // Walking estimate: (0.4/5)*60*0.3 = 1.44 min < default 30 → no guard trigger
+        var trip = CreateTrip(dayCount: 1);
+
+        var loc1 = new PlaceLocation(40.4168, -3.7038);
+        var loc2 = new PlaceLocation(40.4200, -3.7100); // ~0.4 km away
+
+        var act1 = new ActivityNode(1, "Place A", 1, 60, location: loc1);
+        var act2 = new ActivityNode(2, "Place B", 2, 60, location: loc2);
+        trip.Days[0].AddActivity(BlockType.Morning, act1);
+        trip.Days[0].AddActivity(BlockType.Morning, act2);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        // Walking below MaxWalkingMinutes → no alert, no CAR switch
+        Assert.IsNotNull(act1.TransitToNext);
+        Assert.AreEqual(TransportMode.WALK_AND_PUBLIC_TRANSPORT, act1.TransitToNext.TransportMode);
+        Assert.IsFalse(act1.TransitToNext.FrictionAlert, "No friction alert when walking is within limit");
+    }
+
+    [TestMethod]
+    public async Task EnrichAsync_WalkingExceedsMaxWithCarAvailable_SwitchesToCar()
+    {
+        // ~5 km distance: walking = (5/5)*60*0.3 = 18 min
+        // Set MaxWalkingMinutes = 15 so guard triggers
+        // CarAvailable = true so mode switches to CAR
+        var trip = CreateTrip(dayCount: 1);
+        trip.Preferences = new TripPreferences(carAvailable: true, maxWalkingMinutes: 15);
+
+        // ~5 km north of hotel (40.4168, -3.7038)
+        var loc1 = new PlaceLocation(40.4168, -3.7038);
+        var loc2 = new PlaceLocation(40.4618, -3.7038); // ~5 km north
+
+        var act1 = new ActivityNode(1, "Place A", 1, 60, location: loc1);
+        var act2 = new ActivityNode(2, "Place B", 2, 60, location: loc2);
+        trip.Days[0].AddActivity(BlockType.Morning, act1);
+        trip.Days[0].AddActivity(BlockType.Morning, act2);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        Assert.IsNotNull(act1.TransitToNext);
+        Assert.AreEqual(TransportMode.CAR, act1.TransitToNext.TransportMode,
+            "Should switch to CAR when walking exceeds MaxWalkingMinutes and car is available");
+    }
+
+    [TestMethod]
+    public async Task EnrichAsync_WalkingExceedsMaxWithoutCar_SetsFrictionAlert()
+    {
+        // ~5 km distance: walking = (5/5)*60*0.3 = 18 min
+        // Set MaxWalkingMinutes = 15 so guard triggers
+        // CarAvailable = false → keep WALK_AND_PUBLIC_TRANSPORT with frictionAlert = true
+        var trip = CreateTrip(dayCount: 1);
+        trip.Preferences = new TripPreferences(carAvailable: false, maxWalkingMinutes: 15);
+
+        var loc1 = new PlaceLocation(40.4168, -3.7038);
+        var loc2 = new PlaceLocation(40.4618, -3.7038); // ~5 km north
+
+        var act1 = new ActivityNode(1, "Place A", 1, 60, location: loc1);
+        var act2 = new ActivityNode(2, "Place B", 2, 60, location: loc2);
+        trip.Days[0].AddActivity(BlockType.Morning, act1);
+        trip.Days[0].AddActivity(BlockType.Morning, act2);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        Assert.IsNotNull(act1.TransitToNext);
+        Assert.AreEqual(TransportMode.WALK_AND_PUBLIC_TRANSPORT, act1.TransitToNext.TransportMode,
+            "Should keep WALK_AND_PUBLIC_TRANSPORT when no car available");
+        Assert.IsTrue(act1.TransitToNext.FrictionAlert,
+            "Should set FrictionAlert when walking exceeds MaxWalkingMinutes and no car");
+    }
+
+    [TestMethod]
+    public async Task EnrichAsync_WalkingBelowDefaultMaxWalking_UsesExistingBehavior()
+    {
+        // Default MaxWalkingMinutes = 30
+        var trip = CreateTrip(dayCount: 1);
+
+        // ~5 km: walking = (5/5)*60*0.3 = 18 min < 30 → no guard trigger
+        var loc1 = new PlaceLocation(40.4168, -3.7038);
+        var loc2 = new PlaceLocation(40.4618, -3.7038); // ~5 km north
+
+        var act1 = new ActivityNode(1, "Place A", 1, 60, location: loc1);
+        var act2 = new ActivityNode(2, "Place B", 2, 60, location: loc2);
+        trip.Days[0].AddActivity(BlockType.Morning, act1);
+        trip.Days[0].AddActivity(BlockType.Morning, act2);
+
+        await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
+        {
+            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+        }, CancellationToken.None);
+
+        Assert.IsNotNull(act1.TransitToNext);
+        // Default MaxWalkingMinutes (30) > walking estimate (18) → no behavioral change
+        Assert.AreEqual(TransportMode.WALK_AND_PUBLIC_TRANSPORT, act1.TransitToNext.TransportMode);
+        // FrictionAlert depends on mock: distance > 2.0 → true for WALK_AND_PUBLIC_TRANSPORT
+        // This is the mock's existing behavior, not affected by our change
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────────
     // Hotel transit tests
     // ─────────────────────────────────────────────────────────────────────────────
 

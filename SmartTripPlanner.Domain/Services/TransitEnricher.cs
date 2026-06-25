@@ -256,6 +256,24 @@ public class TransitEnricher : ITransitEnricher
             mode = TransportMode.WALK_AND_PUBLIC_TRANSPORT;
         }
 
+        // MaxWalkingMinutes guard: if walking portion exceeds user's limit, adjust
+        if (mode == TransportMode.WALK_AND_PUBLIC_TRANSPORT)
+        {
+            var estimatedWalkingMinutes = (distanceKm / TripPlanningConstants.WalkingSpeedKmh) * 60 * 0.3;
+            if (estimatedWalkingMinutes > preferences.MaxWalkingMinutes)
+            {
+                if (preferences.CarAvailable)
+                {
+                    mode = TransportMode.CAR;
+                }
+                else
+                {
+                    var walkingEstimate = await _transitCalculator.EstimateAsync(from, to, mode, ct);
+                    return new TransitDetails(mode, walkingEstimate.DurationMinutes, walkingEstimate.BufferMinutes, frictionAlert: true);
+                }
+            }
+        }
+
         var estimate = await _transitCalculator.EstimateAsync(from, to, mode, ct);
         return new TransitDetails(mode, estimate.DurationMinutes, estimate.BufferMinutes, estimate.FrictionAlert);
     }
