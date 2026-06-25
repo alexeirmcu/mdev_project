@@ -22,9 +22,13 @@ public class CandidateFiller : ICandidateFiller
             return;
 
         var usedPlaceIds = new HashSet<long>(trip.OriginalMustSees.Select(m => m.PlaceId));
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
 
         foreach (var dayPlan in trip.Days)
         {
+            if (dayPlan.Date < today)
+                continue;
+
             var isBadWeather = weatherData.TryGetValue(dayPlan.Date, out var weather)
                                && weather == WeatherCondition.Bad;
 
@@ -88,8 +92,13 @@ public class CandidateFiller : ICandidateFiller
         foreach (var id in excludePlaceIds)
             usedPlaceIds.Add(id);
 
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
         foreach (var dayPlan in trip.Days)
         {
+            if (dayPlan.Date < today)
+                continue;
+
             var isBadWeather = weatherData.TryGetValue(dayPlan.Date, out var weather)
                                && weather == WeatherCondition.Bad;
 
