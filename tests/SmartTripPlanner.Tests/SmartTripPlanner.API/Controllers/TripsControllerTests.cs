@@ -298,4 +298,72 @@ public sealed class TripsControllerTests
 
         _mediatorMock.Verify(m => m.Send(It.Is<DeleteTrip>(c => c.TripId == tripId), It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Test: GET /api/trips
+    // ─────────────────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task ListTrips_ReturnsOkWithResponse()
+    {
+        var expected = new List<TripSummaryResponse>
+        {
+            new(
+                Guid.NewGuid(),
+                1L,
+                "madrid-es",
+                "Madrid",
+                new DateOnly(2026, 6, 15),
+                new DateOnly(2026, 6, 18),
+                3,
+                2,
+                8)
+        };
+
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<ListTrips>(q =>
+                q.CityCode == "madrid-es" &&
+                q.StartDate == new DateOnly(2026, 6, 1) &&
+                q.EndDate == new DateOnly(2026, 6, 30)), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        var act = await _controller.ListTrips(
+            "madrid-es",
+            new DateOnly(2026, 6, 1),
+            new DateOnly(2026, 6, 30),
+            CancellationToken.None);
+
+        var okResult = act as OkObjectResult;
+        Assert.IsNotNull(okResult);
+        Assert.AreEqual(StatusCodes.Status200OK, okResult.StatusCode);
+
+        var body = okResult.Value as List<TripSummaryResponse>;
+        Assert.IsNotNull(body);
+        Assert.AreEqual(1, body.Count);
+        Assert.AreEqual("madrid-es", body[0].CityCode);
+    }
+
+    [TestMethod]
+    public async Task ListTrips_WithoutFilters_PassesNullsToQuery()
+    {
+        var expected = new List<TripSummaryResponse>();
+
+        _mediatorMock
+            .Setup(m => m.Send(It.Is<ListTrips>(q =>
+                q.CityCode == null &&
+                q.StartDate == null &&
+                q.EndDate == null), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(expected);
+
+        var act = await _controller.ListTrips(null, null, null, CancellationToken.None);
+
+        var okResult = act as OkObjectResult;
+        Assert.IsNotNull(okResult);
+        Assert.AreEqual(StatusCodes.Status200OK, okResult.StatusCode);
+
+        _mediatorMock.Verify(m => m.Send(It.Is<ListTrips>(q =>
+            q.CityCode == null &&
+            q.StartDate == null &&
+            q.EndDate == null), It.IsAny<CancellationToken>()), Times.Once);
+    }
 }

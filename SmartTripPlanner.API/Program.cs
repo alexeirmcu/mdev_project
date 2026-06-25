@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Mvc;
 using OpenAI;
 using SmartTripPlanner.API.Middleware;
 using SmartTripPlanner.API.Services;
@@ -20,7 +21,22 @@ using SmartTripPlanner.Infrastructure.LLM;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var errors = context.ModelState
+                .Where(e => e.Value?.Errors.Count > 0)
+                .SelectMany(e => e.Value!.Errors)
+                .Select(e => new SmartTripPlanner.Domain.ApiModels.ValidationResult(
+                    SmartTripPlanner.Domain.ApiModels.ErrorCode.VALIDATION_ERROR,
+                    e.ErrorMessage))
+                .ToList();
+
+            return new UnprocessableEntityObjectResult(errors);
+        };
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();

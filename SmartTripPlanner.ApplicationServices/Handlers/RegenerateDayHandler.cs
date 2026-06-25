@@ -34,6 +34,11 @@ public class RegenerateDayHandler(
         if (request.DayIndex < 0 || request.DayIndex >= trip.Days.Count)
             throw new DayNotFoundException(request.TripId, request.DayIndex);
 
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        if (trip.Days[request.DayIndex].Date < today)
+            throw new BusinessRuleException(
+                $"Cannot regenerate day {request.DayIndex}: the day ({trip.Days[request.DayIndex].Date}) is in the past.");
+
         var candidates = await placeRepository.GetManyByCityIdAsync(trip.CityId, null, ct);
 
         var weather = await weatherProvider.GetWeatherAsync(

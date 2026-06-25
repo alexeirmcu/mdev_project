@@ -25,6 +25,20 @@ public class AutoMapperProfile : Profile
         CreateMap<Travelers, TravelersInput>();
         CreateMap<TripPreferences, TripPreferencesInput>();
 
+        // Trip → TripSummaryResponse (ListTrips)
+        CreateMap<Trip, TripSummaryResponse>()
+            .ForCtorParam("CityCode", opt => opt.MapFrom(src => src.City.CityCode))
+            .ForCtorParam("CityName", opt => opt.MapFrom(src => src.City.CityName))
+            .ForCtorParam("TotalMustSees", opt => opt.MapFrom(src => src.OriginalMustSees.Count))
+            .ForCtorParam("CompletedActivitiesCount", opt => opt.MapFrom(src =>
+                src.Days.SelectMany(d => new[] { d.Morning, d.Afternoon, d.Evening })
+                       .SelectMany(b => b.Activities)
+                       .Count(a => a.IsCompleted)))
+            .ForCtorParam("TotalActivitiesCount", opt => opt.MapFrom(src =>
+                src.Days.SelectMany(d => new[] { d.Morning, d.Afternoon, d.Evening })
+                       .SelectMany(b => b.Activities)
+                       .Count()));
+
         CreateMap<MustSee, MustSeeResponse>()
             .ForMember(dest => dest.Priority, opt => opt.MapFrom(src => src.Priority.ToString()))
             .ForMember(dest => dest.PinnedBlock, opt => opt.MapFrom(src => src.PinnedBlock.HasValue ? src.PinnedBlock.ToString() : null))

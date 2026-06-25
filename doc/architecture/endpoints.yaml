@@ -158,6 +158,33 @@ paths:
                 items:
                   $ref: '#/components/schemas/ValidationResult'
 
+    delete:
+      summary: Delete a trip
+      description: Permanently deletes a trip. Only the trip owner can delete.
+      operationId: deleteTrip
+      parameters:
+        - name: tripId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Trip deleted successfully. No content.
+        '404':
+          description: Trip not found.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: User does not own the trip.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /trips/{tripId}/generate:
     post:
       summary: Generate trip itinerary
@@ -220,7 +247,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /trips/{tripId}/days/{dayIndex}/regenerate:
+  /trips/{tripId}/regenerate-day:
     post:
       summary: Regenerate activities for a specific day
       description: Uses the replanning engine to rebuild all activities for a single day while preserving completed activities and must-see constraints. Useful when a day becomes stale after weather changes or manual adjustments.
@@ -232,13 +259,12 @@ paths:
           schema:
             type: string
             format: uuid
-        - name: dayIndex
-          in: path
-          required: true
-          schema:
-            type: integer
-            minimum: 0
-            description: Zero-based day index within the trip itinerary.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegenerateDayRequest'
       responses:
         '200':
           description: Day regenerated successfully.
@@ -579,6 +605,17 @@ components:
           type: boolean
           default: false
           description: When true, this must-see is included in the itinerary even if bad weather would normally swap it for an indoor alternative.
+
+    RegenerateDayRequest:
+      type: object
+      required:
+        - dayIndex
+      properties:
+        dayIndex:
+          type: integer
+          minimum: 0
+          description: Zero-based day index within the trip itinerary.
+          example: 1
 
     TripSmartReplanRequest:
       type: object

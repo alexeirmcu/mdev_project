@@ -87,6 +87,23 @@ public class TripsController : ControllerBase
     }
 
     /// <summary>
+    /// Lists all trips for the authenticated user, with optional filters.
+    /// </summary>
+    [HttpGet]
+    [ProducesResponseType(typeof(List<TripSummaryResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> ListTrips(
+        [FromQuery] string? cityCode,
+        [FromQuery] DateOnly? startDate,
+        [FromQuery] DateOnly? endDate,
+        CancellationToken ct)
+    {
+        var query = new ListTrips(cityCode, startDate, endDate);
+        var result = await _mediator.Send(query, ct);
+        return Ok(result);
+    }
+
+    /// <summary>
     /// Deletes a trip by its TripId. Only the owner can delete.
     /// </summary>
     [HttpDelete("{tripId:guid}")]
@@ -121,17 +138,17 @@ public class TripsController : ControllerBase
     /// <summary>
     /// Regenerates activities for a specific day using the replanning engine.
     /// </summary>
-    [HttpPost("{tripId:guid}/days/{dayIndex:int}/regenerate")]
+    [HttpPost("{tripId:guid}/regenerate-day")]
     [ProducesResponseType(typeof(TripPlanResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> RegenerateDay(
         Guid tripId,
-        int dayIndex,
+        [FromBody] RegenerateDayRequest request,
         CancellationToken ct)
     {
-        var command = new RegenerateDay(tripId, dayIndex, _userContext.UserId);
+        var command = new RegenerateDay(tripId, request.DayIndex, _userContext.UserId);
         var result = await _mediator.Send(command, ct);
         return Ok(result);
     }

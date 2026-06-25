@@ -2,7 +2,8 @@ namespace SmartTripPlanner.Domain.ApiModels;
 
 public record TripSummaryResponse(
     Guid TripId,
-    string CityId,
+    long CityId,
+    string CityCode,
     string CityName,
     DateOnly StartDate,
     DateOnly EndDate,
