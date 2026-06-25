@@ -1,0 +1,26 @@
+app = 'smart-trip-planner-api'
+primary_region = 'iad'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+[env]
+  ASPNETCORE_ENVIRONMENT = 'Production'
+  Jwt__Issuer = 'smart-trip-planner'
+  Jwt__Audience = 'smart-trip-planner-api'
+
+[deploy]
+  strategy = 'rolling'
