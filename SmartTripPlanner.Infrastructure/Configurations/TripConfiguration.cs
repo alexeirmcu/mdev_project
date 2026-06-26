@@ -76,6 +76,7 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
             mustSee.ToTable("TripMustSees");
         });
 
+        // DayPlan is owned by Trip; BlockTimeline is owned by DayPlan but stored in its own BlockTimelines table
         builder.OwnsMany(t => t.Days, day =>
         {
             day.WithOwner().HasForeignKey("TripId");
@@ -84,55 +85,24 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
             day.Property(d => d.IsStale).HasColumnName("IsStale").HasDefaultValue(false);
             day.Property(d => d.WeatherLastUpdatedAt).HasColumnName("WeatherLastUpdatedAt");
 
-            day.OwnsOne(d => d.Morning, m =>
+            // BlockTimeline as OwnsMany → mapped to independent BlockTimelines table with FK DayPlanId
+            day.OwnsMany(d => d.Blocks, block =>
             {
-                m.OwnsOne(b => b.TransitFromHotel);
-                m.OwnsOne(b => b.TransitToHotel);
-                m.OwnsOne(b => b.InterBlockTransit);
-                m.OwnsMany(b => b.Activities, a =>
+                block.WithOwner().HasForeignKey("DayPlanId");
+                block.Property<long>("Id");
+                block.HasKey("Id");
+                block.Property(b => b.BlockType).HasConversion<string>().IsRequired();
+                block.HasIndex("DayPlanId", "BlockType").IsUnique();
+
+                block.OwnsOne(b => b.TransitFromHotel);
+                block.OwnsOne(b => b.TransitToHotel);
+                block.OwnsOne(b => b.InterBlockTransit);
+
+                // Single Activities table consolidating all 3 block types
+                block.OwnsMany(b => b.Activities, a =>
                 {
-                    a.ToTable("MorningActivities");
-                    a.WithOwner().HasForeignKey("DayPlanId");
-                    a.Property<long>("Id");
-                    a.HasKey("Id");
-                    a.Property(ac => ac.OvertimeAlert).HasColumnName("OvertimeAlert").HasDefaultValue(false);
-                    a.OwnsOne(ac => ac.TransitToNext);
-                    a.OwnsOne(ac => ac.Location, loc =>
-                    {
-                        loc.Property(l => l.Latitude).HasColumnName("Latitude");
-                        loc.Property(l => l.Longitude).HasColumnName("Longitude");
-                    });
-                });
-            });
-            day.OwnsOne(d => d.Afternoon, m =>
-            {
-                m.OwnsOne(b => b.TransitFromHotel);
-                m.OwnsOne(b => b.TransitToHotel);
-                m.OwnsOne(b => b.InterBlockTransit);
-                m.OwnsMany(b => b.Activities, a =>
-                {
-                    a.ToTable("AfternoonActivities");
-                    a.WithOwner().HasForeignKey("DayPlanId");
-                    a.Property<long>("Id");
-                    a.HasKey("Id");
-                    a.Property(ac => ac.OvertimeAlert).HasColumnName("OvertimeAlert").HasDefaultValue(false);
-                    a.OwnsOne(ac => ac.TransitToNext);
-                    a.OwnsOne(ac => ac.Location, loc =>
-                    {
-                        loc.Property(l => l.Latitude).HasColumnName("Latitude");
-                        loc.Property(l => l.Longitude).HasColumnName("Longitude");
-                    });
-                });
-            });
-            day.OwnsOne(d => d.Evening, m =>
-            {
-                m.OwnsOne(b => b.TransitFromHotel);
-                m.OwnsOne(b => b.TransitToHotel);
-                m.OwnsOne(b => b.InterBlockTransit);
-                m.OwnsMany(b => b.Activities, a =>
-                {
-                    a.ToTable("EveningActivities");
-                    a.WithOwner().HasForeignKey("DayPlanId");
+                    a.ToTable("Activities");
+                    a.WithOwner().HasForeignKey("BlockTimelineId");
                     a.Property<long>("Id");
                     a.HasKey("Id");
                     a.Property(ac => ac.OvertimeAlert).HasColumnName("OvertimeAlert").HasDefaultValue(false);

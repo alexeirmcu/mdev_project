@@ -314,7 +314,7 @@ public sealed class TransitEnricherTests
             { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
         }, CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         Assert.IsNotNull(morning.TransitFromHotel, "TransitFromHotel should be computed when BaseHotel is set");
         Assert.IsNotNull(morning.TransitToHotel, "TransitToHotel should be computed when BaseHotel is set");
         Assert.IsTrue(morning.TransitFromHotel.DurationMinutes > 0);
@@ -335,7 +335,7 @@ public sealed class TransitEnricherTests
             { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
         }, CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         Assert.IsNull(morning.TransitFromHotel);
         Assert.IsNull(morning.TransitToHotel);
     }
@@ -351,7 +351,7 @@ public sealed class TransitEnricherTests
             { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
         }, CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         Assert.IsNull(morning.TransitFromHotel);
         Assert.IsNull(morning.TransitToHotel);
     }
@@ -379,8 +379,8 @@ public sealed class TransitEnricherTests
             { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
         }, CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
-        var afternoon = trip.Days[0].Afternoon;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
+        var afternoon = trip.Days[0].GetBlock(BlockType.Afternoon);
 
         // Always: each block independent — hotel legs present, no InterBlockTransit
         Assert.IsNotNull(morning.TransitFromHotel);
@@ -410,8 +410,8 @@ public sealed class TransitEnricherTests
             { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
         }, CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
-        var afternoon = trip.Days[0].Afternoon;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
+        var afternoon = trip.Days[0].GetBlock(BlockType.Afternoon);
 
         // Never: Morning→Afternoon boundary — InterBlockTransit on destination (Afternoon), hotel legs null
         Assert.IsNotNull(morning.TransitFromHotel, "Morning should still have TransitFromHotel (start of day)");
@@ -442,8 +442,8 @@ public sealed class TransitEnricherTests
             { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
         }, CancellationToken.None);
 
-        var afternoon = trip.Days[0].Afternoon;
-        var evening = trip.Days[0].Evening;
+        var afternoon = trip.Days[0].GetBlock(BlockType.Afternoon);
+        var evening = trip.Days[0].GetBlock(BlockType.Evening);
 
         // Even with Never: Afternoon→Evening boundary optimized but Evening still returns to hotel
         Assert.IsNull(afternoon.TransitToHotel, "Afternoon TransitToHotel null — inter-block to Evening");
@@ -469,7 +469,7 @@ public sealed class TransitEnricherTests
             { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
         }, CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
 
         // With empty Afternoon, Morning should still have full hotel transit
         Assert.IsNotNull(morning.TransitFromHotel);
@@ -500,8 +500,8 @@ public sealed class TransitEnricherTests
             { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
         }, CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
-        var afternoon = trip.Days[0].Afternoon;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
+        var afternoon = trip.Days[0].GetBlock(BlockType.Afternoon);
 
         // Direct should be chosen (very short distance between activities)
         // InterBlockTransit is on the destination block (Afternoon)
@@ -535,8 +535,8 @@ public sealed class TransitEnricherTests
             { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
         }, CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
-        var afternoon = trip.Days[0].Afternoon;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
+        var afternoon = trip.Days[0].GetBlock(BlockType.Afternoon);
 
         // The mechanism made a choice: either InterBlockTransit on destination (direct chosen)
         // OR hotel transit is kept (hotel chosen). One must be true.
@@ -564,7 +564,7 @@ public sealed class TransitEnricherTests
             { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
         }, CancellationToken.None);
 
-        var evening = trip.Days[0].Evening;
+        var evening = trip.Days[0].GetBlock(BlockType.Evening);
 
         // Evening always returns to hotel regardless of strategy
         Assert.IsNotNull(evening.TransitToHotel, "Evening always returns to hotel");
@@ -587,7 +587,7 @@ public sealed class TransitEnricherTests
             { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
         }, CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         Assert.IsNotNull(morning.TransitFromHotel);
 
         // Long distance with car available → should be CAR or at least have a valid mode

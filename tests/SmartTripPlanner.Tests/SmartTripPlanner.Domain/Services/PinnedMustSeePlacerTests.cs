@@ -57,8 +57,8 @@ public sealed class PinnedMustSeePlacerTests
         var result = _placer.Place(trip, mustSee, place);
 
         Assert.IsTrue(result);
-        Assert.AreEqual(1, trip.Days[0].Morning.Activities.Count);
-        Assert.AreEqual(1L, trip.Days[0].Morning.Activities[0].PlaceId);
+        Assert.AreEqual(1, trip.Days[0].GetBlock(BlockType.Morning).Activities.Count);
+        Assert.AreEqual(1L, trip.Days[0].GetBlock(BlockType.Morning).Activities[0].PlaceId);
     }
 
     [TestMethod]
@@ -72,9 +72,9 @@ public sealed class PinnedMustSeePlacerTests
 
         Assert.IsTrue(result);
         // Should end up in one of the three blocks
-        var total = trip.Days[0].Morning.Activities.Count
-                  + trip.Days[0].Afternoon.Activities.Count
-                  + trip.Days[0].Evening.Activities.Count;
+        var total = trip.Days[0].GetBlock(BlockType.Morning).Activities.Count
+                  + trip.Days[0].GetBlock(BlockType.Afternoon).Activities.Count
+                  + trip.Days[0].GetBlock(BlockType.Evening).Activities.Count;
         Assert.AreEqual(1, total);
     }
 
@@ -100,7 +100,7 @@ public sealed class PinnedMustSeePlacerTests
         var place2 = CreatePlace(2, "Place 2", 40.4170, -3.7040, duration: 60);
 
         // Fill morning to max via trip.AddActivity
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         morning.AddActivity(new ActivityNode(1, "Existing", 1, 60, location: place1.Location));
         morning.AddActivity(new ActivityNode(2, "Existing 2", 2, 60, location: place2.Location));
         morning.AddActivity(new ActivityNode(3, "Existing 3", 3, 60, location: new PlaceLocation(40.4180, -3.7050)));
@@ -112,7 +112,7 @@ public sealed class PinnedMustSeePlacerTests
         var result = _placer.Place(trip, mustSee2, place3);
 
         Assert.IsTrue(result, "Pinned must-see should overflow to adjacent block");
-        Assert.AreEqual(1, trip.Days[0].Afternoon.Activities.Count,
+        Assert.AreEqual(1, trip.Days[0].GetBlock(BlockType.Afternoon).Activities.Count,
             "Overflow should go to afternoon (adjacent to morning)");
     }
 
@@ -135,8 +135,8 @@ public sealed class PinnedMustSeePlacerTests
         var result = _placer.Place(trip, mustSee, place);
 
         Assert.IsTrue(result, "Should force-place oversized must-see with flag on");
-        Assert.AreEqual(1, trip.Days[0].Morning.Activities.Count);
-        Assert.IsTrue(trip.Days[0].Morning.Activities[0].OvertimeAlert,
+        Assert.AreEqual(1, trip.Days[0].GetBlock(BlockType.Morning).Activities.Count);
+        Assert.IsTrue(trip.Days[0].GetBlock(BlockType.Morning).Activities[0].OvertimeAlert,
             "Force-placed activity should have OvertimeAlert=true");
     }
 
@@ -152,7 +152,7 @@ public sealed class PinnedMustSeePlacerTests
         var result = _placer.Place(trip, mustSee, place);
 
         Assert.IsFalse(result, "Should not place oversized must-see with flag off");
-        Assert.AreEqual(0, trip.Days[0].Morning.Activities.Count);
+        Assert.AreEqual(0, trip.Days[0].GetBlock(BlockType.Morning).Activities.Count);
     }
 
     [TestMethod]
@@ -168,7 +168,7 @@ public sealed class PinnedMustSeePlacerTests
         var loc = new PlaceLocation(40.4168, -3.7038);
 
         // Fill Morning to max visits
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         morning.AddActivity(new ActivityNode(1, "Existing 1", 1, 60, location: loc));
         morning.AddActivity(new ActivityNode(2, "Existing 2", 2, 60, location: loc));
         morning.AddActivity(new ActivityNode(3, "Existing 3", 3, 60, location: loc));
@@ -180,9 +180,9 @@ public sealed class PinnedMustSeePlacerTests
         var result = _placer.Place(trip, mustSee, place);
 
         Assert.IsTrue(result, "Should force-place in adjacent block with flag on");
-        Assert.AreEqual(1, trip.Days[0].Afternoon.Activities.Count,
+        Assert.AreEqual(1, trip.Days[0].GetBlock(BlockType.Afternoon).Activities.Count,
             "Force-placed activity should be in Afternoon (adjacent to Morning)");
-        Assert.IsTrue(trip.Days[0].Afternoon.Activities[0].OvertimeAlert,
+        Assert.IsTrue(trip.Days[0].GetBlock(BlockType.Afternoon).Activities[0].OvertimeAlert,
             "Force-placed activity should have OvertimeAlert=true");
     }
 
@@ -199,7 +199,7 @@ public sealed class PinnedMustSeePlacerTests
         var result = _placer.Place(trip, mustSee, place);
 
         Assert.IsTrue(result);
-        Assert.IsFalse(trip.Days[0].Morning.Activities[0].OvertimeAlert,
+        Assert.IsFalse(trip.Days[0].GetBlock(BlockType.Morning).Activities[0].OvertimeAlert,
             "Normally-placed activity should NOT have OvertimeAlert");
     }
 
@@ -216,7 +216,7 @@ public sealed class PinnedMustSeePlacerTests
         var loc = new PlaceLocation(40.4168, -3.7038);
 
         // Put one normal activity in Morning so it's no longer empty
-        trip.Days[0].Morning.AddActivity(new ActivityNode(1, "Existing", 1, 60, location: loc));
+        trip.Days[0].GetBlock(BlockType.Morning).AddActivity(new ActivityNode(1, "Existing", 1, 60, location: loc));
 
         // Oversized must-see that won't fit duration in Morning anyway (220 > 210)
         var place = CreatePlace(2, "Oversized Place", 40.4190, -3.7060, duration: 220);
@@ -224,9 +224,9 @@ public sealed class PinnedMustSeePlacerTests
         var result = _placer.Place(trip, mustSee, place);
 
         Assert.IsTrue(result, "Should force-place in adjacent empty block");
-        Assert.AreEqual(1, trip.Days[0].Afternoon.Activities.Count,
+        Assert.AreEqual(1, trip.Days[0].GetBlock(BlockType.Afternoon).Activities.Count,
             "Force-placed activity should be in Afternoon because Morning is not empty");
-        Assert.IsTrue(trip.Days[0].Afternoon.Activities[0].OvertimeAlert,
+        Assert.IsTrue(trip.Days[0].GetBlock(BlockType.Afternoon).Activities[0].OvertimeAlert,
             "Force-placed activity should have OvertimeAlert=true");
     }
 
@@ -240,9 +240,9 @@ public sealed class PinnedMustSeePlacerTests
             new TripPreferences(allowMustSeeOvertime: true));
         var loc = new PlaceLocation(40.4168, -3.7038);
 
-        trip.Days[0].Morning.AddActivity(new ActivityNode(1, "A", 1, 60, location: loc));
-        trip.Days[0].Afternoon.AddActivity(new ActivityNode(2, "B", 1, 60, location: loc));
-        trip.Days[0].Evening.AddActivity(new ActivityNode(3, "C", 1, 50, location: loc));
+        trip.Days[0].GetBlock(BlockType.Morning).AddActivity(new ActivityNode(1, "A", 1, 60, location: loc));
+        trip.Days[0].GetBlock(BlockType.Afternoon).AddActivity(new ActivityNode(2, "B", 1, 60, location: loc));
+        trip.Days[0].GetBlock(BlockType.Evening).AddActivity(new ActivityNode(3, "C", 1, 50, location: loc));
 
         var place = CreatePlace(4, "Oversized Place", 40.4190, -3.7060, duration: 220);
 
@@ -262,17 +262,17 @@ public sealed class PinnedMustSeePlacerTests
         // Fill all blocks to max with activities that fit within block constraints.
         // Evening: max 2 visits × 50 min = 100 ≤ 105 max duration ✓
         // Morning/Afternoon: max 3 visits × 60 min each fits within their limits
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         morning.AddActivity(new ActivityNode(1, "A", 1, 60, location: loc));
         morning.AddActivity(new ActivityNode(2, "B", 2, 60, location: loc));
         morning.AddActivity(new ActivityNode(3, "C", 3, 60, location: loc));
 
-        var afternoon = trip.Days[0].Afternoon;
+        var afternoon = trip.Days[0].GetBlock(BlockType.Afternoon);
         afternoon.AddActivity(new ActivityNode(4, "D", 1, 60, location: loc));
         afternoon.AddActivity(new ActivityNode(5, "E", 2, 60, location: loc));
         afternoon.AddActivity(new ActivityNode(6, "F", 3, 60, location: loc));
 
-        var evening = trip.Days[0].Evening;
+        var evening = trip.Days[0].GetBlock(BlockType.Evening);
         evening.AddActivity(new ActivityNode(7, "G", 1, 50, location: loc));
         evening.AddActivity(new ActivityNode(8, "H", 2, 50, location: loc));
 

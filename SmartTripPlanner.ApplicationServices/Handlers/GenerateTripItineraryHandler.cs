@@ -42,7 +42,7 @@ public class GenerateTripItineraryHandler(
         try
         {
             var unenrichedRefIds = trip.Days
-                .SelectMany(d => new[] { d.Morning, d.Afternoon, d.Evening })
+                .SelectMany(d => d.Blocks)
                 .SelectMany(b => b.Activities)
                 .Select(a => a.PlaceId)
                 .Distinct()

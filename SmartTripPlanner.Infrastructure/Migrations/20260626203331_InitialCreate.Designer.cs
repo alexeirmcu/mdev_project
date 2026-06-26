@@ -13,8 +13,8 @@ using SmartTripPlanner.Infrastructure;
 namespace SmartTripPlanner.Infrastructure.Migrations
 {
     [DbContext(typeof(PlannerDbContext))]
-    [Migration("20260622104111_AddLlmEnrichmentOutbox")]
-    partial class AddLlmEnrichmentOutbox
+    [Migration("20260626203331_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -47,6 +47,12 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                         .HasColumnType("boolean")
                         .HasDefaultValue(true);
 
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double precision");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CityCode")
@@ -60,7 +66,9 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                             Id = 1L,
                             CityCode = "madrid",
                             CityName = "Madrid",
-                            IsAllowed = true
+                            IsAllowed = true,
+                            Latitude = 40.416800000000002,
+                            Longitude = -3.7038000000000002
                         });
                 });
 
@@ -151,6 +159,10 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("ProviderId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("Value")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -196,6 +208,11 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     b.Property<DateOnly>("EndDate")
                         .HasColumnType("date");
 
+                    b.Property<string>("OwnerUserId")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<DateOnly>("StartDate")
                         .HasColumnType("date");
 
@@ -210,6 +227,8 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CityId");
+
+                    b.HasIndex("OwnerUserId");
 
                     b.HasIndex("TripCode")
                         .IsUnique();
@@ -380,11 +399,21 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                             b1.Property<int>("DayIndex")
                                 .HasColumnType("integer");
 
+                            b1.Property<bool>("IsStale")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("boolean")
+                                .HasDefaultValue(false)
+                                .HasColumnName("IsStale");
+
                             b1.Property<TimeOnly>("StartTime")
                                 .HasColumnType("time without time zone");
 
                             b1.Property<long>("TripId")
                                 .HasColumnType("bigint");
+
+                            b1.Property<DateTimeOffset?>("WeatherLastUpdatedAt")
+                                .HasColumnType("timestamp with time zone")
+                                .HasColumnName("WeatherLastUpdatedAt");
 
                             b1.Property<int>("WeatherSummary")
                                 .HasColumnType("integer");
@@ -398,98 +427,30 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                             b1.WithOwner()
                                 .HasForeignKey("TripId");
 
-                            b1.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.BlockTimeline", "Afternoon", b2 =>
+                            b1.OwnsMany("SmartTripPlanner.Domain.AggregatesModel.BlockTimeline", "Blocks", b2 =>
                                 {
+                                    b2.Property<long>("Id")
+                                        .ValueGeneratedOnAdd()
+                                        .HasColumnType("bigint");
+
+                                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b2.Property<long>("Id"));
+
+                                    b2.Property<string>("BlockType")
+                                        .IsRequired()
+                                        .HasColumnType("text");
+
                                     b2.Property<long>("DayPlanId")
                                         .HasColumnType("bigint");
 
-                                    b2.Property<int>("BlockType")
-                                        .HasColumnType("integer");
+                                    b2.HasKey("Id");
 
-                                    b2.Property<long>("Id")
-                                        .HasColumnType("bigint");
+                                    b2.HasIndex("DayPlanId", "BlockType")
+                                        .IsUnique();
 
-                                    b2.HasKey("DayPlanId");
-
-                                    b2.ToTable("DayPlan");
+                                    b2.ToTable("BlockTimeline");
 
                                     b2.WithOwner()
                                         .HasForeignKey("DayPlanId");
-
-                                    b2.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.TransitDetails", "InterBlockTransit", b3 =>
-                                        {
-                                            b3.Property<long>("BlockTimelineDayPlanId")
-                                                .HasColumnType("bigint");
-
-                                            b3.Property<int>("BufferMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<int>("DurationMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<bool>("FrictionAlert")
-                                                .HasColumnType("boolean");
-
-                                            b3.Property<int>("TransportMode")
-                                                .HasColumnType("integer");
-
-                                            b3.HasKey("BlockTimelineDayPlanId");
-
-                                            b3.ToTable("DayPlan");
-
-                                            b3.WithOwner()
-                                                .HasForeignKey("BlockTimelineDayPlanId");
-                                        });
-
-                                    b2.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.TransitDetails", "TransitFromHotel", b3 =>
-                                        {
-                                            b3.Property<long>("BlockTimelineDayPlanId")
-                                                .HasColumnType("bigint");
-
-                                            b3.Property<int>("BufferMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<int>("DurationMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<bool>("FrictionAlert")
-                                                .HasColumnType("boolean");
-
-                                            b3.Property<int>("TransportMode")
-                                                .HasColumnType("integer");
-
-                                            b3.HasKey("BlockTimelineDayPlanId");
-
-                                            b3.ToTable("DayPlan");
-
-                                            b3.WithOwner()
-                                                .HasForeignKey("BlockTimelineDayPlanId");
-                                        });
-
-                                    b2.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.TransitDetails", "TransitToHotel", b3 =>
-                                        {
-                                            b3.Property<long>("BlockTimelineDayPlanId")
-                                                .HasColumnType("bigint");
-
-                                            b3.Property<int>("BufferMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<int>("DurationMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<bool>("FrictionAlert")
-                                                .HasColumnType("boolean");
-
-                                            b3.Property<int>("TransportMode")
-                                                .HasColumnType("integer");
-
-                                            b3.HasKey("BlockTimelineDayPlanId");
-
-                                            b3.ToTable("DayPlan");
-
-                                            b3.WithOwner()
-                                                .HasForeignKey("BlockTimelineDayPlanId");
-                                        });
 
                                     b2.OwnsMany("SmartTripPlanner.Domain.AggregatesModel.ActivityNode", "Activities", b3 =>
                                         {
@@ -499,7 +460,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
 
                                             NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b3.Property<long>("Id"));
 
-                                            b3.Property<long>("DayPlanId")
+                                            b3.Property<long>("BlockTimelineId")
                                                 .HasColumnType("bigint");
 
                                             b3.Property<int>("DurationMinutes")
@@ -521,6 +482,12 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                                                 .IsRequired()
                                                 .HasColumnType("text");
 
+                                            b3.Property<bool>("OvertimeAlert")
+                                                .ValueGeneratedOnAdd()
+                                                .HasColumnType("boolean")
+                                                .HasDefaultValue(false)
+                                                .HasColumnName("OvertimeAlert");
+
                                             b3.Property<long>("PlaceId")
                                                 .HasColumnType("bigint");
 
@@ -532,12 +499,12 @@ namespace SmartTripPlanner.Infrastructure.Migrations
 
                                             b3.HasKey("Id");
 
-                                            b3.HasIndex("DayPlanId");
+                                            b3.HasIndex("BlockTimelineId");
 
-                                            b3.ToTable("AfternoonActivities", (string)null);
+                                            b3.ToTable("Activities", (string)null);
 
                                             b3.WithOwner()
-                                                .HasForeignKey("DayPlanId");
+                                                .HasForeignKey("BlockTimelineId");
 
                                             b3.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.PlaceLocation", "Location", b4 =>
                                                 {
@@ -554,7 +521,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
 
                                                     b4.HasKey("ActivityNodeId");
 
-                                                    b4.ToTable("AfternoonActivities");
+                                                    b4.ToTable("Activities");
 
                                                     b4.WithOwner()
                                                         .HasForeignKey("ActivityNodeId");
@@ -579,7 +546,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
 
                                                     b4.HasKey("ActivityNodeId");
 
-                                                    b4.ToTable("AfternoonActivities");
+                                                    b4.ToTable("Activities");
 
                                                     b4.WithOwner()
                                                         .HasForeignKey("ActivityNodeId");
@@ -591,36 +558,9 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                                             b3.Navigation("TransitToNext");
                                         });
 
-                                    b2.Navigation("Activities");
-
-                                    b2.Navigation("InterBlockTransit");
-
-                                    b2.Navigation("TransitFromHotel");
-
-                                    b2.Navigation("TransitToHotel");
-                                });
-
-                            b1.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.BlockTimeline", "Evening", b2 =>
-                                {
-                                    b2.Property<long>("DayPlanId")
-                                        .HasColumnType("bigint");
-
-                                    b2.Property<int>("BlockType")
-                                        .HasColumnType("integer");
-
-                                    b2.Property<long>("Id")
-                                        .HasColumnType("bigint");
-
-                                    b2.HasKey("DayPlanId");
-
-                                    b2.ToTable("DayPlan");
-
-                                    b2.WithOwner()
-                                        .HasForeignKey("DayPlanId");
-
                                     b2.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.TransitDetails", "InterBlockTransit", b3 =>
                                         {
-                                            b3.Property<long>("BlockTimelineDayPlanId")
+                                            b3.Property<long>("BlockTimelineId")
                                                 .HasColumnType("bigint");
 
                                             b3.Property<int>("BufferMinutes")
@@ -635,17 +575,17 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                                             b3.Property<int>("TransportMode")
                                                 .HasColumnType("integer");
 
-                                            b3.HasKey("BlockTimelineDayPlanId");
+                                            b3.HasKey("BlockTimelineId");
 
-                                            b3.ToTable("DayPlan");
+                                            b3.ToTable("BlockTimeline");
 
                                             b3.WithOwner()
-                                                .HasForeignKey("BlockTimelineDayPlanId");
+                                                .HasForeignKey("BlockTimelineId");
                                         });
 
                                     b2.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.TransitDetails", "TransitFromHotel", b3 =>
                                         {
-                                            b3.Property<long>("BlockTimelineDayPlanId")
+                                            b3.Property<long>("BlockTimelineId")
                                                 .HasColumnType("bigint");
 
                                             b3.Property<int>("BufferMinutes")
@@ -660,17 +600,17 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                                             b3.Property<int>("TransportMode")
                                                 .HasColumnType("integer");
 
-                                            b3.HasKey("BlockTimelineDayPlanId");
+                                            b3.HasKey("BlockTimelineId");
 
-                                            b3.ToTable("DayPlan");
+                                            b3.ToTable("BlockTimeline");
 
                                             b3.WithOwner()
-                                                .HasForeignKey("BlockTimelineDayPlanId");
+                                                .HasForeignKey("BlockTimelineId");
                                         });
 
                                     b2.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.TransitDetails", "TransitToHotel", b3 =>
                                         {
-                                            b3.Property<long>("BlockTimelineDayPlanId")
+                                            b3.Property<long>("BlockTimelineId")
                                                 .HasColumnType("bigint");
 
                                             b3.Property<int>("BufferMinutes")
@@ -685,112 +625,12 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                                             b3.Property<int>("TransportMode")
                                                 .HasColumnType("integer");
 
-                                            b3.HasKey("BlockTimelineDayPlanId");
+                                            b3.HasKey("BlockTimelineId");
 
-                                            b3.ToTable("DayPlan");
-
-                                            b3.WithOwner()
-                                                .HasForeignKey("BlockTimelineDayPlanId");
-                                        });
-
-                                    b2.OwnsMany("SmartTripPlanner.Domain.AggregatesModel.ActivityNode", "Activities", b3 =>
-                                        {
-                                            b3.Property<long>("Id")
-                                                .ValueGeneratedOnAdd()
-                                                .HasColumnType("bigint");
-
-                                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b3.Property<long>("Id"));
-
-                                            b3.Property<long>("DayPlanId")
-                                                .HasColumnType("bigint");
-
-                                            b3.Property<int>("DurationMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<int>("EstimatedArrival")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<int>("EstimatedDeparture")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<bool>("IsCompleted")
-                                                .HasColumnType("boolean");
-
-                                            b3.Property<bool>("IsIndoor")
-                                                .HasColumnType("boolean");
-
-                                            b3.Property<string>("Name")
-                                                .IsRequired()
-                                                .HasColumnType("text");
-
-                                            b3.Property<long>("PlaceId")
-                                                .HasColumnType("bigint");
-
-                                            b3.Property<int>("Priority")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<int>("SequenceOrder")
-                                                .HasColumnType("integer");
-
-                                            b3.HasKey("Id");
-
-                                            b3.HasIndex("DayPlanId");
-
-                                            b3.ToTable("EveningActivities", (string)null);
+                                            b3.ToTable("BlockTimeline");
 
                                             b3.WithOwner()
-                                                .HasForeignKey("DayPlanId");
-
-                                            b3.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.PlaceLocation", "Location", b4 =>
-                                                {
-                                                    b4.Property<long>("ActivityNodeId")
-                                                        .HasColumnType("bigint");
-
-                                                    b4.Property<double>("Latitude")
-                                                        .HasColumnType("double precision")
-                                                        .HasColumnName("Latitude");
-
-                                                    b4.Property<double>("Longitude")
-                                                        .HasColumnType("double precision")
-                                                        .HasColumnName("Longitude");
-
-                                                    b4.HasKey("ActivityNodeId");
-
-                                                    b4.ToTable("EveningActivities");
-
-                                                    b4.WithOwner()
-                                                        .HasForeignKey("ActivityNodeId");
-                                                });
-
-                                            b3.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.TransitDetails", "TransitToNext", b4 =>
-                                                {
-                                                    b4.Property<long>("ActivityNodeId")
-                                                        .HasColumnType("bigint");
-
-                                                    b4.Property<int>("BufferMinutes")
-                                                        .HasColumnType("integer");
-
-                                                    b4.Property<int>("DurationMinutes")
-                                                        .HasColumnType("integer");
-
-                                                    b4.Property<bool>("FrictionAlert")
-                                                        .HasColumnType("boolean");
-
-                                                    b4.Property<int>("TransportMode")
-                                                        .HasColumnType("integer");
-
-                                                    b4.HasKey("ActivityNodeId");
-
-                                                    b4.ToTable("EveningActivities");
-
-                                                    b4.WithOwner()
-                                                        .HasForeignKey("ActivityNodeId");
-                                                });
-
-                                            b3.Navigation("Location")
-                                                .IsRequired();
-
-                                            b3.Navigation("TransitToNext");
+                                                .HasForeignKey("BlockTimelineId");
                                         });
 
                                     b2.Navigation("Activities");
@@ -802,216 +642,7 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                                     b2.Navigation("TransitToHotel");
                                 });
 
-                            b1.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.BlockTimeline", "Morning", b2 =>
-                                {
-                                    b2.Property<long>("DayPlanId")
-                                        .HasColumnType("bigint");
-
-                                    b2.Property<int>("BlockType")
-                                        .HasColumnType("integer");
-
-                                    b2.Property<long>("Id")
-                                        .HasColumnType("bigint");
-
-                                    b2.HasKey("DayPlanId");
-
-                                    b2.ToTable("DayPlan");
-
-                                    b2.WithOwner()
-                                        .HasForeignKey("DayPlanId");
-
-                                    b2.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.TransitDetails", "InterBlockTransit", b3 =>
-                                        {
-                                            b3.Property<long>("BlockTimelineDayPlanId")
-                                                .HasColumnType("bigint");
-
-                                            b3.Property<int>("BufferMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<int>("DurationMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<bool>("FrictionAlert")
-                                                .HasColumnType("boolean");
-
-                                            b3.Property<int>("TransportMode")
-                                                .HasColumnType("integer");
-
-                                            b3.HasKey("BlockTimelineDayPlanId");
-
-                                            b3.ToTable("DayPlan");
-
-                                            b3.WithOwner()
-                                                .HasForeignKey("BlockTimelineDayPlanId");
-                                        });
-
-                                    b2.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.TransitDetails", "TransitFromHotel", b3 =>
-                                        {
-                                            b3.Property<long>("BlockTimelineDayPlanId")
-                                                .HasColumnType("bigint");
-
-                                            b3.Property<int>("BufferMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<int>("DurationMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<bool>("FrictionAlert")
-                                                .HasColumnType("boolean");
-
-                                            b3.Property<int>("TransportMode")
-                                                .HasColumnType("integer");
-
-                                            b3.HasKey("BlockTimelineDayPlanId");
-
-                                            b3.ToTable("DayPlan");
-
-                                            b3.WithOwner()
-                                                .HasForeignKey("BlockTimelineDayPlanId");
-                                        });
-
-                                    b2.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.TransitDetails", "TransitToHotel", b3 =>
-                                        {
-                                            b3.Property<long>("BlockTimelineDayPlanId")
-                                                .HasColumnType("bigint");
-
-                                            b3.Property<int>("BufferMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<int>("DurationMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<bool>("FrictionAlert")
-                                                .HasColumnType("boolean");
-
-                                            b3.Property<int>("TransportMode")
-                                                .HasColumnType("integer");
-
-                                            b3.HasKey("BlockTimelineDayPlanId");
-
-                                            b3.ToTable("DayPlan");
-
-                                            b3.WithOwner()
-                                                .HasForeignKey("BlockTimelineDayPlanId");
-                                        });
-
-                                    b2.OwnsMany("SmartTripPlanner.Domain.AggregatesModel.ActivityNode", "Activities", b3 =>
-                                        {
-                                            b3.Property<long>("Id")
-                                                .ValueGeneratedOnAdd()
-                                                .HasColumnType("bigint");
-
-                                            NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b3.Property<long>("Id"));
-
-                                            b3.Property<long>("DayPlanId")
-                                                .HasColumnType("bigint");
-
-                                            b3.Property<int>("DurationMinutes")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<int>("EstimatedArrival")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<int>("EstimatedDeparture")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<bool>("IsCompleted")
-                                                .HasColumnType("boolean");
-
-                                            b3.Property<bool>("IsIndoor")
-                                                .HasColumnType("boolean");
-
-                                            b3.Property<string>("Name")
-                                                .IsRequired()
-                                                .HasColumnType("text");
-
-                                            b3.Property<long>("PlaceId")
-                                                .HasColumnType("bigint");
-
-                                            b3.Property<int>("Priority")
-                                                .HasColumnType("integer");
-
-                                            b3.Property<int>("SequenceOrder")
-                                                .HasColumnType("integer");
-
-                                            b3.HasKey("Id");
-
-                                            b3.HasIndex("DayPlanId");
-
-                                            b3.ToTable("MorningActivities", (string)null);
-
-                                            b3.WithOwner()
-                                                .HasForeignKey("DayPlanId");
-
-                                            b3.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.PlaceLocation", "Location", b4 =>
-                                                {
-                                                    b4.Property<long>("ActivityNodeId")
-                                                        .HasColumnType("bigint");
-
-                                                    b4.Property<double>("Latitude")
-                                                        .HasColumnType("double precision")
-                                                        .HasColumnName("Latitude");
-
-                                                    b4.Property<double>("Longitude")
-                                                        .HasColumnType("double precision")
-                                                        .HasColumnName("Longitude");
-
-                                                    b4.HasKey("ActivityNodeId");
-
-                                                    b4.ToTable("MorningActivities");
-
-                                                    b4.WithOwner()
-                                                        .HasForeignKey("ActivityNodeId");
-                                                });
-
-                                            b3.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.TransitDetails", "TransitToNext", b4 =>
-                                                {
-                                                    b4.Property<long>("ActivityNodeId")
-                                                        .HasColumnType("bigint");
-
-                                                    b4.Property<int>("BufferMinutes")
-                                                        .HasColumnType("integer");
-
-                                                    b4.Property<int>("DurationMinutes")
-                                                        .HasColumnType("integer");
-
-                                                    b4.Property<bool>("FrictionAlert")
-                                                        .HasColumnType("boolean");
-
-                                                    b4.Property<int>("TransportMode")
-                                                        .HasColumnType("integer");
-
-                                                    b4.HasKey("ActivityNodeId");
-
-                                                    b4.ToTable("MorningActivities");
-
-                                                    b4.WithOwner()
-                                                        .HasForeignKey("ActivityNodeId");
-                                                });
-
-                                            b3.Navigation("Location")
-                                                .IsRequired();
-
-                                            b3.Navigation("TransitToNext");
-                                        });
-
-                                    b2.Navigation("Activities");
-
-                                    b2.Navigation("InterBlockTransit");
-
-                                    b2.Navigation("TransitFromHotel");
-
-                                    b2.Navigation("TransitToHotel");
-                                });
-
-                            b1.Navigation("Afternoon")
-                                .IsRequired();
-
-                            b1.Navigation("Evening")
-                                .IsRequired();
-
-                            b1.Navigation("Morning")
-                                .IsRequired();
+                            b1.Navigation("Blocks");
                         });
 
                     b.OwnsOne("SmartTripPlanner.Domain.AggregatesModel.Location", "BaseHotel", b1 =>
@@ -1048,6 +679,12 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                                 .HasColumnType("bigint");
 
                             NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b1.Property<long>("Id"));
+
+                            b1.Property<bool>("ForceIncludeDespiteWeather")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("boolean")
+                                .HasDefaultValue(false)
+                                .HasColumnName("ForceIncludeDespiteWeather");
 
                             b1.Property<string>("PinnedBlock")
                                 .HasColumnType("text");
@@ -1110,6 +747,12 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                         {
                             b1.Property<long>("TripId")
                                 .HasColumnType("bigint");
+
+                            b1.Property<bool>("AllowMustSeeOvertime")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("boolean")
+                                .HasDefaultValue(false)
+                                .HasColumnName("PrefAllowMustSeeOvertime");
 
                             b1.Property<bool>("CarAvailable")
                                 .ValueGeneratedOnAdd()

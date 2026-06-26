@@ -152,14 +152,13 @@ public sealed class PlaceMappingProfileTests
     public void Map_DayPlanToDayPlanResponse_MapsIsStale()
     {
         var mapper = CreateMapper();
-        var day = new DayPlan
-        {
-            DayIndex = 0,
-            Date = new DateOnly(2026, 7, 1),
-            Morning = new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Morning },
-            Afternoon = new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Afternoon },
-            Evening = new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Evening }
-        };
+        var day = new DayPlan(
+            0,
+            new DateOnly(2026, 7, 1),
+            new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Morning },
+            new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Afternoon },
+            new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Evening }
+        );
         day.MarkStale();
 
         var response = mapper.Map<DayPlanResponse>(day);
@@ -171,14 +170,13 @@ public sealed class PlaceMappingProfileTests
     public void Map_DayPlanToDayPlanResponse_IsStaleDefaultsFalse()
     {
         var mapper = CreateMapper();
-        var day = new DayPlan
-        {
-            DayIndex = 0,
-            Date = new DateOnly(2026, 7, 1),
-            Morning = new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Morning },
-            Afternoon = new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Afternoon },
-            Evening = new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Evening }
-        };
+        var day = new DayPlan(
+            0,
+            new DateOnly(2026, 7, 1),
+            new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Morning },
+            new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Afternoon },
+            new BlockTimeline { BlockType = global::SmartTripPlanner.Domain.Enums.BlockType.Evening }
+        );
 
         var response = mapper.Map<DayPlanResponse>(day);
 

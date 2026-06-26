@@ -78,23 +78,23 @@ public sealed class ListTripsHandlerTests
         trip.GenerateDaysFrom(trip.StartDate);
 
         // Day 0 - Morning: 1 activity, Afternoon: 1 activity, Evening: 0
-        trip.Days[0].Morning.ForceAddActivity(
+        trip.Days[0].GetBlock(BlockType.Morning).ForceAddActivity(
             new ActivityNode(1L, "Museo del Prado", 0, 120, false, null, Priority.High));
-        trip.Days[0].Afternoon.ForceAddActivity(
+        trip.Days[0].GetBlock(BlockType.Afternoon).ForceAddActivity(
             new ActivityNode(2L, "Palacio Real", 1, 90, false, null, Priority.Medium));
 
         // Day 1 - Morning: 2 activities, Afternoon: 0, Evening: 1
-        trip.Days[1].Morning.ForceAddActivity(
+        trip.Days[1].GetBlock(BlockType.Morning).ForceAddActivity(
             new ActivityNode(3L, "Retiro Park", 2, 60, false, null, Priority.Medium));
-        trip.Days[1].Morning.ForceAddActivity(
+        trip.Days[1].GetBlock(BlockType.Morning).ForceAddActivity(
             new ActivityNode(4L, "Mercado San Miguel", 3, 45, false, null, Priority.Low));
-        trip.Days[1].Evening.ForceAddActivity(
+        trip.Days[1].GetBlock(BlockType.Evening).ForceAddActivity(
             new ActivityNode(5L, "Flamenco Show", 4, 120, false, null, Priority.Medium));
 
         if (markSomeCompleted)
         {
-            trip.Days[0].Morning.Activities[0].SetCompleted(true);
-            trip.Days[1].Morning.Activities[0].SetCompleted(true);
+            trip.Days[0].GetBlock(BlockType.Morning).Activities[0].SetCompleted(true);
+            trip.Days[1].GetBlock(BlockType.Morning).Activities[0].SetCompleted(true);
         }
 
         return trip;

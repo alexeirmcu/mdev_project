@@ -8,14 +8,13 @@ public sealed class DayPlanTests
 {
     private static DayPlan CreateDayPlan()
     {
-        var day = new DayPlan
-        {
-            DayIndex = 1,
-            Date = new DateOnly(2026, 6, 1),
-            Morning = new BlockTimeline(),
-            Afternoon = new BlockTimeline(),
-            Evening = new BlockTimeline()
-        };
+        var day = new DayPlan(
+            1,
+            new DateOnly(2026, 6, 1),
+            new BlockTimeline { BlockType = BlockType.Morning },
+            new BlockTimeline { BlockType = BlockType.Afternoon },
+            new BlockTimeline { BlockType = BlockType.Evening }
+        );
         day.SetWeather(WeatherCondition.Clear);
         return day;
     }
@@ -91,5 +90,50 @@ public sealed class DayPlanTests
         Assert.IsNotNull(dayPlan.WeatherLastUpdatedAt);
         Assert.IsTrue(dayPlan.WeatherLastUpdatedAt >= before);
         Assert.IsTrue(dayPlan.WeatherLastUpdatedAt <= after);
+    }
+
+    [TestMethod]
+    public void Constructor_ValidBlocks_CreatesDayPlan()
+    {
+        var morning = new BlockTimeline { BlockType = BlockType.Morning };
+        var afternoon = new BlockTimeline { BlockType = BlockType.Afternoon };
+        var evening = new BlockTimeline { BlockType = BlockType.Evening };
+
+        var day = new DayPlan(0, new DateOnly(2026, 7, 1), morning, afternoon, evening);
+
+        Assert.AreEqual(3, day.Blocks.Count);
+        Assert.AreSame(morning, day.GetBlock(BlockType.Morning));
+        Assert.AreSame(afternoon, day.GetBlock(BlockType.Afternoon));
+        Assert.AreSame(evening, day.GetBlock(BlockType.Evening));
+    }
+
+    [TestMethod]
+    public void Constructor_WrongBlockType_ThrowsArgumentException()
+    {
+        var morning = new BlockTimeline { BlockType = BlockType.Morning };
+        var afternoon = new BlockTimeline { BlockType = BlockType.Afternoon };
+        var wrongTimeline = new BlockTimeline { BlockType = BlockType.Morning }; // Should be Evening
+
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            new DayPlan(0, new DateOnly(2026, 7, 1), morning, afternoon, wrongTimeline));
+    }
+
+    [TestMethod]
+    public void GetBlock_ReturnsCorrectBlock()
+    {
+        var day = CreateDayPlan();
+        Assert.AreEqual(BlockType.Morning, day.GetBlock(BlockType.Morning).BlockType);
+        Assert.AreEqual(BlockType.Afternoon, day.GetBlock(BlockType.Afternoon).BlockType);
+        Assert.AreEqual(BlockType.Evening, day.GetBlock(BlockType.Evening).BlockType);
+    }
+
+    [TestMethod]
+    public void Blocks_ReturnsAllThreeBlocks()
+    {
+        var day = CreateDayPlan();
+        Assert.AreEqual(3, day.Blocks.Count);
+        Assert.AreEqual(BlockType.Morning, day.Blocks[0].BlockType);
+        Assert.AreEqual(BlockType.Afternoon, day.Blocks[1].BlockType);
+        Assert.AreEqual(BlockType.Evening, day.Blocks[2].BlockType);
     }
 }

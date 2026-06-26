@@ -38,9 +38,9 @@ public static class ItineraryGeneratorHelpers
 
     public static int GetTotalFreeSlots(DayPlan dayPlan)
     {
-        return (TripPlanningConstants.MaxVisitsPerMorningBlock - dayPlan.Morning.Activities.Count)
-             + (TripPlanningConstants.MaxVisitsPerAfternoonBlock - dayPlan.Afternoon.Activities.Count)
-             + (TripPlanningConstants.MaxVisitsPerEveningBlock - dayPlan.Evening.Activities.Count);
+        return (TripPlanningConstants.MaxVisitsPerMorningBlock - dayPlan.GetBlock(BlockType.Morning).Activities.Count)
+             + (TripPlanningConstants.MaxVisitsPerAfternoonBlock - dayPlan.GetBlock(BlockType.Afternoon).Activities.Count)
+             + (TripPlanningConstants.MaxVisitsPerEveningBlock - dayPlan.GetBlock(BlockType.Evening).Activities.Count);
     }
 
     public static int GetBlockMaxVisits(BlockType blockType) => blockType switch

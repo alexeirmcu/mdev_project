@@ -145,20 +145,20 @@ public sealed class HeuristicItineraryGeneratorTests
 
         Assert.AreEqual(3, trip.Days.Count);
         var day1 = trip.Days[1]; // DayIndex 1
-        Assert.AreEqual(1, day1.Morning.Activities.Count);
-        Assert.AreEqual(1L, day1.Morning.Activities[0].PlaceId);
-        Assert.AreEqual("Museo del Prado", day1.Morning.Activities[0].Name);
+        Assert.AreEqual(1, day1.GetBlock(BlockType.Morning).Activities.Count);
+        Assert.AreEqual(1L, day1.GetBlock(BlockType.Morning).Activities[0].PlaceId);
+        Assert.AreEqual("Museo del Prado", day1.GetBlock(BlockType.Morning).Activities[0].Name);
 
         // Phase 6: Timeline scheduling populates arrival/departure
-        var activity = day1.Morning.Activities[0];
+        var activity = day1.GetBlock(BlockType.Morning).Activities[0];
         Assert.IsTrue(activity.EstimatedArrival > 0, "EstimatedArrival should be populated by TimelineScheduler");
         Assert.IsTrue(activity.EstimatedDeparture > activity.EstimatedArrival,
             "EstimatedDeparture should be after EstimatedArrival");
 
         // Hotel transit should be populated (BaseHotel is set)
-        Assert.IsNotNull(day1.Morning.TransitFromHotel,
+        Assert.IsNotNull(day1.GetBlock(BlockType.Morning).TransitFromHotel,
             "TransitFromHotel should be populated when BaseHotel is set");
-        Assert.IsNotNull(day1.Morning.TransitToHotel,
+        Assert.IsNotNull(day1.GetBlock(BlockType.Morning).TransitToHotel,
             "TransitToHotel should be populated when BaseHotel is set");
     }
 
@@ -180,9 +180,9 @@ public sealed class HeuristicItineraryGeneratorTests
 
         // Must end up in one of the three blocks of day 0
         var day0 = trip.Days[0];
-        var totalActivities = day0.Morning.Activities.Count
-                            + day0.Afternoon.Activities.Count
-                            + day0.Evening.Activities.Count;
+        var totalActivities = day0.GetBlock(BlockType.Morning).Activities.Count
+                            + day0.GetBlock(BlockType.Afternoon).Activities.Count
+                            + day0.GetBlock(BlockType.Evening).Activities.Count;
         Assert.AreEqual(1, totalActivities);
     }
 
@@ -225,9 +225,9 @@ public sealed class HeuristicItineraryGeneratorTests
 
         // All 3 must-sees in a single day
         var day0 = trip.Days[0];
-        var totalActivities = day0.Morning.Activities.Count
-                            + day0.Afternoon.Activities.Count
-                            + day0.Evening.Activities.Count;
+        var totalActivities = day0.GetBlock(BlockType.Morning).Activities.Count
+                            + day0.GetBlock(BlockType.Afternoon).Activities.Count
+                            + day0.GetBlock(BlockType.Evening).Activities.Count;
         Assert.AreEqual(3, totalActivities);
     }
 
@@ -251,7 +251,7 @@ public sealed class HeuristicItineraryGeneratorTests
 
         // Different clusters → could be same or different days, but must both be placed
         var total = trip.Days.Sum(d =>
-            d.Morning.Activities.Count + d.Afternoon.Activities.Count + d.Evening.Activities.Count);
+            d.Blocks.Sum(b => b.Activities.Count));
         Assert.AreEqual(2, total);
     }
 
@@ -276,14 +276,14 @@ public sealed class HeuristicItineraryGeneratorTests
         await _generator.GenerateAsync(trip, places, AllClearWeather(5), CancellationToken.None);
 
         // Must-see should NOT be on day 0 (Wednesday)
-        var totalOnWed = trip.Days[0].Morning.Activities.Count
-                       + trip.Days[0].Afternoon.Activities.Count
-                       + trip.Days[0].Evening.Activities.Count;
+        var totalOnWed = trip.Days[0].GetBlock(BlockType.Morning).Activities.Count
+                       + trip.Days[0].GetBlock(BlockType.Afternoon).Activities.Count
+                       + trip.Days[0].GetBlock(BlockType.Evening).Activities.Count;
         Assert.AreEqual(0, totalOnWed);
 
         // Must-see should appear somewhere (Thursday-Sunday)
         var placedOnOtherDays = trip.Days.Skip(1).Sum(d =>
-            d.Morning.Activities.Count + d.Afternoon.Activities.Count + d.Evening.Activities.Count);
+            d.Blocks.Sum(b => b.Activities.Count));
         Assert.AreEqual(1, placedOnOtherDays);
     }
 
@@ -308,7 +308,7 @@ public sealed class HeuristicItineraryGeneratorTests
         await _generator.GenerateAsync(trip, new[] { indoor, outdoor1, outdoor2 }, weather, CancellationToken.None);
 
         // Morning block has capacity for all 3, but scoring should put indoor first
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         Assert.IsTrue(morning.Activities.Count >= 1);
         Assert.IsTrue(morning.Activities[0].IsIndoor,
             "Indoor activity should be placed first on bad weather (highest score)");
@@ -331,7 +331,7 @@ public sealed class HeuristicItineraryGeneratorTests
 
         // With weatherAware=false, all candidates get the same popularity-only score (10),
         // so both should be placed (equal score != preference)
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         Assert.IsTrue(morning.Activities.Count >= 1);
     }
 
@@ -365,12 +365,12 @@ public sealed class HeuristicItineraryGeneratorTests
 
         // All 5 must-sees should be placed (morning=3, afternoon=2 in a 1-day trip)
         var day0 = trip.Days[0];
-        var total = day0.Morning.Activities.Count
-                  + day0.Afternoon.Activities.Count
-                  + day0.Evening.Activities.Count;
+        var total = day0.GetBlock(BlockType.Morning).Activities.Count
+                  + day0.GetBlock(BlockType.Afternoon).Activities.Count
+                  + day0.GetBlock(BlockType.Evening).Activities.Count;
         Assert.AreEqual(5, total);
         // Morning should have 3 (capacity)
-        Assert.AreEqual(3, day0.Morning.Activities.Count);
+        Assert.AreEqual(3, day0.GetBlock(BlockType.Morning).Activities.Count);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -414,9 +414,9 @@ public sealed class HeuristicItineraryGeneratorTests
         await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
 
         // Should complete without exception
-        var total = trip.Days[0].Morning.Activities.Count
-                  + trip.Days[0].Afternoon.Activities.Count
-                  + trip.Days[0].Evening.Activities.Count;
+        var total = trip.Days[0].GetBlock(BlockType.Morning).Activities.Count
+                  + trip.Days[0].GetBlock(BlockType.Afternoon).Activities.Count
+                  + trip.Days[0].GetBlock(BlockType.Evening).Activities.Count;
         Assert.AreEqual(7, total);
     }
 
@@ -443,7 +443,7 @@ public sealed class HeuristicItineraryGeneratorTests
         await _generator.GenerateAsync(trip, places, AllClearWeather(2), CancellationToken.None);
 
         var total = trip.Days.Sum(d =>
-            d.Morning.Activities.Count + d.Afternoon.Activities.Count + d.Evening.Activities.Count);
+            d.Blocks.Sum(b => b.Activities.Count));
         Assert.AreEqual(2, total);
     }
 
@@ -471,7 +471,7 @@ public sealed class HeuristicItineraryGeneratorTests
         await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
 
         // All should be placed (morning=3, 60-min activities fit)
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         Assert.AreEqual(3, morning.Activities.Count);
     }
 
@@ -494,9 +494,9 @@ public sealed class HeuristicItineraryGeneratorTests
 
         // Morning + Afternoon have room for low priority too (each 3 x 60 min)
         // So both should actually fit
-        var total = trip.Days[0].Morning.Activities.Count
-                  + trip.Days[0].Afternoon.Activities.Count
-                  + trip.Days[0].Evening.Activities.Count;
+        var total = trip.Days[0].GetBlock(BlockType.Morning).Activities.Count
+                  + trip.Days[0].GetBlock(BlockType.Afternoon).Activities.Count
+                  + trip.Days[0].GetBlock(BlockType.Evening).Activities.Count;
         Assert.AreEqual(2, total);
     }
 
@@ -522,7 +522,7 @@ public sealed class HeuristicItineraryGeneratorTests
         await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
 
         // Both should be in Morning block (adjacent activities)
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         if (morning.Activities.Count >= 2)
         {
             var transit = morning.Activities[0].TransitToNext;
@@ -550,7 +550,7 @@ public sealed class HeuristicItineraryGeneratorTests
         await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
 
         // Both pinned to Morning → consecutive, transit assigned
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         Assert.AreEqual(2, morning.Activities.Count);
 
         var transit = morning.Activities[0].TransitToNext;
@@ -576,7 +576,7 @@ public sealed class HeuristicItineraryGeneratorTests
 
         await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         if (morning.Activities.Count >= 2)
         {
             var transit = morning.Activities[0].TransitToNext;
@@ -650,7 +650,7 @@ public sealed class HeuristicItineraryGeneratorTests
         await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
 
         Assert.AreEqual(1, trip.Days.Count);
-        Assert.AreEqual(1, trip.Days[0].Morning.Activities.Count);
+        Assert.AreEqual(1, trip.Days[0].GetBlock(BlockType.Morning).Activities.Count);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────
@@ -675,8 +675,8 @@ public sealed class HeuristicItineraryGeneratorTests
 
         await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
-        var afternoon = trip.Days[0].Afternoon;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
+        var afternoon = trip.Days[0].GetBlock(BlockType.Afternoon);
 
         // Always: each block has full hotel transit
         Assert.IsNotNull(morning.TransitFromHotel);
@@ -704,8 +704,8 @@ public sealed class HeuristicItineraryGeneratorTests
 
         await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
-        var afternoon = trip.Days[0].Afternoon;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
+        var afternoon = trip.Days[0].GetBlock(BlockType.Afternoon);
 
         // Never: InterBlockTransit on destination (Afternoon), hotel legs null at boundary
         Assert.IsNotNull(morning.TransitFromHotel, "Morning still has TransitFromHotel (start of day)");
@@ -736,8 +736,8 @@ public sealed class HeuristicItineraryGeneratorTests
 
         await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
-        var afternoon = trip.Days[0].Afternoon;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
+        var afternoon = trip.Days[0].GetBlock(BlockType.Afternoon);
 
         // Mechanism ran — either InterBlockTransit on destination OR hotel transit kept
         Assert.IsTrue(
@@ -769,12 +769,12 @@ public sealed class HeuristicItineraryGeneratorTests
 
         // Must-see should be placed in some block
         var total = trip.Days.Sum(d =>
-            d.Morning.Activities.Count + d.Afternoon.Activities.Count + d.Evening.Activities.Count);
+            d.Blocks.Sum(b => b.Activities.Count));
         Assert.AreEqual(1, total);
 
         // Find the placed activity and verify OvertimeAlert
         var placedActivity = trip.Days
-            .SelectMany(d => d.Morning.Activities.Concat(d.Afternoon.Activities).Concat(d.Evening.Activities))
+            .SelectMany(d => d.Blocks.SelectMany(b => b.Activities))
             .First();
         Assert.IsTrue(placedActivity.OvertimeAlert,
             "Oversized must-see should have OvertimeAlert=true when flag is on");
@@ -820,7 +820,7 @@ public sealed class HeuristicItineraryGeneratorTests
 
         await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
 
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         Assert.AreEqual(1, morning.Activities.Count);
         Assert.IsFalse(morning.Activities[0].OvertimeAlert,
             "Normally-placed activity should NOT have OvertimeAlert");
@@ -845,20 +845,20 @@ public sealed class HeuristicItineraryGeneratorTests
 
         await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
 
-        var total = trip.Days[0].Morning.Activities.Count
-                  + trip.Days[0].Afternoon.Activities.Count
-                  + trip.Days[0].Evening.Activities.Count;
+        var total = trip.Days[0].GetBlock(BlockType.Morning).Activities.Count
+                  + trip.Days[0].GetBlock(BlockType.Afternoon).Activities.Count
+                  + trip.Days[0].GetBlock(BlockType.Evening).Activities.Count;
         Assert.AreEqual(2, total);
 
         // The normally-placed activity should NOT have OvertimeAlert
         var normalActivity = trip.Days
-            .SelectMany(d => d.Morning.Activities.Concat(d.Afternoon.Activities).Concat(d.Evening.Activities))
+            .SelectMany(d => d.Blocks.SelectMany(b => b.Activities))
             .First(a => a.PlaceId == 1L);
         Assert.IsFalse(normalActivity.OvertimeAlert);
 
         // The force-placed activity SHOULD have OvertimeAlert
         var overtimeActivity = trip.Days
-            .SelectMany(d => d.Morning.Activities.Concat(d.Afternoon.Activities).Concat(d.Evening.Activities))
+            .SelectMany(d => d.Blocks.SelectMany(b => b.Activities))
             .First(a => a.PlaceId == 2L);
         Assert.IsTrue(overtimeActivity.OvertimeAlert);
     }
@@ -880,7 +880,7 @@ public sealed class HeuristicItineraryGeneratorTests
 
         await _generator.GenerateAsync(trip, places, AllClearWeather(1), CancellationToken.None);
 
-        var evening = trip.Days[0].Evening;
+        var evening = trip.Days[0].GetBlock(BlockType.Evening);
 
         // Evening always returns to hotel regardless of strategy
         Assert.IsNotNull(evening.TransitToHotel, "Evening always returns to hotel — even with Never strategy");
