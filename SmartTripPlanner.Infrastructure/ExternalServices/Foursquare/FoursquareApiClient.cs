@@ -22,11 +22,16 @@ internal class FoursquareApiClient : IFoursquareApiClient
         _httpClient = httpClient;
     }
 
-    public async Task<List<FoursquarePlace>> SearchPlacesAsync(string query, string near, int limit = 20)
+    public async Task<List<FoursquarePlace>> SearchPlacesAsync(string query, string near, int limit = 20, List<string>? fsqCategoryIds = null)
     {
         try
         {
             var url = $"{BasePath}/search?query={Uri.EscapeDataString(query)}&near={Uri.EscapeDataString(near)}&limit={limit}";
+            if (fsqCategoryIds is { Count: > 0 })
+            {
+                var categoriesParam = string.Join(",", fsqCategoryIds.Select(Uri.EscapeDataString));
+                url += $"&fsq_category_ids={categoriesParam}";
+            }
             var response = await _httpClient.GetAsync(url);
 
             if (!response.IsSuccessStatusCode)

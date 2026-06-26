@@ -40,14 +40,15 @@ public sealed class SearchPlacesRequestValidatorTests
     }
 
     [TestMethod]
-    public async Task Query_WhenEmpty_Fails_WithRequiredField()
+    public async Task Query_WhenEmpty_Fails_WithAtLeastOneRequired()
     {
         var request = new SearchPlacesRequest(
             new PlaceSearchRequest("", "madrid-es", null));
 
         var result = await _sut.TestValidateAsync(request);
 
-        result.ShouldHaveValidationErrorFor(x => x.SearchRequest.Query)
+        // Empty query + no category + no filters → at-least-one guard fails
+        result.ShouldHaveValidationErrorFor(x => x.SearchRequest)
             .WithErrorCode(nameof(ErrorCode.REQUIRED_FIELD));
     }
 

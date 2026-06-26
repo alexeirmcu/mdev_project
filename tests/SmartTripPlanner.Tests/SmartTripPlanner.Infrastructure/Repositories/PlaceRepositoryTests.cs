@@ -790,4 +790,33 @@ public sealed class PlaceRepositoryTests
 
         Assert.AreEqual(2, results.Count);
     }
+
+    [TestMethod]
+    public async Task GetProviderIdForCategoryAsync_WithExistingAttribute_ReturnsProviderId()
+    {
+        using var db = CreateDbContext();
+        var attr = new PlaceAttribute("foursquare", "category", "Museum", "10000");
+        db.PlaceAttributes.Add(attr);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var result = await repo.GetProviderIdForCategoryAsync("Museum");
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual("10000", result);
+    }
+
+    [TestMethod]
+    public async Task GetProviderIdForCategoryAsync_WithNonExistingCategory_ReturnsNull()
+    {
+        using var db = CreateDbContext();
+        var attr = new PlaceAttribute("foursquare", "category", "Museum", "10000");
+        db.PlaceAttributes.Add(attr);
+        await db.SaveChangesAsync();
+
+        var repo = CreateRepository(db);
+        var result = await repo.GetProviderIdForCategoryAsync("Unknown");
+
+        Assert.IsNull(result);
+    }
 }

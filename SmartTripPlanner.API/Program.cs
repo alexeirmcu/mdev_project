@@ -117,7 +117,12 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// Only apply HTTPS redirection outside Render
+// Render handles SSL termination at the load balancer level
+if (!string.Equals(Environment.GetEnvironmentVariable("RENDER"), "true", StringComparison.OrdinalIgnoreCase))
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseMiddleware<ExceptionHandlingMiddleware>();
 
@@ -126,8 +131,5 @@ app.UseAuthorization();
 
 app.MapHealthChecks("/health");
 app.MapControllers();
-
-var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
-app.Urls.Add($"http://0.0.0.0:{port}");
 
 app.Run();

@@ -15,11 +15,12 @@ internal sealed class FoursquarePlaceService : IPlaceExternalService
         _apiClient = apiClient ?? throw new ArgumentNullException(nameof(apiClient));
     }
 
-    public async Task<List<Place>> SearchPlacesAsync(string query, string cityCode, long cityId, int maxResults = 20, PlaceSearchFilter? filter = null)
+    public async Task<List<Place>> SearchPlacesAsync(string query, string cityCode, long cityId, int maxResults = 20,
+        PlaceSearchFilter? filter = null, List<string>? fsqCategoryIds = null)
     {
         try
         {
-            var apiResults = await _apiClient.SearchPlacesAsync(query, cityCode, maxResults);
+            var apiResults = await _apiClient.SearchPlacesAsync(query, cityCode, maxResults, fsqCategoryIds);
             var places = apiResults.Select(p => MapToPlace(p, cityId)).ToList();
 
             if (filter is not null)
@@ -80,13 +81,7 @@ internal sealed class FoursquarePlaceService : IPlaceExternalService
 
         foreach (var category in apiPlace.Categories)
         {
-            place.AddAttribute(new PlaceAttribute("foursquare", "category", category.Name));
-        }
-
-        foreach (var chain in apiPlace.Chains)
-        {
-            if (!string.IsNullOrEmpty(chain.Name))
-                place.AddAttribute(new PlaceAttribute("foursquare", "chain", chain.Name));
+            place.AddAttribute(new PlaceAttribute("foursquare", "category", category.Name, category.FsqCategoryId));
         }
 
         // Inject default opening hours for solver compatibility

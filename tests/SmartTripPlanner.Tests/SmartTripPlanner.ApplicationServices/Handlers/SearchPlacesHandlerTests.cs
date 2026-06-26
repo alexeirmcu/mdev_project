@@ -42,6 +42,19 @@ public sealed class SearchPlacesHandlerTests
             .ReturnsAsync(new City(cityCode, cityCode, allowed));
     }
 
+    private bool _fetchFromExternalIfInsufficient = true;
+
+    private SearchPlacesRequest CreateRequest(string? query, string cityCode, int? maxResults = null,
+        string? category = null, bool? isIndoor = null, bool? isFamilyFriendly = null,
+        int? maxDurationMinutes = null, bool? fetchFromExternalIfInsufficient = null)
+    {
+        _fetchFromExternalIfInsufficient = fetchFromExternalIfInsufficient ?? true;
+        return new SearchPlacesRequest(
+            new PlaceSearchRequest(query, cityCode, maxResults,
+                category, isIndoor, isFamilyFriendly, maxDurationMinutes, fetchFromExternalIfInsufficient),
+            maxResults ?? 10);
+    }
+
     private static List<Place> CreateThreePlaces()
     {
         var loc1 = new PlaceLocation(40.4168, -3.7038);
@@ -57,7 +70,7 @@ public sealed class SearchPlacesHandlerTests
     }
 
     [TestMethod]
-    public async Task Handle_WithLocalResults_ReturnsLocal_NoExternalCall()
+    public async Task Handle_WithLocalResults_CityNotFound_ReturnsLocalNoExternalCall()
     {
         var places = CreateThreePlaces();
         var request = new SearchPlacesRequest(new PlaceSearchRequest("Museum", "madrid-es", 10), 10);
@@ -90,6 +103,136 @@ public sealed class SearchPlacesHandlerTests
             Times.Never);
 
         _repositoryMock.Verify(r => r.UpsertRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task Handle_FetchFromExternalIfInsufficientFalse_LocalInsufficient_ReturnsLocal_NoExternalCall()
+    {
+        var places = CreateThreePlaces();
+        var request = new SearchPlacesRequest(
+            new PlaceSearchRequest("Museum", "madrid-es", 10,
+                FetchFromExternalIfInsufficient: false));
+
+        _repositoryMock
+            .Setup(r => r.SearchAsync("Museum", "madrid-es", 10, It.IsAny<PlaceSearchFilter?>()))
+            .ReturnsAsync(places);
+
+        var mappedModels = new List<PlaceModel>
+        {
+            new(1L, "fsq-prado-123", "Museo del Prado", 1L,
+                new PlaceLocationModel(40.4168, -3.7038), 120, true, false, true, [], []),
+        };
+
+        _mapperMock
+            .Setup(m => m.Map<List<PlaceModel>>(places))
+            .Returns(mappedModels);
+
+        var result = await _handler.Handle(request, CancellationToken.None);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual(1, result.Results.Count);
+
+        _externalServiceMock.Verify(
+            s => s.SearchPlacesAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<int>(), It.IsAny<PlaceSearchFilter?>()),
+            Times.Never);
+
+        _repositoryMock.Verify(r => r.UpsertRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task Handle_ColdStart_NoProviderIdForCategory_ReturnsLocal_NoExternalCall()
+    {
+        var places = CreateThreePlaces();
+        var request = new SearchPlacesRequest(
+            new PlaceSearchRequest("Museum", "madrid-es", 10, Category: "Museum"));
+
+        _repositoryMock
+            .Setup(r => r.SearchAsync("Museum", "madrid-es", 10, It.IsAny<PlaceSearchFilter?>()))
+            .ReturnsAsync(places);
+
+        // GetProviderIdForCategoryAsync returns null → cold start
+        _repositoryMock
+            .Setup(r => r.GetProviderIdForCategoryAsync("Museum", It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+
+        var mappedModels = new List<PlaceModel>
+        {
+            new(1L, "fsq-prado-123", "Museo del Prado", 1L,
+                new PlaceLocationModel(40.4168, -3.7038), 120, true, false, true, [], []),
+        };
+
+        _mapperMock
+            .Setup(m => m.Map<List<PlaceModel>>(places))
+            .Returns(mappedModels);
+
+        var result = await _handler.Handle(request, CancellationToken.None);
+
+        Assert.IsNotNull(result);
+        Assert.AreEqual(1, result.Results.Count);
+
+        _externalServiceMock.Verify(
+            s => s.SearchPlacesAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<int>(), It.IsAny<PlaceSearchFilter?>()),
+            Times.Never);
+
+        _repositoryMock.Verify(r => r.UpsertRangeAsync(It.IsAny<IEnumerable<Place>>()), Times.Never);
+    }
+
+    [TestMethod]
+    public async Task Handle_DedupMerge_PreservesEnrichmentFields()
+    {
+        // GIVEN local place with enrichment
+        var loc = new PlaceLocation(40.4168, -3.7038);
+        var localPlace = new Place("fsq-prado-123", "Museo del Prado", 1L, loc, 120, true, true);
+        localPlace.MarkEnriched(120, true, 4, 0.9);
+        var localPlaces = new List<Place> { localPlace };
+
+        // AND external returns same ProviderReferenceId with different basic data
+        var externalLoc = new PlaceLocation(40.4169, -3.7039);
+        var externalPlace = new Place("fsq-prado-123", "Prado Museum (Updated)", 1L, externalLoc, 90, false, false);
+        var externalPlaces = new List<Place> { externalPlace };
+
+        var request = new SearchPlacesRequest(new PlaceSearchRequest("Museum", "madrid-es", 10));
+
+        _repositoryMock
+            .Setup(r => r.SearchAsync("Museum", "madrid-es", 10, It.IsAny<PlaceSearchFilter?>()))
+            .ReturnsAsync(localPlaces);
+
+        SetUpCityRepo("madrid-es");
+
+        _externalServiceMock
+            .Setup(s => s.SearchPlacesAsync("Museum", "madrid-es", It.IsAny<long>(), 10,
+                It.IsAny<PlaceSearchFilter?>(), It.IsAny<List<string>?>()))
+            .ReturnsAsync(externalPlaces);
+
+        // Capture the merged list that gets persisted
+        List<Place>? capturedMerged = null;
+        _repositoryMock
+            .Setup(r => r.UpsertRangeAsync(It.IsAny<IEnumerable<Place>>()))
+            .Callback<IEnumerable<Place>>(p => capturedMerged = p.ToList())
+            .Returns(Task.CompletedTask);
+
+        _mapperMock
+            .Setup(m => m.Map<List<PlaceModel>>(It.IsAny<List<Place>>()))
+            .Returns(new List<PlaceModel>());
+
+        await _handler.Handle(request, CancellationToken.None);
+
+        // THEN basic fields updated from external
+        Assert.IsNotNull(capturedMerged);
+        var merged = capturedMerged.Single();
+        Assert.AreEqual("Prado Museum (Updated)", merged.Name);
+        Assert.AreEqual(40.4169, merged.Location.Latitude);
+        Assert.AreEqual(-3.7039, merged.Location.Longitude);
+
+        // THEN enrichment fields preserved from local
+        Assert.IsTrue(merged.IsEnriched);
+        Assert.AreEqual(4, merged.FamilyFriendlyScore);
+        Assert.AreEqual(0.9, merged.Popularity);
+
+        // THEN enrichment causes local duration/indoor/familyFriendly to be preserved
+        Assert.AreEqual(120, merged.TypicalDurationMinutes);
+        Assert.IsTrue(merged.IsIndoor);
+        Assert.IsTrue(merged.IsFamilyFriendly);
     }
 
     [TestMethod]
@@ -251,7 +394,7 @@ public sealed class SearchPlacesHandlerTests
     [TestMethod]
     public async Task Handle_WithNullQuery_PassesNullToRepository()
     {
-        var request = new SearchPlacesRequest(new PlaceSearchRequest(null, "madrid-es", 5), 5);
+        var request = CreateRequest(null, "madrid-es", 5);
 
         _repositoryMock
             .Setup(r => r.SearchAsync(null, "madrid-es", 5, It.IsAny<PlaceSearchFilter?>()))
@@ -259,8 +402,10 @@ public sealed class SearchPlacesHandlerTests
 
         SetUpCityRepo("madrid-es");
 
+        // Handler passes string.Empty to external when query is null
         _externalServiceMock
-            .Setup(s => s.SearchPlacesAsync(null, "madrid-es", It.IsAny<long>(), 5, It.IsAny<PlaceSearchFilter?>()))
+            .Setup(s => s.SearchPlacesAsync(string.Empty, "madrid-es", It.IsAny<long>(), 5,
+                It.IsAny<PlaceSearchFilter?>(), It.IsAny<List<string>?>()))
             .ReturnsAsync([]);
 
         SetupEmptyMapper();
@@ -334,16 +479,14 @@ public sealed class SearchPlacesHandlerTests
     public async Task Handle_WithLocalResults_PassesFilterToRepository()
     {
         var places = CreateThreePlaces();
-        var filter = new PlaceSearchFilter("Museum", true, true, 120);
-        var request = new SearchPlacesRequest(
-            new PlaceSearchRequest("Museum", "madrid-es", 10,
-                Category: "Museum", IsIndoor: true, IsFamilyFriendly: true, MaxDurationMinutes: 120),
-            10);
+        var request = CreateRequest("Museum", "madrid-es", 10,
+            category: "Museum", isIndoor: true, isFamilyFriendly: true, maxDurationMinutes: 120);
 
+        // Handler now creates filter with Category=null (category handled via SearchAsync string param)
         _repositoryMock
             .Setup(r => r.SearchAsync("Museum", "madrid-es", 10,
                 It.Is<PlaceSearchFilter>(f =>
-                    f.Category == "Museum" &&
+                    f.Category == null &&
                     f.IsIndoor == true &&
                     f.IsFamilyFriendly == true &&
                     f.MaxDurationMinutes == 120)))
@@ -356,24 +499,21 @@ public sealed class SearchPlacesHandlerTests
         _repositoryMock.Verify(
             r => r.SearchAsync("Museum", "madrid-es", 10,
                 It.Is<PlaceSearchFilter>(f =>
-                    f.Category == "Museum" &&
+                    f.Category == null &&
                     f.IsIndoor == true &&
                     f.IsFamilyFriendly == true &&
                     f.MaxDurationMinutes == 120)),
             Times.Once);
         _externalServiceMock.Verify(
-            s => s.SearchPlacesAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<int>(), It.IsAny<PlaceSearchFilter?>()),
+            s => s.SearchPlacesAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<long>(), It.IsAny<int>(), It.IsAny<PlaceSearchFilter?>(), It.IsAny<List<string>?>()),
             Times.Never);
     }
 
     [TestMethod]
     public async Task Handle_NoLocalResults_PassesFilterToExternalService()
     {
-        var filter = new PlaceSearchFilter("Museum", true, true, 120);
-        var request = new SearchPlacesRequest(
-            new PlaceSearchRequest("Museum", "madrid-es", 10,
-                Category: "Museum", IsIndoor: true, IsFamilyFriendly: true, MaxDurationMinutes: 120),
-            10);
+        var request = CreateRequest("Museum", "madrid-es", 10,
+            category: "Museum", isIndoor: true, isFamilyFriendly: true, maxDurationMinutes: 120);
 
         _repositoryMock
             .Setup(r => r.SearchAsync("Museum", "madrid-es", 10, It.IsAny<PlaceSearchFilter?>()))
@@ -381,13 +521,20 @@ public sealed class SearchPlacesHandlerTests
 
         SetUpCityRepo("madrid-es");
 
+        // Category="Museum" triggers category resolution
+        _repositoryMock
+            .Setup(r => r.GetProviderIdForCategoryAsync("Museum", It.IsAny<CancellationToken>()))
+            .ReturnsAsync("10000");
+
+        // Handler creates filter with Category=null
         _externalServiceMock
             .Setup(s => s.SearchPlacesAsync("Museum", "madrid-es", It.IsAny<long>(), 10,
                 It.Is<PlaceSearchFilter>(f =>
-                    f.Category == "Museum" &&
+                    f.Category == null &&
                     f.IsIndoor == true &&
                     f.IsFamilyFriendly == true &&
-                    f.MaxDurationMinutes == 120)))
+                    f.MaxDurationMinutes == 120),
+                It.IsAny<List<string>?>()))
             .ReturnsAsync([]);
 
         SetupEmptyMapper();
@@ -397,10 +544,11 @@ public sealed class SearchPlacesHandlerTests
         _externalServiceMock.Verify(
             s => s.SearchPlacesAsync("Museum", "madrid-es", It.IsAny<long>(), 10,
                 It.Is<PlaceSearchFilter>(f =>
-                    f.Category == "Museum" &&
+                    f.Category == null &&
                     f.IsIndoor == true &&
                     f.IsFamilyFriendly == true &&
-                    f.MaxDurationMinutes == 120)),
+                    f.MaxDurationMinutes == 120),
+                It.IsAny<List<string>?>()),
             Times.Once);
     }
 

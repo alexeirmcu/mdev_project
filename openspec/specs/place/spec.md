@@ -37,7 +37,8 @@ namespace SmartTripPlanner.Domain.Repository;
 
 public interface IPlaceRepository : IRepository<Place>
 {
-    Task<List<Place>> SearchAsync(string query, string cityCode, int maxResults = 20);
+    Task<List<Place>> SearchAsync(string? query, string cityCode, string? category, int maxResults = 20);
+    Task<string?> GetProviderIdForCategoryAsync(string categoryName, CancellationToken ct = default);
     Task<Place?> GetByProviderReferenceIdAsync(string providerReferenceId);
     Task<IEnumerable<Place>> GetManyByIdsAsync(IEnumerable<long> placeIds, CancellationToken ct);
     Task<List<Place>> GetManyByCityIdAsync(long cityId, CancellationToken ct = default);
@@ -48,21 +49,20 @@ public interface IPlaceRepository : IRepository<Place>
 }
 ```
 
-#### Scenario: Cascade search uses port instead of direct Foursquare dependency
-- GIVEN a `PlaceRepository` with `IPlaceExternalService` injected
-- WHEN `SearchAsync` returns no local results
-- THEN the repository calls `IPlaceExternalService.SearchPlacesAsync` (not `IFoursquareApiClient`)
-- AND the external results are returned as `Place` entities
+#### Scenario: Search with null query
+- GIVEN a repository with places in city "madrid-es"
+- WHEN `SearchAsync(query: null, "madrid-es", category: null)` is called
+- THEN it returns local results without name/attribute filtering (city-wide search)
+- AND no exception is thrown
 
-#### Scenario: Cascade returns local results without calling external service
-- GIVEN a `PlaceRepository` with `IPlaceExternalService` injected
-- WHEN `SearchAsync` finds local results matching the query
-- THEN it returns the local results
-- AND `IPlaceExternalService.SearchPlacesAsync` is NOT called
+#### Scenario: Search by category filters on attribute value
+- GIVEN places linked to PlaceAttribute with Key="category", Value="Museum"
+- WHEN `SearchAsync(query: null, "madrid-es", category: "Museum")` is called
+- THEN only places with that attribute value are returned
 
 #### Scenario: Search matches attribute value through join table
 - GIVEN a Place with Name="Gran Palace" linked to PlaceAttribute(Value="Hotel") via join table in city "MAD"
-- WHEN `SearchAsync("hotel", "MAD")` is called
+- WHEN `SearchAsync("hotel", "MAD", null)` is called
 - THEN the Place is returned
 
 #### Scenario: Interest-filtered candidate retrieval returns matching places via join table
@@ -86,10 +86,12 @@ public interface IPlaceRepository : IRepository<Place>
 - `PlaceConfiguration` in `SmartTripPlanner.Infrastructure/Configurations/PlaceConfiguration.cs` configures `HasMany(p => p.Attributes).WithMany()` using explicit join entity `PlacePlaceAttributes`.
 - A case-insensitive unique index is applied on `PlaceAttribute(Provider, Key, Value)`.
 - Register `IPlaceRepository` in `InfrastructureServiceRegistration`.
-- **Cascade logic**: `SearchAsync` queries local DB first. If no results, calls `IPlaceExternalService.SearchPlacesAsync`, and returns mapped `Place` list without persisting.
+- **SearchAsync**: MUST handle nullable `query`: if null, skip name/attribute `Contains` filter; if provided, apply case-insensitive match as before. MUST accept `category` parameter: when non-null, filter by `Attribute.Value.Contains(category)` with Provider="foursquare", Key="category". **Cascade logic REMOVED** — `SearchAsync` returns local results only. External fallback is now the handler's responsibility.
+- **GetProviderIdForCategoryAsync(name)**: MUST query `PlaceAttribute` where (Provider="foursquare", Key="category", Value=name) and return the `ProviderId` of the first match, or null.
 - **Attribute search**: `SearchAsync(query, cityCode, maxResults)` MUST match places where `Name.Contains(query)` OR any `Attribute.Value.Contains(query)` (case-insensitive) within the specified city. The query MUST include `Attributes` via EF Core `Include` through join table.
 - **Interest-filtered query**: `GetCandidatesByCityAndInterestsAsync` MUST filter candidates in SQL through the join table linking Places to PlaceAttributes. `GetDistinctAttributeValuesByCityCodeAsync` MUST query distinct PlaceAttribute.Value strings through the join table in SQL.
 - **UpsertRangeAsync attribute resolution**: `UpsertRangeAsync` MUST resolve attributes using find-or-create: for each attribute on an incoming Place, check if a PlaceAttribute with matching (Provider, Key, Value) already exists (case-insensitive). If found, link the existing entity to the Place. If not found, create and persist a new PlaceAttribute entity, then link it.
+- **UpsertRangeAsync dedup**: MUST deduplicate places by `ProviderReferenceId`: if a Place with the same `ProviderReferenceId` exists, update basic fields (Name, Location, OpeningHours, Attributes) but preserve enrichment fields (FamilyFriendlyScore, Popularity, IsEnriched, IsIndoor, TypicalDurationMinutes).
 
 #### Scenario: Interest filtering is performed in SQL, not in-memory
 - GIVEN PlaceRepository with `GetCandidatesByCityAndInterestsAsync`
@@ -113,6 +115,27 @@ public interface IPlaceRepository : IRepository<Place>
 - WHEN `UpsertRangeAsync` processes a Place with this attribute
 - THEN a new PlaceAttribute row is created and linked to the Place via join table
 
+#### Scenario: Search with null query returns all city places
+- GIVEN 5 places in city "madrid-es"
+- WHEN `SearchAsync(null, "madrid-es", null)` is called
+- THEN all 5 places are returned
+
+#### Scenario: Search by category filters correctly
+- GIVEN Place A with category "Museum", Place B with category "Restaurant"
+- WHEN `SearchAsync(null, "madrid-es", "Museum")` is called
+- THEN only Place A is returned
+
+#### Scenario: Upsert dedup by ProviderReferenceId
+- GIVEN a persisted Place with ProviderReferenceId="fsq_123", Name="Old Name", FamilyFriendlyScore=4
+- WHEN `UpsertRangeAsync` processes an incoming Place with same ProviderReferenceId, Name="New Name", FamilyFriendlyScore=2
+- THEN the persisted Place's Name becomes "New Name" (external wins)
+- AND FamilyFriendlyScore remains 4 (enrichment preserved)
+
+#### Scenario: Upsert inserts new place when no match
+- GIVEN no persisted Place with ProviderReferenceId="fsq_999"
+- WHEN `UpsertRangeAsync` processes a Place with ProviderReferenceId="fsq_999"
+- THEN a new Place row is inserted
+
 ### FR6: IFoursquareApiClient (internal)
 `IFoursquareApiClient` remains in Infrastructure and is unchanged. It is now consumed exclusively by `FoursquarePlaceService`. All Foursquare DTOs (`FoursquarePlace`, etc.) and mappers (`FoursquareCategoryHeuristics`) become `internal` — no layer outside Infrastructure may reference them.
 
@@ -132,14 +155,10 @@ public interface IPlaceRepository : IRepository<Place>
 - Pure mapping service with no external dependencies (no HttpClient, no DB).
 - Lives in `SmartTripPlanner.Infrastructure/ExternalServices/Foursquare/Mapping/`.
 
-### FR8: Cascade Search Implementation
-`PlaceRepository.SearchAsync` must implement:
-1. Query local DB via EF Core.
-2. If local results found (count > 0), return them.
-3. If no local results, call `IPlaceExternalService.SearchPlacesAsync`.
-4. Results from `IPlaceExternalService` are already mapped to `Place` entities — no additional mapping needed in the repository.
-5. Return the mapped `List<Place>`.
-6. API results are **ephemeral** — not saved to the database.
+### FR8: Cascade Search Implementation (REMOVED)
+
+The cascade logic in `PlaceRepository` (steps 1-6) is REMOVED. External fallback is now orchestrated by the handler, not the repository.
+(Reason: handler now controls external fallback and merge)
 
 ### FR9: Configuration
 - `appsettings.json` / `appsettings.Development.json`:
@@ -177,7 +196,7 @@ The Infrastructure layer MUST implement `IPlaceExternalService` via a `Foursquar
 - Wraps `IFoursquareApiClient` internally
 - Maps `FoursquarePlace` → `Place` domain entity using `FoursquareCategoryHeuristics`
 - Maps `FoursquarePlace.Categories` to `PlaceAttribute("foursquare", "category", cat.Name)` via `Place.AddAttribute` for each category
-- Maps `FoursquarePlace.Chains` to `PlaceAttribute("foursquare", "chain", chain.Name)` for non-empty chain labels
+- **Chain attribute mapping REMOVED** — `FoursquarePlace.Chains` is no longer mapped to `PlaceAttribute("foursquare", "chain", ...)`.
 - Is registered via DI as `IPlaceExternalService`
 
 #### Scenario: Adapter returns mapped domain entities
@@ -194,6 +213,11 @@ The Infrastructure layer MUST implement `IPlaceExternalService` via a `Foursquar
 - GIVEN an API response with Categories containing Name="Hotel" and Name="Boutique"
 - WHEN MapToPlace creates a Place
 - THEN Place.Attributes contains corresponding PlaceAttribute entries with Provider="foursquare", Key="category"
+
+#### Scenario: Chains no longer persisted as attributes
+- GIVEN an API response with Chains=[{Name="McDonald's"}]
+- WHEN `MapToPlace` creates a Place
+- THEN Place.Attributes does NOT contain any chain-related PlaceAttribute entries
 
 ### FR12: PlaceModel Attributes
 `PlaceModel` MUST include `IReadOnlyList<PlaceAttributeModel> Attributes`. `PlaceAttributeModel` is a record with `Key` and `Value` (string). `Provider` and `Id` MUST NOT be exposed in `PlaceAttributeModel`. `AutoMapperProfile` MUST map `PlaceAttribute` to `PlaceAttributeModel` projecting only `Key` and `Value`.
@@ -266,6 +290,20 @@ The `Place` entity MUST expose `MarkEnriched(int typicalDurationMinutes, bool is
 - THEN `SmartTripDomainException` is thrown
 - AND `IsEnriched` remains false and no field is mutated
 
+### FR17: Category ProviderId Resolution
+
+The system MUST provide `GetProviderIdForCategoryAsync(string categoryName)` on `IPlaceRepository` to resolve a category name to its Foursquare ProviderId from local `PlaceAttribute` data.
+
+#### Scenario: Category resolved to ProviderId
+- GIVEN a PlaceAttribute with (Provider="foursquare", Key="category", Value="Museum", ProviderId="10000")
+- WHEN `GetProviderIdForCategoryAsync("Museum")` is called
+- THEN it returns "10000"
+
+#### Scenario: Unknown category returns null (cold start)
+- GIVEN no PlaceAttribute with Value="Aquarium" exists
+- WHEN `GetProviderIdForCategoryAsync("Aquarium")` is called
+- THEN it returns null
+
 ## Non-Functional Requirements
 - Strict TDD — tests define contracts before implementation.
 - All existing tests must continue passing.
@@ -320,11 +358,12 @@ The `Place` entity MUST expose `MarkEnriched(int typicalDurationMinutes, bool is
 - Nightclub maps to `IsFamilyFriendly = false`.
 - Unknown category returns default values (60, true, true).
 
-### AC7: Cascade Search
-- Local DB results are returned without calling the external service.
-- No local results → `IPlaceExternalService.SearchPlacesAsync` is called → results are returned.
-- External service failure (exception) returns empty list (graceful degradation).
-- Results from external service are ephemeral (not persisted in DB).
+### AC7: External Fallback (Handler-Orchestrated)
+- Handler calls `SearchAsync` for local results first.
+- If `localCount < maxResults` AND `FetchFromExternalIfInsufficient != false`, handler resolves category and calls external service.
+- External service failure (exception) returns local results only (graceful degradation).
+- External results are merged with local data by `ProviderReferenceId` and persisted via `UpsertRangeAsync`.
+- Enrichment fields (FamilyFriendlyScore, Popularity, IsEnriched) are preserved during merge.
 
 ### AC8: PlaceAttribute Entity (normalize-place-attributes)
 - Creating a valid PlaceAttribute with Provider, Key, Value succeeds.
@@ -340,8 +379,9 @@ The `Place` entity MUST expose `MarkEnriched(int typicalDurationMinutes, bool is
 ### AC10: Attribute Search (enhance-place-search)
 - Searching "hotel" returns places whose attribute Value is "Hotel" even if name doesn't match.
 - Existing name-based search still works (regression).
-- Searching "mcdonalds" returns places with chain attribute "McDonald's".
+- Search with null query returns all city places (category-based browse).
 - Search is case-insensitive for attribute values.
+- Category filter on search is supported via `SearchAsync` `category` parameter.
 
 ### AC11: Foursquare Category Mapping (enhance-place-search)
 - FoursquarePlaceService maps API categories to PlaceAttribute entries with Provider="foursquare", Key="category".

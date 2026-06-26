@@ -13,11 +13,21 @@ public class SearchPlacesRequestValidator : AbstractValidator<SearchPlacesReques
     {
         var opts = options.Value;
 
+        // At-least-one-input guard: query, category, or filter must be provided
+        RuleFor(x => x.SearchRequest)
+            .Must(sr => !string.IsNullOrEmpty(sr.Query)
+                || !string.IsNullOrEmpty(sr.Category)
+                || sr.IsIndoor.HasValue
+                || sr.IsFamilyFriendly.HasValue
+                || sr.MaxDurationMinutes.HasValue)
+            .WithErrorCode(nameof(ErrorCode.REQUIRED_FIELD))
+            .WithMessage("At least one of query, category, or filter must be provided.");
+
+        // Query: optional, but min 3 chars when provided
         RuleFor(x => x.SearchRequest.Query)
-            .NotEmpty().WithErrorCode(nameof(ErrorCode.REQUIRED_FIELD))
-                .WithMessage("The search query is required.")
             .MinimumLength(3).WithErrorCode(nameof(ErrorCode.MIN_LENGTH_VIOLATION))
-                .WithMessage("The search query must be at least 3 characters long.");
+                .WithMessage("The search query must be at least 3 characters long.")
+            .When(x => !string.IsNullOrEmpty(x.SearchRequest.Query));
 
         RuleFor(x => x.SearchRequest.CityCode)
             .NotEmpty().WithErrorCode(nameof(ErrorCode.REQUIRED_FIELD))
