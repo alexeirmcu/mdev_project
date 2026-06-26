@@ -21,9 +21,9 @@ public class SearchPlacesHandler(
         var sr = request.SearchRequest;
         var maxResults = sr.MaxResults ?? request.DefaultMaxResults;
 
-        // Build filter EXCLUDING category — category is handled at DB level
+        
         var filter = new PlaceSearchFilter(
-            null, // category handled via SearchAsync parameter
+            sr.Category,
             sr.IsIndoor,
             sr.IsFamilyFriendly,
             sr.MaxDurationMinutes);

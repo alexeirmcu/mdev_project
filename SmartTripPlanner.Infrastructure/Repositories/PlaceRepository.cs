@@ -86,7 +86,8 @@ public class PlaceRepository : IPlaceRepository
             .Include(p => p.OpeningHours)
             .Include(p => p.Attributes)
             .Include(p => p.City)
-            .Where(p => p.City.CityCode == cityCode);
+            .Where(p => p.City.CityCode == cityCode)
+            .AsQueryable();
 
         // Apply text filter only when query is non-null
         if (!string.IsNullOrEmpty(query))
@@ -97,34 +98,30 @@ public class PlaceRepository : IPlaceRepository
                 || p.Attributes.Any(a => a.Value.ToLower().Contains(lowerQuery)));
         }
 
-        // Use safety multiplier on the DB limit so client-side filtering has room
-        var results = await queryable
-            .Take(maxResults * 4)
-            .ToListAsync();
-
-        // Apply optional filters client-side for maximum compatibility
-        // across all providers (InMemory, PostgreSQL, SQL Server, SQLite).
+        // Apply optional filters server-side so the database does the work
         if (filter is not null)
         {
             if (filter.IsIndoor.HasValue)
-                results = results.Where(p => p.IsIndoor == filter.IsIndoor.Value).ToList();
+                queryable = queryable.Where(p => p.IsIndoor == filter.IsIndoor.Value);
 
             if (filter.IsFamilyFriendly.HasValue)
-                results = results.Where(p => p.IsFamilyFriendly == filter.IsFamilyFriendly.Value).ToList();
+                queryable = queryable.Where(p => p.IsFamilyFriendly == filter.IsFamilyFriendly.Value);
 
             if (filter.MaxDurationMinutes.HasValue)
-                results = results.Where(p => p.TypicalDurationMinutes <= filter.MaxDurationMinutes.Value).ToList();
+                queryable = queryable.Where(p => p.TypicalDurationMinutes <= filter.MaxDurationMinutes.Value);
 
             if (!string.IsNullOrEmpty(filter.Category))
             {
                 var lowerCategory = filter.Category.ToLowerInvariant();
-                results = results.Where(p => p.Attributes.Any(a =>
+                queryable = queryable.Where(p => p.Attributes.Any(a =>
                     a.Key.ToLower() == "category" &&
-                    a.Value.ToLower().Contains(lowerCategory))).ToList();
+                    a.Value.ToLower().Contains(lowerCategory)));
             }
         }
 
-        return results.Take(maxResults).ToList();
+        return await queryable
+            .Take(maxResults)
+            .ToListAsync();
     }
 
     public async Task<string?> GetProviderIdForCategoryAsync(string categoryName, CancellationToken ct = default)
