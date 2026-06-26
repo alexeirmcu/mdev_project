@@ -31,11 +31,11 @@ public class AutoMapperProfile : Profile
             .ForCtorParam("CityName", opt => opt.MapFrom(src => src.City.CityName))
             .ForCtorParam("TotalMustSees", opt => opt.MapFrom(src => src.OriginalMustSees.Count))
             .ForCtorParam("CompletedActivitiesCount", opt => opt.MapFrom(src =>
-                src.Days.SelectMany(d => new[] { d.Morning, d.Afternoon, d.Evening })
+                src.Days.SelectMany(d => d.Blocks)
                        .SelectMany(b => b.Activities)
                        .Count(a => a.IsCompleted)))
             .ForCtorParam("TotalActivitiesCount", opt => opt.MapFrom(src =>
-                src.Days.SelectMany(d => new[] { d.Morning, d.Afternoon, d.Evening })
+                src.Days.SelectMany(d => d.Blocks)
                        .SelectMany(b => b.Activities)
                        .Count()));
 
@@ -86,11 +86,6 @@ public class AutoMapperProfile : Profile
         CreateMap<DayPlan, DayPlanResponse>()
             .ForMember(dest => dest.WeatherSummary, opt => opt.MapFrom(src => src.WeatherSummary.ToString()))
             .ForMember(dest => dest.IsStale, opt => opt.MapFrom(src => src.IsStale))
-            .ForMember(dest => dest.Blocks, opt => opt.MapFrom(src => new[]
-            {
-                src.Morning,
-                src.Afternoon,
-                src.Evening
-            }));
+            .ForMember(dest => dest.Blocks, opt => opt.MapFrom(src => src.Blocks));
     }
 }

@@ -74,7 +74,7 @@ public sealed class UnpinnedMustSeePlacerTests
         Assert.IsTrue(result);
         // Should be placed on day 0 by default (open day with free slots)
         var total = trip.Days.Sum(d =>
-            d.Morning.Activities.Count + d.Afternoon.Activities.Count + d.Evening.Activities.Count);
+            d.Blocks.Sum(b => b.Activities.Count));
         Assert.AreEqual(1, total);
     }
 
@@ -91,7 +91,7 @@ public sealed class UnpinnedMustSeePlacerTests
 
         Assert.IsTrue(result);
         // Should NOT be on day 0 (Wednesday)
-        Assert.AreEqual(0, trip.Days[0].Morning.Activities.Count);
+        Assert.AreEqual(0, trip.Days[0].GetBlock(BlockType.Morning).Activities.Count);
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -114,12 +114,12 @@ public sealed class UnpinnedMustSeePlacerTests
         var result = _placer.Place(trip, mustSee, place);
 
         Assert.IsTrue(result, "Should force-place oversized must-see with flag on");
-        var total = trip.Days[0].Morning.Activities.Count
-                  + trip.Days[0].Afternoon.Activities.Count
-                  + trip.Days[0].Evening.Activities.Count;
+        var total = trip.Days[0].GetBlock(BlockType.Morning).Activities.Count
+                  + trip.Days[0].GetBlock(BlockType.Afternoon).Activities.Count
+                  + trip.Days[0].GetBlock(BlockType.Evening).Activities.Count;
         Assert.AreEqual(1, total);
         // Should be in morning (first available block with visit slot)
-        Assert.IsTrue(trip.Days[0].Morning.Activities[0].OvertimeAlert,
+        Assert.IsTrue(trip.Days[0].GetBlock(BlockType.Morning).Activities[0].OvertimeAlert,
             "Force-placed activity should have OvertimeAlert=true");
     }
 
@@ -147,7 +147,7 @@ public sealed class UnpinnedMustSeePlacerTests
         var result = _placer.Place(trip, mustSee, place);
 
         Assert.IsTrue(result);
-        Assert.IsFalse(trip.Days[0].Morning.Activities[0].OvertimeAlert,
+        Assert.IsFalse(trip.Days[0].GetBlock(BlockType.Morning).Activities[0].OvertimeAlert,
             "Normally-placed activity should NOT have OvertimeAlert");
     }
 
@@ -160,17 +160,17 @@ public sealed class UnpinnedMustSeePlacerTests
 
         // Fill all blocks to max with activities that fit within block constraints.
         // Evening: max 2 visits × 50 min = 100 ≤ 105 max duration ✓
-        var morning = trip.Days[0].Morning;
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
         morning.AddActivity(new ActivityNode(1, "A", 1, 60, location: loc));
         morning.AddActivity(new ActivityNode(2, "B", 2, 60, location: loc));
         morning.AddActivity(new ActivityNode(3, "C", 3, 60, location: loc));
 
-        var afternoon = trip.Days[0].Afternoon;
+        var afternoon = trip.Days[0].GetBlock(BlockType.Afternoon);
         afternoon.AddActivity(new ActivityNode(4, "D", 1, 60, location: loc));
         afternoon.AddActivity(new ActivityNode(5, "E", 2, 60, location: loc));
         afternoon.AddActivity(new ActivityNode(6, "F", 3, 60, location: loc));
 
-        var evening = trip.Days[0].Evening;
+        var evening = trip.Days[0].GetBlock(BlockType.Evening);
         evening.AddActivity(new ActivityNode(7, "G", 1, 50, location: loc));
         evening.AddActivity(new ActivityNode(8, "H", 2, 50, location: loc));
 
@@ -191,7 +191,7 @@ public sealed class UnpinnedMustSeePlacerTests
             new TripPreferences(allowMustSeeOvertime: true));
         var loc = new PlaceLocation(40.4168, -3.7038);
 
-        trip.Days[0].Morning.AddActivity(new ActivityNode(1, "Existing", 1, 60, location: loc));
+        trip.Days[0].GetBlock(BlockType.Morning).AddActivity(new ActivityNode(1, "Existing", 1, 60, location: loc));
 
         // 220 min exceeds Morning max (210)
         var place = CreatePlace(2, "Oversized Place", 40.4170, -3.7040, duration: 220);
@@ -199,9 +199,9 @@ public sealed class UnpinnedMustSeePlacerTests
         var result = _placer.Place(trip, mustSee, place);
 
         Assert.IsTrue(result, "Should force-place in empty Afternoon");
-        Assert.AreEqual(1, trip.Days[0].Afternoon.Activities.Count,
+        Assert.AreEqual(1, trip.Days[0].GetBlock(BlockType.Afternoon).Activities.Count,
             "Overtime activity should occupy Afternoon because Morning is not empty");
-        Assert.IsTrue(trip.Days[0].Afternoon.Activities[0].OvertimeAlert,
+        Assert.IsTrue(trip.Days[0].GetBlock(BlockType.Afternoon).Activities[0].OvertimeAlert,
             "Force-placed activity should have OvertimeAlert=true");
     }
 
@@ -217,9 +217,9 @@ public sealed class UnpinnedMustSeePlacerTests
 
         foreach (var day in trip.Days)
         {
-            day.Morning.AddActivity(new ActivityNode(1, "A", 1, 60, location: loc));
-            day.Afternoon.AddActivity(new ActivityNode(2, "B", 1, 60, location: loc));
-            day.Evening.AddActivity(new ActivityNode(3, "C", 1, 50, location: loc));
+            day.GetBlock(BlockType.Morning).AddActivity(new ActivityNode(1, "A", 1, 60, location: loc));
+            day.GetBlock(BlockType.Afternoon).AddActivity(new ActivityNode(2, "B", 1, 60, location: loc));
+            day.GetBlock(BlockType.Evening).AddActivity(new ActivityNode(3, "C", 1, 50, location: loc));
         }
 
         var place = CreatePlace(4, "Oversized Place", 40.4170, -3.7040, duration: 220);
@@ -236,7 +236,7 @@ public sealed class UnpinnedMustSeePlacerTests
 
         // Fill day 0 morning partially — reduces free slots so day 0 is less attractive
         var loc = new PlaceLocation(40.4168, -3.7038);
-        trip.Days[0].Morning.AddActivity(new ActivityNode(1, "Existing", 1, 60, location: loc));
+        trip.Days[0].GetBlock(BlockType.Morning).AddActivity(new ActivityNode(1, "Existing", 1, 60, location: loc));
         // day 0 now has: 2 free morning + 3 afternoon + 2 evening = 7 free slots
         // day 1 and day 2: 8 free slots each (all empty)
 
@@ -246,11 +246,11 @@ public sealed class UnpinnedMustSeePlacerTests
         Assert.IsTrue(result);
         // 1 existing (day 0) + 1 new (preferably day 1 or 2) = 2 total
         var totalActivities = trip.Days.Sum(d =>
-            d.Morning.Activities.Count + d.Afternoon.Activities.Count + d.Evening.Activities.Count);
+            d.Blocks.Sum(b => b.Activities.Count));
         Assert.AreEqual(2, totalActivities, "Should have 1 existing + 1 newly placed activity");
 
         // New activity should be on day 1 or 2 (more free slots), not day 0
-        var day1or2Morning = trip.Days[1].Morning.Activities.Count + trip.Days[2].Morning.Activities.Count;
+        var day1or2Morning = trip.Days[1].GetBlock(BlockType.Morning).Activities.Count + trip.Days[2].GetBlock(BlockType.Morning).Activities.Count;
         Assert.AreEqual(1, day1or2Morning, "New activity should be placed on day 1 or 2 (most free slots)");
     }
 }

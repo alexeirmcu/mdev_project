@@ -90,18 +90,16 @@ public class Trip : Entity, IAggregateRoot
         int dayIndex = 0;
         for (var date = startDate; date <= EndDate; date = date.AddDays(1))
         {
-            var day = new DayPlan
-            {
-                DayIndex = dayIndex++,
-                Date = date,
-                Morning = new BlockTimeline { BlockType = BlockType.Morning },
-                Afternoon = new BlockTimeline { BlockType = BlockType.Afternoon },
-                Evening = new BlockTimeline { BlockType = BlockType.Evening }
-            };
+            var day = new DayPlan(
+                dayIndex++,
+                date,
+                new BlockTimeline { BlockType = BlockType.Morning },
+                new BlockTimeline { BlockType = BlockType.Afternoon },
+                new BlockTimeline { BlockType = BlockType.Evening }
+            );
             day.SetWeather(WeatherCondition.Clear);
             day.UpdateStartTime(DefaultStartTime);
             _days.Add(day);
         }
     }
-
 }

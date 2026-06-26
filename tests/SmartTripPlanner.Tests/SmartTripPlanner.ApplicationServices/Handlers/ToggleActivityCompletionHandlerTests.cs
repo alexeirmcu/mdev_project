@@ -59,18 +59,18 @@ public sealed class ToggleActivityCompletionHandlerTests
         trip.GenerateDaysFrom(trip.StartDate);
 
         // Add activities across blocks
-        trip.Days[0].Morning.ForceAddActivity(
+        trip.Days[0].GetBlock(BlockType.Morning).ForceAddActivity(
             new ActivityNode(100L, "Museum", 1, 120, true));
-        trip.Days[0].Morning.ForceAddActivity(
+        trip.Days[0].GetBlock(BlockType.Morning).ForceAddActivity(
             new ActivityNode(101L, "Park", 2, 60, false));
 
-        trip.Days[0].Afternoon.ForceAddActivity(
+        trip.Days[0].GetBlock(BlockType.Afternoon).ForceAddActivity(
             new ActivityNode(200L, "Restaurant", 1, 90, true));
 
-        trip.Days[0].Evening.ForceAddActivity(
+        trip.Days[0].GetBlock(BlockType.Evening).ForceAddActivity(
             new ActivityNode(300L, "Show", 1, 120, true));
 
-        trip.Days[1].Morning.ForceAddActivity(
+        trip.Days[1].GetBlock(BlockType.Morning).ForceAddActivity(
             new ActivityNode(400L, "Tour", 1, 180, false));
 
         return trip;
@@ -99,7 +99,7 @@ public sealed class ToggleActivityCompletionHandlerTests
         Assert.IsTrue(result.IsCompleted);
         Assert.AreEqual(1, result.CompletedCount);
 
-        Assert.IsTrue(trip.Days[0].Morning.Activities[0].IsCompleted);
+        Assert.IsTrue(trip.Days[0].GetBlock(BlockType.Morning).Activities[0].IsCompleted);
 
         _tripRepoMock.Verify(r => r.UpdateAsync(trip, It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -110,7 +110,7 @@ public sealed class ToggleActivityCompletionHandlerTests
         // Arrange - mark activity 100 as completed first
         var trip = CreateTripWithActivities();
         var tripId = trip.TripId;
-        trip.Days[0].Morning.Activities[0].SetCompleted(true);
+        trip.Days[0].GetBlock(BlockType.Morning).Activities[0].SetCompleted(true);
 
         _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(trip);
@@ -128,7 +128,7 @@ public sealed class ToggleActivityCompletionHandlerTests
         Assert.IsFalse(result.IsCompleted);
         Assert.AreEqual(0, result.CompletedCount);
 
-        Assert.IsFalse(trip.Days[0].Morning.Activities[0].IsCompleted);
+        Assert.IsFalse(trip.Days[0].GetBlock(BlockType.Morning).Activities[0].IsCompleted);
 
         _tripRepoMock.Verify(r => r.UpdateAsync(trip, It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -149,7 +149,7 @@ public sealed class ToggleActivityCompletionHandlerTests
 
         Assert.IsNotNull(result);
         Assert.AreEqual(101L, result.PlaceId);
-        Assert.IsTrue(trip.Days[0].Morning.Activities[1].IsCompleted);
+        Assert.IsTrue(trip.Days[0].GetBlock(BlockType.Morning).Activities[1].IsCompleted);
 
         _tripRepoMock.Verify(r => r.UpdateAsync(trip, It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -170,7 +170,7 @@ public sealed class ToggleActivityCompletionHandlerTests
 
         Assert.IsNotNull(result);
         Assert.AreEqual(200L, result.PlaceId);
-        Assert.IsTrue(trip.Days[0].Afternoon.Activities[0].IsCompleted);
+        Assert.IsTrue(trip.Days[0].GetBlock(BlockType.Afternoon).Activities[0].IsCompleted);
 
         _tripRepoMock.Verify(r => r.UpdateAsync(trip, It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -191,7 +191,7 @@ public sealed class ToggleActivityCompletionHandlerTests
 
         Assert.IsNotNull(result);
         Assert.AreEqual(300L, result.PlaceId);
-        Assert.IsTrue(trip.Days[0].Evening.Activities[0].IsCompleted);
+        Assert.IsTrue(trip.Days[0].GetBlock(BlockType.Evening).Activities[0].IsCompleted);
 
         _tripRepoMock.Verify(r => r.UpdateAsync(trip, It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -255,7 +255,7 @@ public sealed class ToggleActivityCompletionHandlerTests
             CreatedAt = DateTimeOffset.UtcNow
         };
         trip.GenerateDaysFrom(trip.StartDate);
-        trip.Days[0].Morning.ForceAddActivity(
+        trip.Days[0].GetBlock(BlockType.Morning).ForceAddActivity(
             new ActivityNode(100L, "Museum", 1, 120, true));
         var tripId = trip.TripId;
 
@@ -355,8 +355,8 @@ public sealed class ToggleActivityCompletionHandlerTests
         var tripId = trip.TripId;
 
         // Pre-set activity 200 and 300 as completed
-        trip.Days[0].Afternoon.Activities[0].SetCompleted(true);
-        trip.Days[0].Evening.Activities[0].SetCompleted(true);
+        trip.Days[0].GetBlock(BlockType.Afternoon).Activities[0].SetCompleted(true);
+        trip.Days[0].GetBlock(BlockType.Evening).Activities[0].SetCompleted(true);
 
         _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(trip);

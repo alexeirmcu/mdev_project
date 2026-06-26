@@ -21,6 +21,8 @@ internal sealed class TripRepository : ITripRepository
         return await _dbContext.Trips
             .Include(t => t.City)
             .Include(t => t.Days)
+            .ThenInclude(d => d.Blocks)
+            .ThenInclude(b => b.Activities)
             .FirstOrDefaultAsync(t => t.TripId == tripId, ct);
     }
 
@@ -29,6 +31,8 @@ internal sealed class TripRepository : ITripRepository
         return await _dbContext.Trips
             .Include(t => t.City)
             .Include(t => t.Days)
+            .ThenInclude(d => d.Blocks)
+            .ThenInclude(b => b.Activities)
             .FirstOrDefaultAsync(t => t.TripCode == tripCode, ct);
     }
 
@@ -42,6 +46,8 @@ internal sealed class TripRepository : ITripRepository
         var query = _dbContext.Trips
             .Include(t => t.City)
             .Include(t => t.Days)
+            .ThenInclude(d => d.Blocks)
+            .ThenInclude(b => b.Activities)
             .Where(t => t.OwnerUserId == ownerUserId)
             .AsQueryable();
 

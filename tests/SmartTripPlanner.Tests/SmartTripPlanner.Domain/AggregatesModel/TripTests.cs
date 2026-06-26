@@ -55,9 +55,9 @@ public sealed class TripTests
         var trip = CreateTrip();
         trip.GenerateDaysFrom(trip.StartDate);
         var day = trip.Days[0];
-        Assert.AreEqual(BlockType.Morning, day.Morning.BlockType);
-        Assert.AreEqual(BlockType.Afternoon, day.Afternoon.BlockType);
-        Assert.AreEqual(BlockType.Evening, day.Evening.BlockType);
+        Assert.AreEqual(BlockType.Morning, day.GetBlock(BlockType.Morning).BlockType);
+        Assert.AreEqual(BlockType.Afternoon, day.GetBlock(BlockType.Afternoon).BlockType);
+        Assert.AreEqual(BlockType.Evening, day.GetBlock(BlockType.Evening).BlockType);
     }
 
     [TestMethod]

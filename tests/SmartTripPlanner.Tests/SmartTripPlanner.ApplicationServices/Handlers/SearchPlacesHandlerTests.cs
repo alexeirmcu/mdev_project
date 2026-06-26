@@ -482,11 +482,11 @@ public sealed class SearchPlacesHandlerTests
         var request = CreateRequest("Museum", "madrid-es", 10,
             category: "Museum", isIndoor: true, isFamilyFriendly: true, maxDurationMinutes: 120);
 
-        // Handler now creates filter with Category=null (category handled via SearchAsync string param)
+        // Handler creates filter with Category from request
         _repositoryMock
             .Setup(r => r.SearchAsync("Museum", "madrid-es", 10,
                 It.Is<PlaceSearchFilter>(f =>
-                    f.Category == null &&
+                    f.Category == "Museum" &&
                     f.IsIndoor == true &&
                     f.IsFamilyFriendly == true &&
                     f.MaxDurationMinutes == 120)))
@@ -499,7 +499,7 @@ public sealed class SearchPlacesHandlerTests
         _repositoryMock.Verify(
             r => r.SearchAsync("Museum", "madrid-es", 10,
                 It.Is<PlaceSearchFilter>(f =>
-                    f.Category == null &&
+                    f.Category == "Museum" &&
                     f.IsIndoor == true &&
                     f.IsFamilyFriendly == true &&
                     f.MaxDurationMinutes == 120)),
@@ -526,11 +526,11 @@ public sealed class SearchPlacesHandlerTests
             .Setup(r => r.GetProviderIdForCategoryAsync("Museum", It.IsAny<CancellationToken>()))
             .ReturnsAsync("10000");
 
-        // Handler creates filter with Category=null
+        // Handler creates filter with Category from request
         _externalServiceMock
             .Setup(s => s.SearchPlacesAsync("Museum", "madrid-es", It.IsAny<long>(), 10,
                 It.Is<PlaceSearchFilter>(f =>
-                    f.Category == null &&
+                    f.Category == "Museum" &&
                     f.IsIndoor == true &&
                     f.IsFamilyFriendly == true &&
                     f.MaxDurationMinutes == 120),
@@ -544,7 +544,7 @@ public sealed class SearchPlacesHandlerTests
         _externalServiceMock.Verify(
             s => s.SearchPlacesAsync("Museum", "madrid-es", It.IsAny<long>(), 10,
                 It.Is<PlaceSearchFilter>(f =>
-                    f.Category == null &&
+                    f.Category == "Museum" &&
                     f.IsIndoor == true &&
                     f.IsFamilyFriendly == true &&
                     f.MaxDurationMinutes == 120),

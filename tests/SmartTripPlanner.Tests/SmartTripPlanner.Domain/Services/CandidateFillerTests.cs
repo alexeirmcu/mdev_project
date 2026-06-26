@@ -66,7 +66,7 @@ public sealed class CandidateFillerTests
         await _filler.FillAsync(trip, new List<Place>(), new Dictionary<DateOnly, WeatherCondition>(), CancellationToken.None);
 
         // No activities added
-        Assert.AreEqual(0, trip.Days[0].Morning.Activities.Count);
+        Assert.AreEqual(0, trip.Days[0].GetBlock(BlockType.Morning).Activities.Count);
     }
 
     [TestMethod]
@@ -87,8 +87,8 @@ public sealed class CandidateFillerTests
         await _filler.FillAsync(trip, candidates, weather, CancellationToken.None);
 
         // Morning should have candidates (3 slots, 3 candidates = 3 placed)
-        Assert.AreEqual(3, trip.Days[0].Morning.Activities.Count);
-        Assert.AreEqual(0, trip.Days[0].Afternoon.Activities.Count); // morning fills first
+        Assert.AreEqual(3, trip.Days[0].GetBlock(BlockType.Morning).Activities.Count);
+        Assert.AreEqual(0, trip.Days[0].GetBlock(BlockType.Afternoon).Activities.Count); // morning fills first
     }
 
     [TestMethod]

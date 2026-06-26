@@ -5,15 +5,33 @@ namespace SmartTripPlanner.Domain.AggregatesModel;
 
 public class DayPlan : Entity
 {
+    private readonly List<BlockTimeline> _blocks = new();
+
     public int DayIndex { get; init; }
     public DateOnly Date { get; init; }
     public WeatherCondition WeatherSummary { get; private set; }
-    public required BlockTimeline Morning { get; set; }
-    public required BlockTimeline Afternoon { get; set; }
-    public required BlockTimeline Evening { get; set; }
+    public IReadOnlyList<BlockTimeline> Blocks => _blocks.AsReadOnly();
     public TimeOnly StartTime { get; private set; } = new TimeOnly(9, 0);
     public bool IsStale { get; private set; }
     public DateTimeOffset? WeatherLastUpdatedAt { get; private set; }
+
+    internal DayPlan() { } // EF Core
+
+    public DayPlan(int dayIndex, DateOnly date,
+        BlockTimeline morning, BlockTimeline afternoon, BlockTimeline evening)
+    {
+        DayIndex = dayIndex;
+        Date = date;
+
+        if (morning.BlockType != BlockType.Morning)
+            throw new ArgumentException($"Expected BlockType.Morning but got {morning.BlockType}", nameof(morning));
+        if (afternoon.BlockType != BlockType.Afternoon)
+            throw new ArgumentException($"Expected BlockType.Afternoon but got {afternoon.BlockType}", nameof(afternoon));
+        if (evening.BlockType != BlockType.Evening)
+            throw new ArgumentException($"Expected BlockType.Evening but got {evening.BlockType}", nameof(evening));
+
+        _blocks = new List<BlockTimeline> { morning, afternoon, evening };
+    }
 
     public void UpdateStartTime(TimeOnly newStart)
     {
@@ -40,15 +58,7 @@ public class DayPlan : Entity
         WeatherLastUpdatedAt = DateTimeOffset.UtcNow;
     }
 
-
-
-    internal BlockTimeline GetBlock(BlockType blockType) => blockType switch
-    {
-        BlockType.Morning => Morning,
-        BlockType.Afternoon => Afternoon,
-        BlockType.Evening => Evening,
-        _ => throw new ArgumentOutOfRangeException(nameof(blockType), blockType, null)
-    };
+    public BlockTimeline GetBlock(BlockType blockType) => Blocks[(int)blockType];
 
     public void AddActivity(BlockType blockType, ActivityNode activity)
     {

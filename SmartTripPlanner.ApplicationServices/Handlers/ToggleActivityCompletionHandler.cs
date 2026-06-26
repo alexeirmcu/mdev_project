@@ -44,12 +44,8 @@ public class ToggleActivityCompletionHandler(
         activity.SetCompleted(request.Request.IsCompleted);
 
         var completedCount = trip.Days
-            .SelectMany(d => new[]
-            {
-                d.Morning.Activities,
-                d.Afternoon.Activities,
-                d.Evening.Activities
-            }.SelectMany(a => a))
+            .SelectMany(d => d.Blocks)
+            .SelectMany(b => b.Activities)
             .Count(a => a.IsCompleted);
 
         await tripRepository.UpdateAsync(trip, ct);
@@ -66,8 +62,8 @@ public class ToggleActivityCompletionHandler(
 
     private static ActivityNode? FindActivityAcrossBlocks(DayPlan day, long placeId)
     {
-        return day.Morning.Activities.FirstOrDefault(a => a.PlaceId == placeId)
-            ?? day.Afternoon.Activities.FirstOrDefault(a => a.PlaceId == placeId)
-            ?? day.Evening.Activities.FirstOrDefault(a => a.PlaceId == placeId);
+        return day.Blocks
+            .SelectMany(b => b.Activities)
+            .FirstOrDefault(a => a.PlaceId == placeId);
     }
 }

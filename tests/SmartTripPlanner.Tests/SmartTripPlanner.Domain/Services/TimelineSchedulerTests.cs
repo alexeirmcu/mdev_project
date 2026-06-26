@@ -47,11 +47,21 @@ public sealed class TimelineSchedulerTests
             CreatedAt = DateTimeOffset.UtcNow
         };
 
-        trip.GenerateDaysFrom(trip.StartDate);
-        var day = trip.Days[0];
-        day.Morning = morning;
-        day.Afternoon = afternoon ?? new BlockTimeline { BlockType = BlockType.Afternoon };
-        day.Evening = evening ?? new BlockTimeline { BlockType = BlockType.Evening };
+        var day = new DayPlan(
+            0,
+            trip.StartDate,
+            morning,
+            afternoon ?? new BlockTimeline { BlockType = BlockType.Afternoon },
+            evening ?? new BlockTimeline { BlockType = BlockType.Evening }
+        );
+        day.SetWeather(WeatherCondition.Clear);
+        day.UpdateStartTime(trip.DefaultStartTime);
+
+        // Replace _days via reflection to avoid needing GenerateDaysFrom
+        var daysField = typeof(Trip).GetField("_days",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+        daysField.SetValue(trip, new List<DayPlan> { day });
+
         return trip;
     }
 
