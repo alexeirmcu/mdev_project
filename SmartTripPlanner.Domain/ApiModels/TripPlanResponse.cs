@@ -59,4 +59,5 @@ public class ActivityResponse
     public bool IsCompleted { get; set; }
     public int? EstimatedArrival { get; set; }
     public int? EstimatedDeparture { get; set; }
+    public PlaceLocationModel Location { get; set; } = null!;
 }
