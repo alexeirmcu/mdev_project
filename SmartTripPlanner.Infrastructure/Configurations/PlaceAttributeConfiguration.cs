@@ -24,6 +24,10 @@ public class PlaceAttributeConfiguration : IEntityTypeConfiguration<PlaceAttribu
             .IsRequired()
             .HasMaxLength(500);
 
+        builder.Property(a => a.ProviderId)
+            .IsRequired(false)
+            .HasMaxLength(100);
+
         // Note: the case-insensitive unique index is created via raw SQL
         // in the migration (PostgreSQL functional index with LOWER()).
         // EF Core does not generate functional indexes from Fluent API.

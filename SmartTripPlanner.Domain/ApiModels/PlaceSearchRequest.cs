@@ -7,4 +7,5 @@ public record PlaceSearchRequest(
     string? Category = null,
     bool? IsIndoor = null,
     bool? IsFamilyFriendly = null,
-    int? MaxDurationMinutes = null);
+    int? MaxDurationMinutes = null,
+    bool? FetchFromExternalIfInsufficient = null);

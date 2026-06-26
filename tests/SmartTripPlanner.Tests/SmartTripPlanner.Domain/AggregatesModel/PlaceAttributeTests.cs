@@ -132,4 +132,50 @@ public sealed class PlaceAttributeTests
         {
         }
     }
+
+    // ─── ProviderId tests ─────────────────────────────────────────────
+
+    [TestMethod]
+    public void Constructor_WithoutProviderId_ProviderIdIsNull()
+    {
+        var attr = new PlaceAttribute("foursquare", "category", "Hotel");
+
+        Assert.IsNull(attr.ProviderId);
+    }
+
+    [TestMethod]
+    public void Constructor_WithProviderId_SetsProviderId()
+    {
+        var attr = new PlaceAttribute("foursquare", "category", "Museum", "10000");
+
+        Assert.AreEqual("10000", attr.ProviderId);
+    }
+
+    [TestMethod]
+    public void Constructor_WithNullProviderId_ProviderIdIsNull()
+    {
+        var attr = new PlaceAttribute("foursquare", "category", "Hotel", null);
+
+        Assert.IsNull(attr.ProviderId);
+    }
+
+    [TestMethod]
+    public void InternalConstructor_WithProviderId_PreservesProviderId()
+    {
+        var attr = new PlaceAttribute(1, "foursquare", "category", "Museum", "10000");
+
+        Assert.AreEqual("10000", attr.ProviderId);
+    }
+
+    [TestMethod]
+    public void ProviderId_IsImmutable_NoPublicSetter()
+    {
+        var attrType = typeof(PlaceAttribute);
+        var prop = attrType.GetProperty(nameof(PlaceAttribute.ProviderId));
+
+        Assert.IsNotNull(prop);
+        Assert.IsTrue(prop.GetMethod?.IsPublic ?? false);
+        // Setter should be private (not accessible from outside)
+        Assert.IsFalse(prop.SetMethod?.IsPublic ?? true);
+    }
 }

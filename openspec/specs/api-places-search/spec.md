@@ -9,17 +9,20 @@ REST endpoint exposing place search functionality via a thin API controller. Con
 ## Functional Requirements
 
 ### FR1: POST /trips/places/search
-- `POST /trips/places/search` accepts a JSON body with `PlaceSearchRequest` schema: `query` (string, min 3), `cityId` (string), and optional `maxResults` (int, 1–10).
-- The controller MUST inject `IMediator` (MediatR) to dispatch `SearchPlacesRequest`.
-- Response MUST be serialized as JSON.
+
+`POST /trips/places/search` accepts a JSON body with `PlaceSearchRequest` schema: `query` (string?, nullable), `cityId` (string, required), `category` (string?, nullable), `filters` (object?, nullable, reserved for future use), `fetchFromExternalIfInsufficient` (bool?, default true), and optional `maxResults` (int, 1–10). The controller MUST inject `IMediator` (MediatR) to dispatch `SearchPlacesRequest`. Response MUST be serialized as JSON.
 
 ### FR2: Request Validation
-- `query` is required and MUST be at least 3 characters long.
+
+- At least one of `query`, `category`, or `filters` MUST be non-null and non-empty.
+- If `query` is provided, it MUST be at least 3 characters long.
 - `cityId` is required and MUST be present in the configured `AllowedCities` list.
 - `maxResults` is optional (default 10), MUST be >= 1 and <= `PlaceSearchOptions.MaxResults`.
-- If validation fails, return `422 Unprocessable Entity`.
+- `fetchFromExternalIfInsufficient` defaults to `true` when omitted.
+- If validation fails, return `422 Unprocessable Entity` with `List<ValidationResult>`.
 
 ### FR3: 422 Error Format
+
 All validation and service errors MUST return HTTP 422 with body:
 ```json
 [
@@ -32,10 +35,8 @@ All validation and service errors MUST return HTTP 422 with body:
 - `errorCode`: string — machine-readable error code
 - `description`: string — human-readable error message in English
 
-### FR4: External Service Failure
-- If `PlaceRepository` cascade (local DB → Foursquare) returns no results due to external API failure, the controller MUST return 422 with `EXTERNAL_SERVICE_FAILURE`.
+### FR4: Configuration (PlaceSearchOptions)
 
-### FR5: Configuration (PlaceSearchOptions)
 - `PlaceSearchOptions` MUST be registered via `IOptions<PlaceSearchOptions>`.
 - Namespace: `SmartTripPlanner.API.Configurations`.
 - Configuration section key: `"PlaceSearch"`.
@@ -44,8 +45,47 @@ All validation and service errors MUST return HTTP 422 with body:
   - `MaxResults` (int): maximum allowed results per query, default `10`.
 - Stored in `appsettings.json` under `"PlaceSearch"`.
 
-### FR6: Successful Response
+### FR5: Successful Response
+
 - HTTP 200 with body: array of `PlaceResponse` objects matching the OpenAPI schema.
+
+### FR6: External Service Failure
+
+If the search pipeline returns no results (local + external), the controller MUST return 422 with `EXTERNAL_SERVICE_FAILURE`.
+
+### FR7: At-Least-One-Input Error
+
+When `query`, `category`, and `filters` are all null or empty, the controller MUST return 422 with `AT_LEAST_ONE_REQUIRED` error code.
+
+#### Scenario: Empty search rejected
+- GIVEN `query`=null, `category`=null, `filters`=null
+- WHEN the controller validates the request
+- THEN it returns 422 with `AT_LEAST_ONE_REQUIRED`
+
+#### Scenario: Query-only accepted (regression)
+- GIVEN `query`="Museum", `category`=null
+- WHEN the controller validates the request
+- THEN validation passes
+
+#### Scenario: Category-only accepted
+- GIVEN `query`=null, `category`="Museum"
+- WHEN the controller validates the request
+- THEN validation passes
+
+#### Scenario: Short query still rejected
+- GIVEN `query`="Mu", `category`=null
+- WHEN the controller validates the request
+- THEN it returns 422 with `MIN_LENGTH_VIOLATION`
+
+#### Scenario: External fallback disabled
+- GIVEN `query`="Museum", `fetchFromExternalIfInsufficient`=false
+- WHEN the controller handles the request
+- THEN it dispatches with `FetchFromExternalIfInsufficient`=false
+
+#### Scenario: All inputs provided
+- GIVEN `query`="Museum", `category`="Art", `fetchFromExternalIfInsufficient`=true
+- WHEN the controller validates the request
+- THEN validation passes
 
 ---
 
@@ -74,7 +114,7 @@ All validation and service errors MUST return HTTP 422 with body:
 
 ### AC5: External service failure
 - GIVEN a valid request
-- AND the cascade search (local → external) fails with no results
+- AND the search pipeline (local + external) returns no results
 - WHEN the controller handles the request
 - THEN it returns 422 with `EXTERNAL_SERVICE_FAILURE`
 

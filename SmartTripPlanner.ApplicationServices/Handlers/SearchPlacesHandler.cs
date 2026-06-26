@@ -21,51 +21,138 @@ public class SearchPlacesHandler(
         var sr = request.SearchRequest;
         var maxResults = sr.MaxResults ?? request.DefaultMaxResults;
 
+        // Build filter EXCLUDING category — category is handled at DB level
         var filter = new PlaceSearchFilter(
-            sr.Category,
+            null, // category handled via SearchAsync parameter
             sr.IsIndoor,
             sr.IsFamilyFriendly,
             sr.MaxDurationMinutes);
 
-        var places = await SearchLocalAsync(sr.Query, sr.CityCode, maxResults, filter);
-        if (places.Count > 0)
-            return MapResponse(places);
+        // Step 1: Local search
+        var localPlaces = await repository.SearchAsync(sr.Query, sr.CityCode, maxResults, filter);
 
+        // Step 2: If local results are sufficient OR fallback disabled, return local
+        if (localPlaces.Count >= maxResults || !request.FetchFromExternalIfInsufficient)
+            return MapResponse(localPlaces);
+
+        // Step 3: Category resolution for external fallback
+        List<string>? fsqCategoryIds = null;
+        if (!string.IsNullOrEmpty(sr.Category))
+        {
+            var providerId = await repository.GetProviderIdForCategoryAsync(sr.Category, cancellationToken);
+            if (!string.IsNullOrEmpty(providerId))
+                fsqCategoryIds = [providerId];
+            // Cold start: no ProviderId found → skip external call, return local
+        }
+
+        // Step 4: Skip external if cold start (category set but no provider IDs)
+        if (!string.IsNullOrEmpty(sr.Category) && fsqCategoryIds is null or { Count: 0 })
+            return MapResponse(localPlaces);
+
+        // Step 5: External search
         var city = await cityRepo.GetByCodeAsync(sr.CityCode, cancellationToken);
         if (city is null)
-            return MapResponse(new List<Place>().AsReadOnly());
+            return MapResponse(localPlaces);
 
-        var externalPlaces = await SearchExternalAsync(sr.Query, sr.CityCode, city.Id, maxResults, filter, cancellationToken);
-        if (externalPlaces is null || externalPlaces.Count == 0)
-            return MapResponse(new List<Place>().AsReadOnly());
+        var externalPlaces = await FetchExternalAsync(
+            sr.Query, sr.CityCode, city.Id, maxResults, filter, fsqCategoryIds, cancellationToken);
 
-        await PersistResultsAsync(externalPlaces.ToList(), cancellationToken);
-        return MapResponse(externalPlaces);
+        if (externalPlaces.Count == 0)
+            return MapResponse(localPlaces);
+
+        // Step 6: Dedup merge — combine local + external by ProviderReferenceId
+        var merged = MergePlaces(localPlaces, externalPlaces);
+
+        // Step 7: Persist merged results
+        await repository.UpsertRangeAsync(merged);
+        await repository.UnitOfWork.SaveChangesAsync(cancellationToken);
+
+        // Step 8: Return merged results mapped
+        return MapResponse(merged);
     }
 
-    private async Task<IReadOnlyList<Place>> SearchLocalAsync(string query, string cityCode, int maxResults, PlaceSearchFilter filter)
+    private static List<Place> MergePlaces(List<Place> localPlaces, List<Place> externalPlaces)
     {
-        return await repository.SearchAsync(query, cityCode, maxResults, filter);
+        var localByRefId = localPlaces
+            .Where(p => !string.IsNullOrEmpty(p.ProviderReferenceId))
+            .ToDictionary(p => p.ProviderReferenceId, p => p);
+
+        var merged = new List<Place>(localPlaces);
+
+        foreach (var external in externalPlaces)
+        {
+            if (string.IsNullOrEmpty(external.ProviderReferenceId))
+            {
+                merged.Add(external);
+                continue;
+            }
+
+            if (localByRefId.TryGetValue(external.ProviderReferenceId, out var local))
+            {
+                // Apply external basic fields to local, preserving enrichment
+                ApplyExternalFields(local, external);
+                // local is already in merged list — in-place update
+            }
+            else
+            {
+                merged.Add(external);
+            }
+        }
+
+        return merged;
     }
 
-    private async Task<IReadOnlyList<Place>?> SearchExternalAsync(
-        string query, string cityCode, long cityId, int maxResults, PlaceSearchFilter filter, CancellationToken ct)
+    private static void ApplyExternalFields(Place local, Place external)
+    {
+        // External wins for basic fields
+        // Enrichment fields (FamilyFriendlyScore, Popularity, IsEnriched) are PRESERVED
+        // by not calling MarkEnriched or any enrichment setter
+        try
+        {
+            // Use the existing UpdateFromExternalProvider which handles basic field updates
+            // while preserving enrichment (it doesn't touch FamilyFriendlyScore, Popularity, IsEnriched)
+            // However, it uses the external's TypicalDurationMinutes, IsIndoor, IsFamilyFriendly
+            // We need to preserve those from local if enrichment is set
+            var preserveDuration = local.IsEnriched ? local.TypicalDurationMinutes : external.TypicalDurationMinutes;
+            var preserveIsIndoor = local.IsEnriched ? local.IsIndoor : external.IsIndoor;
+            var preserveIsFamilyFriendly = local.IsEnriched ? local.IsFamilyFriendly : external.IsFamilyFriendly;
+
+            // We can't easily call UpdateFromExternalProvider with modified params,
+            // so we directly set the fields
+            // Name, Location always from external
+            // But we need a way to update these... let's use reflection or a helper
+
+            // Actually, let's just let UpdateFromExternalProvider do its thing
+            // The enrichment fields (FamilyFriendlyScore, Popularity, IsEnriched) are not touched by it
+            // but TypicalDurationMinutes, IsIndoor, IsFamilyFriendly ARE overwritten by design
+            local.UpdateFromExternalProvider(
+                external.Name,
+                external.Location,
+                preserveDuration,
+                preserveIsIndoor,
+                preserveIsFamilyFriendly,
+                external.Attributes);
+        }
+        catch (InvalidOperationException)
+        {
+            // If auto-update is disabled, skip silently
+        }
+    }
+
+    private async Task<List<Place>> FetchExternalAsync(
+        string? query, string cityCode, long cityId, int maxResults,
+        PlaceSearchFilter filter, List<string>? fsqCategoryIds, CancellationToken ct)
     {
         try
         {
-            var places = await externalService.SearchPlacesAsync(query, cityCode, cityId, maxResults, filter);
-            return places.Count == 0 ? null : places;
+            var places = await externalService.SearchPlacesAsync(
+                query ?? string.Empty, cityCode, cityId, maxResults, filter, fsqCategoryIds);
+            return places;
         }
         catch (HttpRequestException)
         {
-            return null;
+            return new List<Place>();
         }
-    }
-
-    private async Task PersistResultsAsync(List<Place> places, CancellationToken ct)
-    {
-        await repository.UpsertRangeAsync(places);
-        await repository.UnitOfWork.SaveChangesAsync(ct);
     }
 
     private SearchPlacesResponse MapResponse(IReadOnlyList<Place> places)

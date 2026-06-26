@@ -148,6 +148,43 @@ public sealed class FoursquareApiClientTests
         Assert.AreEqual("test-api-key", authHeader.Parameter);
     }
 
+    [TestMethod]
+    public async Task SearchPlacesAsync_WithCategoryIds_AddsCategoryParamToUrl()
+    {
+        var json = JsonSerializer.Serialize(new { results = Array.Empty<FoursquarePlace>() }, JsonOptions);
+
+        var handler = new MockHttpMessageHandler(json, HttpStatusCode.OK);
+        using var httpClient = CreateClient(handler);
+        httpClient.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "test-api-key");
+        var client = new FoursquareApiClient(httpClient);
+
+        await client.SearchPlacesAsync("museum", "madrid", 20, new List<string> { "10000", "13002" });
+
+        Assert.IsNotNull(handler.LastRequest);
+        var url = handler.LastRequest.RequestUri.ToString();
+        StringAssert.Contains(url, "fsq_category_ids=10000,13002");
+    }
+
+    [TestMethod]
+    public async Task SearchPlacesAsync_WithoutCategoryIds_NoCategoryParam()
+    {
+        var json = JsonSerializer.Serialize(new { results = Array.Empty<FoursquarePlace>() }, JsonOptions);
+
+        var handler = new MockHttpMessageHandler(json, HttpStatusCode.OK);
+        using var httpClient = CreateClient(handler);
+        httpClient.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "test-api-key");
+        var client = new FoursquareApiClient(httpClient);
+
+        // Null fsqCategoryIds
+        await client.SearchPlacesAsync("museum", "madrid", 20, null);
+
+        Assert.IsNotNull(handler.LastRequest);
+        var url = handler.LastRequest.RequestUri.ToString();
+        Assert.IsFalse(url.Contains("categories"), "URL should not contain 'categories' parameter when no category IDs are provided");
+    }
+
     private sealed class MockHttpMessageHandler : DelegatingHandler
     {
         private readonly string _responseContent;

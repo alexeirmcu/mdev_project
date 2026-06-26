@@ -176,13 +176,13 @@ public sealed class FoursquarePlaceServiceTests
     }
 
     [TestMethod]
-    public async Task SearchPlacesAsync_WithChainAttribute_MapsChainToAttribute()
+    public async Task SearchPlacesAsync_WithChains_DoesNotCreateChainAttributes()
     {
-        // Arrange
+        // Arrange — chain attributes have been removed from mapping
         var mockClient = new Mock<IFoursquareApiClient>();
         var apiPlaces = new List<FoursquarePlace>
         {
-            CreateChainPlace()
+            CreateChainPlace() // Has Chains=[{Name="McDonald's"}]
         };
         mockClient
             .Setup(c => c.SearchPlacesAsync("McDonald's", "madrid-es", 20))
@@ -196,12 +196,33 @@ public sealed class FoursquarePlaceServiceTests
         // Assert
         Assert.AreEqual(1, results.Count);
         var place = results[0];
-        Assert.AreEqual(2, place.Attributes.Count);
+        // Only category attribute, NO chain attribute
+        Assert.AreEqual(1, place.Attributes.Count);
+        Assert.AreEqual("category", place.Attributes.First().Key);
+    }
 
-        var chainAttr = place.Attributes.First(a => a.Key == "chain");
-        Assert.AreEqual("foursquare", chainAttr.Provider);
-        Assert.AreEqual("chain", chainAttr.Key);
-        Assert.AreEqual("McDonald's", chainAttr.Value);
+    [TestMethod]
+    public async Task SearchPlacesAsync_CategoryAttribute_HasProviderId()
+    {
+        // Arrange — category attributes now include ProviderId from FsqCategoryId
+        var mockClient = new Mock<IFoursquareApiClient>();
+        var apiPlaces = new List<FoursquarePlace>
+        {
+            CreateMuseumPlace() // FsqCategoryId = "10000", Name = "Museum"
+        };
+        mockClient
+            .Setup(c => c.SearchPlacesAsync("Museum", "madrid-es", 20))
+            .ReturnsAsync(apiPlaces);
+
+        var service = new FoursquarePlaceService(mockClient.Object);
+
+        // Act
+        var results = await service.SearchPlacesAsync("Museum", "madrid-es", 1L, 20);
+
+        // Assert
+        Assert.AreEqual(1, results.Count);
+        var attr = results[0].Attributes.First();
+        Assert.AreEqual("10000", attr.ProviderId);
     }
 
     [TestMethod]
