@@ -99,10 +99,10 @@ public class UpdateTripHandler(
     private async Task AddMustSeesAsync(Trip trip, List<MustSeeInput> mustSees, CancellationToken ct)
     {
         var newPlaceIds = mustSees.Select(m => m.PlaceId).ToList();
-        var existingPlaces = await placeRepository.GetManyByIdsAsync(newPlaceIds, ct);
-        var existingIdSet = existingPlaces.Select(p => p.Id).ToHashSet();
-        var missingIds = newPlaceIds.Where(id => !existingIdSet.Contains(id)).ToList();
+        var places = await placeRepository.GetManyByIdsAsync(newPlaceIds, ct);
+        var placeNames = places.ToDictionary(p => p.Id, p => p.Name);
 
+        var missingIds = newPlaceIds.Where(id => !placeNames.ContainsKey(id)).ToList();
         if (missingIds.Any())
             throw new BusinessRuleException(
                 $"Some Must-See places were not found: {string.Join(", ", missingIds)}",
@@ -110,7 +110,14 @@ public class UpdateTripHandler(
 
         foreach (var mustSeeInput in mustSees)
         {
-            trip.AddMustSee(mapper.Map<MustSee>(mustSeeInput));
+            var mustSee = new MustSee(
+                mustSeeInput.PlaceId,
+                placeNames[mustSeeInput.PlaceId],
+                mustSeeInput.Priority,
+                mustSeeInput.PinnedDayIndex,
+                mustSeeInput.PinnedBlock,
+                mustSeeInput.ForceIncludeDespiteWeather);
+            trip.AddMustSee(mustSee);
         }
     }
 

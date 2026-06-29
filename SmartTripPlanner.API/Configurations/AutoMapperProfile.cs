@@ -16,7 +16,6 @@ public class AutoMapperProfile : Profile
             .ForCtorParam("PlaceId", opt => opt.MapFrom(src => src.Id));
 
         // Trip mappings
-        CreateMap<MustSeeInput, MustSee>();
         CreateMap<TravelersInput, Travelers>();
         CreateMap<TripPreferencesInput, TripPreferences>()
             .ForCtorParam("interests", opt => opt.MapFrom(src => src.Interests));

@@ -32,9 +32,10 @@ public class GenerateTripHandler(
 
         var city = await ValidateCityAsync(payload.CityCode, ct);
 
+        Dictionary<long, string> placeNames = new();
         if (payload.MustSees is not null && payload.MustSees.Count > 0)
         {
-            await ValidatePlacesAsync(payload.MustSees.ToList(), ct);
+            placeNames = await ResolvePlaceNamesAsync(payload.MustSees.ToList(), ct);
         }
 
         var tripDuration = payload.EndDate.DayNumber - payload.StartDate.DayNumber + 1;
@@ -49,7 +50,7 @@ public class GenerateTripHandler(
 
         var tripCode = await tripCodeGenerator.GenerateAsync(city.CityCode, payload.StartDate.Year, ct);
 
-        var trip = CreateTripAggregate(city, payload, tripCode, request.OwnerUserId);
+        var trip = CreateTripAggregate(city, payload, tripCode, request.OwnerUserId, placeNames);
 
         await tripRepository.AddAsync(trip, ct);
 
@@ -73,17 +74,19 @@ public class GenerateTripHandler(
         return city;
     }
 
-    private async Task ValidatePlacesAsync(List<MustSeeInput> mustSees, CancellationToken ct)
+    private async Task<Dictionary<long, string>> ResolvePlaceNamesAsync(List<MustSeeInput> mustSees, CancellationToken ct)
     {
         var placeIds = mustSees.Select(m => m.PlaceId).ToList();
-        var existingPlaces = await placeRepository.GetManyByIdsAsync(placeIds, ct);
-        var existingIdSet = existingPlaces.Select(p => p.Id).ToHashSet();
-        var missingIds = placeIds.Where(id => !existingIdSet.Contains(id)).ToList();
+        var places = await placeRepository.GetManyByIdsAsync(placeIds, ct);
+        var placeNames = places.ToDictionary(p => p.Id, p => p.Name);
 
+        var missingIds = placeIds.Where(id => !placeNames.ContainsKey(id)).ToList();
         if (missingIds.Any())
             throw new BusinessRuleException(
                 $"Some Must-See places were not found: {string.Join(", ", missingIds)}",
                 missingIds.Cast<object>().ToList().AsReadOnly());
+
+        return placeNames;
     }
 
     private static void ValidatePinnedDays(IReadOnlyList<MustSeeInput> mustSees, int tripDuration)
@@ -103,7 +106,7 @@ public class GenerateTripHandler(
         }
     }
 
-    private Trip CreateTripAggregate(City city, TripGenerationRequest payload, string tripCode, string ownerUserId)
+    private Trip CreateTripAggregate(City city, TripGenerationRequest payload, string tripCode, string ownerUserId, Dictionary<long, string> placeNames)
     {
         var trip = new Trip
         {
@@ -124,7 +127,14 @@ public class GenerateTripHandler(
         {
             foreach (var mustSeeInput in payload.MustSees)
             {
-                trip.AddMustSee(mapper.Map<MustSee>(mustSeeInput));
+                var mustSee = new MustSee(
+                    mustSeeInput.PlaceId,
+                    placeNames[mustSeeInput.PlaceId],
+                    mustSeeInput.Priority,
+                    mustSeeInput.PinnedDayIndex,
+                    mustSeeInput.PinnedBlock,
+                    mustSeeInput.ForceIncludeDespiteWeather);
+                trip.AddMustSee(mustSee);
             }
         }
 

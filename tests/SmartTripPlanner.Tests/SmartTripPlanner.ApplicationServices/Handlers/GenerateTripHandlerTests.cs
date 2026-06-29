@@ -59,8 +59,8 @@ public sealed class GenerateTripHandlerTests
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             new List<MustSeeInput>
             {
-                new(1L, "Museum", Priority.High, pinnedDayIndex),
-                new(2L, "Park", Priority.Medium)
+                new(1L, Priority.High, pinnedDayIndex),
+                new(2L, Priority.Medium)
             },
             new TravelersInput(2, 1, 0),
             new TripPreferencesInput(false, 30, true),
@@ -203,7 +203,7 @@ public sealed class GenerateTripHandlerTests
             new DateOnly(2026, 7, 1),
             new DateOnly(2026, 7, 15),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
-            new List<MustSeeInput> { new(1L, "Museum", Priority.High) },
+            new List<MustSeeInput> { new(1L, Priority.High) },
             null, null, "09:00");
 
         var city = new City("madrid-es", "Madrid", true);
@@ -231,7 +231,7 @@ public sealed class GenerateTripHandlerTests
             new DateOnly(2026, 7, 1),
             new DateOnly(2026, 7, 3),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
-            new List<MustSeeInput> { new(1L, "Museum", Priority.High, null, BlockType.Morning) },
+            new List<MustSeeInput> { new(1L, Priority.High, null, BlockType.Morning) },
             null, null, "09:00");
 
         var city = new City("madrid-es", "Madrid", true);
@@ -263,8 +263,8 @@ public sealed class GenerateTripHandlerTests
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             new List<MustSeeInput>
             {
-                new(1L, "Museum", Priority.High),
-                new(2L, "Park", Priority.Medium)
+                new(1L, Priority.High),
+                new(2L, Priority.Medium)
             },
             new TravelersInput(2, 1, 0),
             new TripPreferencesInput(false, 30, true),
@@ -346,7 +346,7 @@ public sealed class GenerateTripHandlerTests
             BaseHotel: null, // No hotel
             MustSees: new List<MustSeeInput>
             {
-                new(1L, "Museum", Priority.High)
+                new(1L, Priority.High)
             },
             Travelers: new TravelersInput(2, 0, 0),
             Preferences: new TripPreferencesInput(false, 30, true),
@@ -420,7 +420,7 @@ public sealed class GenerateTripHandlerTests
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             new List<MustSeeInput>
             {
-                new(1L, "Museum", Priority.High)
+                new(1L, Priority.High)
             },
             Travelers: null,
             Preferences: null,
