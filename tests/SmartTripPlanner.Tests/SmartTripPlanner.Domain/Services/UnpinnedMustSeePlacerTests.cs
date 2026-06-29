@@ -65,7 +65,7 @@ public sealed class UnpinnedMustSeePlacerTests
     [TestMethod]
     public void Place_PlacesInFirstAvailableDay()
     {
-        var mustSee = new MustSee(1, Priority.High);
+        var mustSee = new MustSee(1, "Place", Priority.High);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 3);
         var place = CreatePlace(1, "Place", 40.4168, -3.7038);
 
@@ -82,7 +82,7 @@ public sealed class UnpinnedMustSeePlacerTests
     public void Place_PrefersOpenDaysOverClosedDays()
     {
         // Trip starts Wednesday. Place closed on Wednesday.
-        var mustSee = new MustSee(1, Priority.High);
+        var mustSee = new MustSee(1, "Place", Priority.High);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 3);
         var place = CreatePlaceWithHours(1, "Closed Wed", 40.4168, -3.7038,
             closedDays: new[] { DayOfWeek.Wednesday });
@@ -104,7 +104,7 @@ public sealed class UnpinnedMustSeePlacerTests
         // 1-day trip with a single empty block — add a must-see with duration
         // that exceeds all block max durations but has visit slots.
         // With AllowMustSeeOvertime=true, should force-place with OvertimeAlert.
-        var mustSee = new MustSee(1, Priority.High);
+        var mustSee = new MustSee(1, "Oversized Place", Priority.High);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
             new TripPreferences(allowMustSeeOvertime: true));
@@ -126,7 +126,7 @@ public sealed class UnpinnedMustSeePlacerTests
     [TestMethod]
     public void Place_WithOvertimeFlagOff_ReturnsFalseWhenNoBlockFits()
     {
-        var mustSee = new MustSee(1, Priority.High);
+        var mustSee = new MustSee(1, "Oversized Place", Priority.High);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         var place = CreatePlace(1, "Oversized Place", 40.4168, -3.7038, duration: 220);
 
@@ -138,7 +138,7 @@ public sealed class UnpinnedMustSeePlacerTests
     [TestMethod]
     public void Place_WithOvertimeFlagOn_FitsNormally_NoOvertimeAlert()
     {
-        var mustSee = new MustSee(1, Priority.High);
+        var mustSee = new MustSee(1, "Normal Activity", Priority.High);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
             new TripPreferences(allowMustSeeOvertime: true));
@@ -154,7 +154,7 @@ public sealed class UnpinnedMustSeePlacerTests
     [TestMethod]
     public void Place_AllDaysFull_ReturnsFalse()
     {
-        var mustSee = new MustSee(1, Priority.High);
+        var mustSee = new MustSee(1, "Place", Priority.High);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         var loc = new PlaceLocation(40.4168, -3.7038);
 
@@ -185,7 +185,7 @@ public sealed class UnpinnedMustSeePlacerTests
     {
         // Morning has an activity — not empty. Unpinned oversized must-see should
         // skip Morning and force-place in Afternoon (empty) instead.
-        var mustSee = new MustSee(1, Priority.High);
+        var mustSee = new MustSee(1, "Place", Priority.High);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
             new TripPreferences(allowMustSeeOvertime: true));
@@ -209,7 +209,7 @@ public sealed class UnpinnedMustSeePlacerTests
     public void Place_WithOvertimeFlagOn_NoEmptyBlockAnywhere_ReturnsFalse()
     {
         // Every block on every day has at least one activity.
-        var mustSee = new MustSee(1, Priority.High);
+        var mustSee = new MustSee(1, "Place", Priority.High);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 2);
         typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
             new TripPreferences(allowMustSeeOvertime: true));
@@ -231,7 +231,7 @@ public sealed class UnpinnedMustSeePlacerTests
     [TestMethod]
     public void Place_MultipleDays_PicksDayWithMostFreeSlots()
     {
-        var mustSee = new MustSee(1, Priority.High);
+        var mustSee = new MustSee(1, "Place", Priority.High);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 3);
 
         // Fill day 0 morning partially — reduces free slots so day 0 is less attractive

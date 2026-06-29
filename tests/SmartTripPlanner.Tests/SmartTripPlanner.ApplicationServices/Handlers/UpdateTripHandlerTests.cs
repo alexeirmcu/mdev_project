@@ -28,7 +28,7 @@ public sealed class UpdateTripHandlerTests
         // Default mapper setup for MustSee mapping used in AddMustSeeAsync
         _mapperMock
             .Setup(m => m.Map<MustSee>(It.IsAny<MustSeeInput>()))
-            .Returns((MustSeeInput input) => new MustSee(input.PlaceId, input.Priority, input.PinnedDayIndex, input.PinnedBlock));
+            .Returns((MustSeeInput input) => new MustSee(input.PlaceId, input.PlaceName, input.Priority, input.PinnedDayIndex, input.PinnedBlock));
 
         _handler = new UpdateTripHandler(
             _tripRepoMock.Object,
@@ -146,7 +146,7 @@ public sealed class UpdateTripHandlerTests
             .ReturnsAsync(new List<Place> { CreatePlaceEntity(42L) });
 
         var request = new UpdateTrip(tripId, new TripUpdateRequest(
-            MustSeesToAdd: new List<MustSeeInput> { new(42L, Priority.High) }));
+            MustSeesToAdd: new List<MustSeeInput> { new(42L, "Museum", Priority.High) }));
 
         await _handler.Handle(request, CancellationToken.None);
 
@@ -158,7 +158,7 @@ public sealed class UpdateTripHandlerTests
     public async Task Handle_RemoveMustSee_Existing_Succeeds()
     {
         var trip = CreateTrip();
-        trip.AddMustSee(new MustSee(42L, Priority.High));
+        trip.AddMustSee(new MustSee(42L, "Museum", Priority.High));
         var tripId = trip.TripId;
 
         _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
@@ -293,7 +293,7 @@ public sealed class UpdateTripHandlerTests
             .ReturnsAsync(new List<Place> { CreatePlaceEntity(42L) });
 
         var request = new UpdateTrip(tripId, new TripUpdateRequest(
-            MustSeesToAdd: new List<MustSeeInput> { new(42L, Priority.High) }));
+            MustSeesToAdd: new List<MustSeeInput> { new(42L, "Museum", Priority.High) }));
 
         await _handler.Handle(request, CancellationToken.None);
 
@@ -332,7 +332,7 @@ public sealed class UpdateTripHandlerTests
     {
         var trip = CreateTrip();
         trip.GenerateDaysFrom(trip.StartDate);
-        trip.AddMustSee(new MustSee(1L, Priority.High));
+        trip.AddMustSee(new MustSee(1L, "Museum", Priority.High));
         var tripId = trip.TripId;
 
         _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
@@ -346,7 +346,7 @@ public sealed class UpdateTripHandlerTests
         Assert.IsTrue(trip.Days.Any());
 
         var request = new UpdateTrip(tripId, new TripUpdateRequest(
-            MustSeesToAdd: new List<MustSeeInput> { new(42L, Priority.High) }));
+            MustSeesToAdd: new List<MustSeeInput> { new(42L, "Museum", Priority.High) }));
 
         await _handler.Handle(request, CancellationToken.None);
 

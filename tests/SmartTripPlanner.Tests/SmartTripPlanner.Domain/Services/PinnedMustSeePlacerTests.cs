@@ -50,7 +50,7 @@ public sealed class PinnedMustSeePlacerTests
     [TestMethod]
     public void Place_PinnedMustSeeWithBlock_PlacesInCorrectDayAndBlock()
     {
-        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var mustSee = new MustSee(1, "Museo del Prado", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 2);
         var place = CreatePlace(1, "Museo del Prado", 40.4168, -3.7038);
 
@@ -64,7 +64,7 @@ public sealed class PinnedMustSeePlacerTests
     [TestMethod]
     public void Place_PinnedMustSeeNoBlock_TriesMorningFirst()
     {
-        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0);
+        var mustSee = new MustSee(1, "Place", Priority.High, pinnedDayIndex: 0);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         var place = CreatePlace(1, "Place", 40.4168, -3.7038);
 
@@ -81,7 +81,7 @@ public sealed class PinnedMustSeePlacerTests
     [TestMethod]
     public void Place_InvalidDayIndex_ReturnsFalse()
     {
-        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 99);
+        var mustSee = new MustSee(1, "Place", Priority.High, pinnedDayIndex: 99);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         var place = CreatePlace(1, "Place", 40.4168, -3.7038);
 
@@ -94,7 +94,7 @@ public sealed class PinnedMustSeePlacerTests
     public void Place_FullTargetBlock_OverflowsToAdjacentBlock()
     {
         // Fill Morning to capacity, then try to place another
-        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var mustSee = new MustSee(1, "Place 1", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         var place1 = CreatePlace(1, "Place 1", 40.4168, -3.7038, duration: 60);
         var place2 = CreatePlace(2, "Place 2", 40.4170, -3.7040, duration: 60);
@@ -107,7 +107,7 @@ public sealed class PinnedMustSeePlacerTests
 
         // Now try to place a pinned must-see in Morning — should overflow to Afternoon
         var place3 = CreatePlace(4, "Overflow Place", 40.4190, -3.7060);
-        var mustSee2 = new MustSee(4, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var mustSee2 = new MustSee(4, "Overflow Place", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
 
         var result = _placer.Place(trip, mustSee2, place3);
 
@@ -125,7 +125,7 @@ public sealed class PinnedMustSeePlacerTests
     {
         // Must-see with 220 min duration exceeds Morning max (210).
         // With AllowMustSeeOvertime=true, should force-place with OvertimeAlert.
-        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var mustSee = new MustSee(1, "Long Activity", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         // Set AllowMustSeeOvertime to true
         typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
@@ -145,7 +145,7 @@ public sealed class PinnedMustSeePlacerTests
     {
         // Must-see with 220 min duration exceeds Morning max (210).
         // With AllowMustSeeOvertime=false (default), should return false.
-        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var mustSee = new MustSee(1, "Long Activity", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         var place = CreatePlace(1, "Long Activity", 40.4168, -3.7038, duration: 220);
 
@@ -161,7 +161,7 @@ public sealed class PinnedMustSeePlacerTests
         // Fill Morning to max visits, then try to place an oversized pinned must-see.
         // Normal overflow to adjacent Afternoon should fail (duration),
         // but force-placement should succeed with OvertimeAlert.
-        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var mustSee = new MustSee(1, "Must-See", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
             new TripPreferences(allowMustSeeOvertime: true));
@@ -190,7 +190,7 @@ public sealed class PinnedMustSeePlacerTests
     public void Place_WithOvertimeFlagOn_FitsNormally_NoOvertimeAlert()
     {
         // Must-see that fits normally — OvertimeAlert should remain false
-        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var mustSee = new MustSee(1, "Normal Activity", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
             new TripPreferences(allowMustSeeOvertime: true));
@@ -209,7 +209,7 @@ public sealed class PinnedMustSeePlacerTests
         // Morning has 1 activity (not full, but NOT empty).
         // Pinned must-see for Morning with overtime should NOT share the block;
         // it should overflow to Afternoon (empty) via force-placement.
-        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var mustSee = new MustSee(1, "Must-See", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
             new TripPreferences(allowMustSeeOvertime: true));
@@ -234,7 +234,7 @@ public sealed class PinnedMustSeePlacerTests
     public void Place_WithOvertimeFlagOn_NoEmptyBlock_ReturnsFalse()
     {
         // Every block has at least one activity — no empty block for exclusive overtime.
-        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
+        var mustSee = new MustSee(1, "Must-See", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
         typeof(Trip).GetProperty("Preferences")!.SetValue(trip,
             new TripPreferences(allowMustSeeOvertime: true));
@@ -254,7 +254,7 @@ public sealed class PinnedMustSeePlacerTests
     [TestMethod]
     public void Place_AllBlocksFullOnTargetDay_ReturnsFalse()
     {
-        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0);
+        var mustSee = new MustSee(1, "Must-See", Priority.High, pinnedDayIndex: 0);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 1);
 
         var loc = new PlaceLocation(40.4168, -3.7038);

@@ -130,7 +130,7 @@ public sealed class PlaceMappingProfileTests
     public void Map_MustSeeToMustSeeResponse_MapsForceIncludeDespiteWeather()
     {
         var mapper = CreateMapper();
-        var mustSee = new MustSee(42L, global::SmartTripPlanner.Domain.Enums.Priority.High, forceIncludeDespiteWeather: true);
+        var mustSee = new MustSee(42L, "Test Place", global::SmartTripPlanner.Domain.Enums.Priority.High, forceIncludeDespiteWeather: true);
 
         var response = mapper.Map<MustSeeResponse>(mustSee);
 
@@ -141,7 +141,7 @@ public sealed class PlaceMappingProfileTests
     public void Map_MustSeeToMustSeeResponse_ForceIncludeDespiteWeatherDefaultsFalse()
     {
         var mapper = CreateMapper();
-        var mustSee = new MustSee(42L, global::SmartTripPlanner.Domain.Enums.Priority.High);
+        var mustSee = new MustSee(42L, "Test Place", global::SmartTripPlanner.Domain.Enums.Priority.High);
 
         var response = mapper.Map<MustSeeResponse>(mustSee);
 

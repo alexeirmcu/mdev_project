@@ -133,7 +133,7 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High, pinnedDayIndex: 1, pinnedBlock: BlockType.Morning)
+            new(1, "Museo del Prado", Priority.High, pinnedDayIndex: 1, pinnedBlock: BlockType.Morning)
         };
         var trip = CreateTrip(mustSees, dayCount: 3);
         var places = new List<Place>
@@ -167,7 +167,7 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High, pinnedDayIndex: 0) // No block specified
+            new(1, "Must-See A", Priority.High, pinnedDayIndex: 0) // No block specified
         };
         var trip = CreateTrip(mustSees, dayCount: 2);
 
@@ -209,9 +209,9 @@ public sealed class HeuristicItineraryGeneratorTests
         // Three places within 2km in central Madrid — should cluster together
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High),
-            new(2, Priority.Medium),
-            new(3, Priority.Low)
+            new(1, "Puerta del Sol", Priority.High),
+            new(2, "Plaza Mayor", Priority.Medium),
+            new(3, "Palacio Real", Priority.Low)
         };
         var trip = CreateTrip(mustSees, dayCount: 1);
         var places = new List<Place>
@@ -236,8 +236,8 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High),
-            new(2, Priority.Medium)
+            new(1, "Madrid Centro", Priority.High),
+            new(2, "Paris Centro", Priority.Medium)
         };
         var trip = CreateTrip(mustSees, dayCount: 2);
         var places = new List<Place>
@@ -264,7 +264,7 @@ public sealed class HeuristicItineraryGeneratorTests
 
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High) // unpinned
+            new(1, "Closed Wednesdays", Priority.High) // unpinned
         };
         var trip = CreateTrip(mustSees, dayCount: 5); // Wed-Sun
         var places = new List<Place>
@@ -345,11 +345,11 @@ public sealed class HeuristicItineraryGeneratorTests
         // Use 5 must-sees for a 1-day trip (Morning=3, Afternoon=2 after overflow)
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High),
-            new(2, Priority.High),
-            new(3, Priority.High),
-            new(4, Priority.Medium),
-            new(5, Priority.Low),
+            new(1, "Place A", Priority.High),
+            new(2, "Place B", Priority.High),
+            new(3, "Place C", Priority.High),
+            new(4, "Place D", Priority.Medium),
+            new(5, "Place E", Priority.Low),
         };
         var trip = CreateTrip(mustSees, dayCount: 1);
         var places = new List<Place>
@@ -384,7 +384,7 @@ public sealed class HeuristicItineraryGeneratorTests
         // Max total for 60-min activities = 7
         // Make 8 High priority must-sees — impossible → exception
         var mustSees = Enumerable.Range(1, 8)
-            .Select(i => new MustSee(i, Priority.High))
+            .Select(i => new MustSee(i, $"Place {i}", Priority.High))
             .ToList();
         var trip = CreateTrip(mustSees, dayCount: 1);
         var places = Enumerable.Range(1, 8)
@@ -404,7 +404,7 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         // 1-day trip: 3 (morning) + 3 (afternoon) + 1 (evening, 60 min) = 7
         var mustSees = Enumerable.Range(1, 7)
-            .Select(i => new MustSee(i, Priority.High))
+            .Select(i => new MustSee(i, $"Place {i}", Priority.High))
             .ToList();
         var trip = CreateTrip(mustSees, dayCount: 1);
         var places = Enumerable.Range(1, 7)
@@ -429,8 +429,8 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High),
-            new(2, Priority.Medium)
+            new(1, "Must See A", Priority.High),
+            new(2, "Must See B", Priority.Medium)
         };
         var trip = CreateTrip(mustSees, dayCount: 2);
         // Only must-see places in the list (no extra candidates)
@@ -456,9 +456,9 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.Low),
-            new(2, Priority.High),
-            new(3, Priority.Medium)
+            new(1, "Low Priority Place", Priority.Low),
+            new(2, "High Priority Place", Priority.High),
+            new(3, "Medium Priority Place", Priority.Medium)
         };
         var trip = CreateTrip(mustSees, dayCount: 1);
         var places = new List<Place>
@@ -480,8 +480,8 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High),
-            new(2, Priority.Low)
+            new(1, "High Priority", Priority.High),
+            new(2, "Low Priority", Priority.Low)
         };
         var trip = CreateTrip(mustSees, dayCount: 1);
         var places = new List<Place>
@@ -509,8 +509,8 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High),
-            new(2, Priority.High)
+            new(1, "Puerta del Sol", Priority.High),
+            new(2, "Plaza Mayor", Priority.High)
         };
         var trip = CreateTrip(mustSees, dayCount: 1, carAvailable: false);
         var places = new List<Place>
@@ -537,8 +537,8 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning),
-            new(2, Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning)
+            new(1, "Madrid Centro", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning),
+            new(2, "Toledo", Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning)
         };
         var trip = CreateTrip(mustSees, dayCount: 1, carAvailable: true);
         var places = new List<Place>
@@ -564,8 +564,8 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High),
-            new(2, Priority.High)
+            new(1, "Place A", Priority.High),
+            new(2, "Place B", Priority.High)
         };
         var trip = CreateTrip(mustSees, dayCount: 1, carAvailable: true);
         var places = new List<Place>
@@ -595,7 +595,7 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High)
+            new(1, "Place", Priority.High)
         };
         var trip = CreateTrip(mustSees, dayCount: 2);
         var places = new List<Place>
@@ -640,7 +640,7 @@ public sealed class HeuristicItineraryGeneratorTests
     [TestMethod]
     public async Task GenerateAsync_SingleDayTrip_OneDayPlanCreated()
     {
-        var mustSees = new List<MustSee> { new(1, Priority.High) };
+        var mustSees = new List<MustSee> { new(1, "Place", Priority.High) };
         var trip = CreateTrip(mustSees, dayCount: 1);
         var places = new List<Place>
         {
@@ -663,8 +663,8 @@ public sealed class HeuristicItineraryGeneratorTests
         // Always is the default — verify hotel transit populated and no InterBlockTransit
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning),
-            new(2, Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Afternoon)
+            new(1, "Place Morning", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning),
+            new(2, "Place Afternoon", Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Afternoon)
         };
         var trip = CreateTrip(mustSees, dayCount: 1, returnToHotelStrategy: ReturnToHotelStrategy.Always);
         var places = new List<Place>
@@ -692,8 +692,8 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning),
-            new(2, Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Afternoon)
+            new(1, "Morning Place", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning),
+            new(2, "Afternoon Place", Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Afternoon)
         };
         var trip = CreateTrip(mustSees, dayCount: 1, returnToHotelStrategy: ReturnToHotelStrategy.Never);
         var places = new List<Place>
@@ -723,8 +723,8 @@ public sealed class HeuristicItineraryGeneratorTests
         // Verify ProximityBased runs through full pipeline without error
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning),
-            new(2, Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Afternoon)
+            new(1, "Morning Place", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Morning),
+            new(2, "Afternoon Place", Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Afternoon)
         };
         var trip = CreateTrip(mustSees, dayCount: 1, carAvailable: true,
             returnToHotelStrategy: ReturnToHotelStrategy.ProximityBased);
@@ -757,7 +757,7 @@ public sealed class HeuristicItineraryGeneratorTests
         // be force-placed with OvertimeAlert=true.
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High)
+            new(1, "Oversized Activity", Priority.High)
         };
         var trip = CreateTrip(mustSees, dayCount: 2, allowMustSeeOvertime: true);
         var places = new List<Place>
@@ -787,7 +787,7 @@ public sealed class HeuristicItineraryGeneratorTests
         // With flag off (default), the system throws OverConstrainedRouteException.
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High)
+            new(1, "Oversized Activity", Priority.High)
         };
         var trip = CreateTrip(mustSees, dayCount: 2, allowMustSeeOvertime: false);
         var places = new List<Place>
@@ -810,7 +810,7 @@ public sealed class HeuristicItineraryGeneratorTests
         // even when the flag is on.
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High)
+            new(1, "Normal Activity", Priority.High)
         };
         var trip = CreateTrip(mustSees, dayCount: 1, allowMustSeeOvertime: true);
         var places = new List<Place>
@@ -833,8 +833,8 @@ public sealed class HeuristicItineraryGeneratorTests
         // With flag on, both should be placed — High normally, Low as overtime.
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High),
-            new(2, Priority.Low)
+            new(1, "Fits Normally", Priority.High),
+            new(2, "Oversized Low", Priority.Low)
         };
         var trip = CreateTrip(mustSees, dayCount: 1, allowMustSeeOvertime: true);
         var places = new List<Place>
@@ -868,8 +868,8 @@ public sealed class HeuristicItineraryGeneratorTests
     {
         var mustSees = new List<MustSee>
         {
-            new(1, Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Afternoon),
-            new(2, Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Evening)
+            new(1, "Afternoon Place", Priority.High, pinnedDayIndex: 0, pinnedBlock: BlockType.Afternoon),
+            new(2, "Evening Place", Priority.Medium, pinnedDayIndex: 0, pinnedBlock: BlockType.Evening)
         };
         var trip = CreateTrip(mustSees, dayCount: 1, returnToHotelStrategy: ReturnToHotelStrategy.Never);
         var places = new List<Place>

@@ -261,9 +261,9 @@ public sealed class ListTripsHandlerTests
         // Arrange
         var city = CreateCity();
         var trip = CreateTrip(city: city);
-        trip.AddMustSee(new MustSee(1L, Priority.High));
-        trip.AddMustSee(new MustSee(2L, Priority.Medium));
-        trip.AddMustSee(new MustSee(3L, Priority.Low));
+        trip.AddMustSee(new MustSee(1L, "Place 1", Priority.High));
+        trip.AddMustSee(new MustSee(2L, "Place 2", Priority.Medium));
+        trip.AddMustSee(new MustSee(3L, "Place 3", Priority.Low));
 
         _tripRepoMock
             .Setup(r => r.ListAsync("user-42", null, null, null, It.IsAny<CancellationToken>()))

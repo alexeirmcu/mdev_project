@@ -40,7 +40,7 @@ public sealed class TripsControllerTests
             new TripPreferencesInput(false, 30, true),
             new List<MustSeeResponse>
             {
-                new(1L, "High", 0, "Morning")
+                new(1L, "Place", "High", 0, "Morning")
             },
             "GENERATED",
             "09:00")
@@ -133,7 +133,7 @@ public sealed class TripsControllerTests
             new DateOnly(2026, 7, 1),
             new DateOnly(2026, 7, 3),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
-            new List<MustSeeInput> { new(1L, Priority.High) },
+            new List<MustSeeInput> { new(1L, "Place", Priority.High) },
             new TravelersInput(2, 0, 0),
             new TripPreferencesInput(false, 30, true),
             "09:00");
@@ -170,7 +170,7 @@ public sealed class TripsControllerTests
             new DateOnly(2026, 7, 1),
             new DateOnly(2026, 7, 3),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
-            new List<MustSeeInput> { new(1L, Priority.High) },
+            new List<MustSeeInput> { new(1L, "Place", Priority.High) },
             new TravelersInput(2, 0, 0),
             new TripPreferencesInput(false, 30, true),
             "09:00");
@@ -217,7 +217,7 @@ public sealed class TripsControllerTests
             new DateOnly(2026, 7, 1),
             new DateOnly(2026, 7, 3),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
-            new List<MustSeeInput> { new(1L, Priority.High) },
+            new List<MustSeeInput> { new(1L, "Place", Priority.High) },
             new TravelersInput(2, 0, 0),
             new TripPreferencesInput(false, 30, true),
             "09:00");

@@ -73,7 +73,7 @@ public sealed class TripTests
     public void AddMustSee_AddsToList()
     {
         var trip = CreateTrip();
-        var mustSee = new MustSee(42L, Priority.High);
+        var mustSee = new MustSee(42L, "Place", Priority.High);
 
         trip.AddMustSee(mustSee);
 
@@ -85,7 +85,7 @@ public sealed class TripTests
     public void AddMustSee_DuplicatePlaceId_ThrowsDomainException()
     {
         var trip = CreateTrip();
-        var mustSee = new MustSee(42L, Priority.High);
+        var mustSee = new MustSee(42L, "Place", Priority.High);
 
         trip.AddMustSee(mustSee);
 
@@ -96,8 +96,8 @@ public sealed class TripTests
     public void RemoveMustSee_Existing_ReturnsTrueAndRemoves()
     {
         var trip = CreateTrip();
-        trip.AddMustSee(new MustSee(42L, Priority.High));
-        trip.AddMustSee(new MustSee(43L, Priority.Medium));
+        trip.AddMustSee(new MustSee(42L, "Place 1", Priority.High));
+        trip.AddMustSee(new MustSee(43L, "Place 2", Priority.Medium));
 
         bool removed = trip.RemoveMustSee(42L);
 

@@ -13,7 +13,7 @@ using SmartTripPlanner.Infrastructure;
 namespace SmartTripPlanner.Infrastructure.Migrations
 {
     [DbContext(typeof(PlannerDbContext))]
-    [Migration("20260626203331_InitialCreate")]
+    [Migration("20260629072409_InitialCreate")]
     partial class InitialCreate
     {
         /// <inheritdoc />
@@ -694,6 +694,11 @@ namespace SmartTripPlanner.Infrastructure.Migrations
 
                             b1.Property<long>("PlaceId")
                                 .HasColumnType("bigint");
+
+                            b1.Property<string>("PlaceName")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)");
 
                             b1.Property<string>("Priority")
                                 .IsRequired()

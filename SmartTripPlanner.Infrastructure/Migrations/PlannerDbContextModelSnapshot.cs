@@ -692,6 +692,11 @@ namespace SmartTripPlanner.Infrastructure.Migrations
                             b1.Property<long>("PlaceId")
                                 .HasColumnType("bigint");
 
+                            b1.Property<string>("PlaceName")
+                                .IsRequired()
+                                .HasMaxLength(200)
+                                .HasColumnType("character varying(200)");
+
                             b1.Property<string>("Priority")
                                 .IsRequired()
                                 .HasColumnType("text");

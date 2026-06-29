@@ -69,6 +69,7 @@ public class TripConfiguration : IEntityTypeConfiguration<Trip>
             mustSee.Property<long>("Id");
             mustSee.HasKey("Id");
             mustSee.Property(m => m.PlaceId).IsRequired();
+            mustSee.Property(m => m.PlaceName).IsRequired().HasMaxLength(200);
             mustSee.Property(m => m.Priority).HasConversion<string>().IsRequired();
             mustSee.Property(m => m.PinnedDayIndex);
             mustSee.Property(m => m.PinnedBlock).HasConversion<string>();

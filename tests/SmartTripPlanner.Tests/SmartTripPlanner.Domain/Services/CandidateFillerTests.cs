@@ -97,7 +97,7 @@ public sealed class CandidateFillerTests
         var trip = CreateTrip(Array.Empty<MustSee>(), dayCount: 1);
 
         // Place a must-see first to create a reference activity for distance
-        var mustSee = new MustSee(1, Priority.High);
+        var mustSee = new MustSee(1, "MustSee", Priority.High);
         trip.AddMustSee(mustSee);
         var mustSeePlace = CreatePlace(1, "MustSee", 40.4168, -3.7038, duration: 60);
         var candidates = new List<Place>
