@@ -191,7 +191,7 @@ public sealed class ItineraryReplanningEngineTests
     {
         // Arrange
         var trip = CreateTripWithDays(3);
-        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 1);
+        var mustSee = new MustSee(1, "MustSee Place", Priority.High, pinnedDayIndex: 1);
         trip.AddMustSee(mustSee);
 
         var mustSeeActivity = CreateActivity(1, "MustSee Place");
@@ -220,7 +220,7 @@ public sealed class ItineraryReplanningEngineTests
     {
         // Arrange
         var trip = CreateTripWithDays(3);
-        var mustSee = new MustSee(3, Priority.High);
+        var mustSee = new MustSee(3, "MustSee 3", Priority.High);
         trip.AddMustSee(mustSee);
 
         var completed = CreateActivity(1, "Completed", isCompleted: true);
@@ -496,7 +496,7 @@ public sealed class ItineraryReplanningEngineTests
     {
         // Arrange
         var trip = CreateTripWithDays(1);
-        var mustSee = new MustSee(1, Priority.High, pinnedDayIndex: 0,
+        var mustSee = new MustSee(1, "ForcedOutdoor", Priority.High, pinnedDayIndex: 0,
             pinnedBlock: BlockType.Morning, forceIncludeDespiteWeather: true);
         trip.AddMustSee(mustSee);
 
