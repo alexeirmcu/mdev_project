@@ -94,6 +94,33 @@ public sealed class LlmClientTests
     }
 
     [TestMethod]
+    public async Task GetEnrichmentJsonAsync_WithZeroTimeout_Cancels()
+    {
+        _options.RequestTimeoutSeconds = 0;
+
+        _chatClientMock
+            .Setup(c => c.GetResponseAsync(
+                It.IsAny<IList<ChatMessage>>(),
+                It.IsAny<ChatOptions>(),
+                It.IsAny<CancellationToken>()))
+            .Returns((IList<ChatMessage> _, ChatOptions _, CancellationToken ct) =>
+            {
+                ct.ThrowIfCancellationRequested();
+                return Task.FromResult(new ChatResponse(new List<ChatMessage> { new(ChatRole.Assistant, "{}") }));
+            });
+
+        try
+        {
+            await _client.GetEnrichmentJsonAsync("test prompt");
+            Assert.Fail("Expected OperationCanceledException was not thrown");
+        }
+        catch (OperationCanceledException)
+        {
+            // Expected — zero timeout cancelled the linked token before the call
+        }
+    }
+
+    [TestMethod]
     public async Task GetEnrichmentJsonAsync_WithEmptyResponse_ThrowsInvalidOperationException()
     {
         // Create a chat response with an empty messages list to simulate empty LLM response

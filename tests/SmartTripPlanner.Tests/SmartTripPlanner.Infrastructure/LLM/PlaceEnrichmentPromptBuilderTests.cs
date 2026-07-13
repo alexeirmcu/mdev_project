@@ -74,6 +74,26 @@ public sealed class PlaceEnrichmentPromptBuilderTests
     }
 
     [TestMethod]
+    public void Build_WithNameContainingQuotes_EscapesQuotes()
+    {
+        var place = CreatePlace("Museo \"Bellas Artes\"");
+
+        var prompt = PlaceEnrichmentPromptBuilder.Build(place);
+
+        Assert.IsTrue(prompt.Contains("Museo \\\"Bellas Artes\\\""));
+    }
+
+    [TestMethod]
+    public void Build_WithTipsContainingQuotes_EscapesQuotes()
+    {
+        var place = CreatePlace("Test Place");
+
+        var prompt = PlaceEnrichmentPromptBuilder.Build(place, "He said \"Great!\"");
+
+        Assert.IsTrue(prompt.Contains("He said \\\"Great!\\\""));
+    }
+
+    [TestMethod]
     public void Build_Always_ContainsJsonSchema()
     {
         var place = CreatePlace("Prado Museum");

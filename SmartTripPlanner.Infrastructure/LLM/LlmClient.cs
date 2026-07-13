@@ -40,7 +40,9 @@ internal sealed class LlmClient : ILlmClient
 
         try
         {
-            var response = await _chatClient.GetResponseAsync(messages, chatOptions, ct);
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(TimeSpan.FromSeconds(_options.RequestTimeoutSeconds));
+            var response = await _chatClient.GetResponseAsync(messages, chatOptions, cts.Token);
 
             if (response.Messages.Count == 0 || string.IsNullOrEmpty(response.Messages[0].Text))
                 throw new InvalidOperationException("Empty LLM response");

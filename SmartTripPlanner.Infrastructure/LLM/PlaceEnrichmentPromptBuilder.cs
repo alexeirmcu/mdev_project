@@ -8,7 +8,7 @@ internal static class PlaceEnrichmentPromptBuilder
     public static string Build(Place place, string? tipsText = null)
     {
         var sb = new StringBuilder();
-        sb.AppendLine($"Place: {place.Name}");
+        sb.AppendLine($"Place: {EscapeQuotes(place.Name)}");
 
         var categories = place.Attributes
             .Where(a => a.Key == "category")
@@ -31,7 +31,7 @@ internal static class PlaceEnrichmentPromptBuilder
 
         if (!string.IsNullOrWhiteSpace(tipsText))
         {
-            sb.AppendLine($"Visitor Tips: {tipsText}");
+            sb.AppendLine($"Visitor Tips: {EscapeQuotes(tipsText)}");
         }
 
         sb.AppendLine();
@@ -44,5 +44,10 @@ internal static class PlaceEnrichmentPromptBuilder
         sb.AppendLine("}");
 
         return sb.ToString();
+    }
+
+    private static string EscapeQuotes(string input)
+    {
+        return input.Replace("\"", "\\\"");
     }
 }
