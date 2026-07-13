@@ -1,49 +1,66 @@
 using System.Text;
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.Ports;
 
 namespace SmartTripPlanner.Infrastructure.LLM;
 
-internal static class PlaceEnrichmentPromptBuilder
+internal sealed class PlaceEnrichmentPromptBuilder(IPromptTemplateProvider templateProvider)
 {
-    public static string Build(Place place, string? tipsText = null)
+    public string Build(Place place, string? tipsText)
     {
-        var sb = new StringBuilder();
-        sb.AppendLine($"Place: {EscapeQuotes(place.Name)}");
+        var template = templateProvider.GetTemplate("PlaceEnrichment");
+        var replacements = new Dictionary<string, string>
+        {
+            ["Name"] = EscapeQuotes(place.Name),
+            ["CategoriesSection"] = BuildCategoriesSection(place),
+            ["OpeningHoursSection"] = BuildOpeningHoursSection(place),
+            ["VisitorTipsSection"] = BuildVisitorTipsSection(tipsText),
+            ["Schema"] = BuildSchema()
+        };
 
+        return ApplyTemplate(template.UserPromptTemplate, replacements);
+    }
+
+    private static string ApplyTemplate(string template, Dictionary<string, string> replacements)
+    {
+        return replacements.Aggregate(template, (current, pair) => current.Replace($"{{{{{pair.Key}}}}}", pair.Value));
+    }
+
+    private static string BuildCategoriesSection(Place place)
+    {
         var categories = place.Attributes
             .Where(a => a.Key == "category")
-            .Select(a => a.Value);
-        if (categories.Any())
+            .Select(a => a.Value)
+            .ToList();
+
+        if (!categories.Any()) return string.Empty;
+        return $"Categories: {string.Join(", ", categories)}\n";
+    }
+
+    private static string BuildOpeningHoursSection(Place place)
+    {
+        if (place.OpeningHours.Count == 0) return string.Empty;
+
+        var sb = new StringBuilder();
+        sb.AppendLine("Opening Hours:");
+        foreach (var oh in place.OpeningHours.OrderBy(o => o.DayOfWeek))
         {
-            sb.AppendLine($"Categories: {string.Join(", ", categories)}");
+            var open = TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(oh.OpenMinutes));
+            var close = TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(oh.CloseMinutes));
+            sb.AppendLine($"  {oh.DayOfWeek}: {open:HH:mm}-{close:HH:mm}");
         }
-
-        if (place.OpeningHours.Count > 0)
-        {
-            sb.AppendLine("Opening Hours:");
-            foreach (var oh in place.OpeningHours.OrderBy(o => o.DayOfWeek))
-            {
-                var open = TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(oh.OpenMinutes));
-                var close = TimeOnly.FromTimeSpan(TimeSpan.FromMinutes(oh.CloseMinutes));
-                sb.AppendLine($"  {oh.DayOfWeek}: {open:HH:mm}-{close:HH:mm}");
-            }
-        }
-
-        if (!string.IsNullOrWhiteSpace(tipsText))
-        {
-            sb.AppendLine($"Visitor Tips: {EscapeQuotes(tipsText)}");
-        }
-
-        sb.AppendLine();
-        sb.AppendLine("Respond with valid JSON only in this exact schema:");
-        sb.AppendLine("{");
-        sb.AppendLine("  \"TypicalDurationMinutes\": <int, 15-480>,");
-        sb.AppendLine("  \"IsIndoor\": <bool>,");
-        sb.AppendLine("  \"FamilyFriendlyScore\": <int, 1-5>,");
-        sb.AppendLine("  \"Popularity\": <double, 0.0-1.0>");
-        sb.AppendLine("}");
-
         return sb.ToString();
+    }
+
+    private static string BuildVisitorTipsSection(string? tipsText)
+    {
+        if (string.IsNullOrWhiteSpace(tipsText)) return string.Empty;
+        return $"Visitor Tips: {EscapeQuotes(tipsText)}\n";
+    }
+
+    private static string BuildSchema()
+    {
+        return "{\n  \"TypicalDurationMinutes\": <int, 15-480>,\n  \"IsIndoor\": <bool>,\n  \"FamilyFriendlyScore\": <int, 1-5>,\n  \"Popularity\": <double, 0.0-1.0>\n}";
     }
 
     private static string EscapeQuotes(string input)

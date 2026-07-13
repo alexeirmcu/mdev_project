@@ -126,6 +126,8 @@ public sealed class ItineraryReplanningEngineTests
         return activity;
     }
 
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static Trip CreateTripWithDays(int dayCount = 3)
     {
         var trip = new Trip
@@ -133,8 +135,8 @@ public sealed class ItineraryReplanningEngineTests
             TripId = Guid.NewGuid(),
             TripCode = "TEST",
             CityId = 1,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 1 + dayCount - 1),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate.AddDays(dayCount - 1),
             BaseHotel = new Location("Hotel", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
@@ -341,7 +343,7 @@ public sealed class ItineraryReplanningEngineTests
             CurrentBlock: BlockType.Morning,
             Scope: ReplanScope.CurrentBlock,
             IsBadWeather: true,
-            CurrentDateTime: new DateTimeOffset(2026, 7, 2, 10, 0, 0, TimeSpan.Zero));
+            CurrentDateTime: new DateTimeOffset(FutureStartDate.ToDateTime(TimeOnly.MinValue).AddHours(10), TimeSpan.Zero));
 
         var weather = new Dictionary<DateOnly, WeatherCondition>
         {
@@ -384,7 +386,7 @@ public sealed class ItineraryReplanningEngineTests
             CurrentBlock: BlockType.Morning,
             Scope: ReplanScope.RemainingTrip,
             IsBadWeather: true,
-            CurrentDateTime: new DateTimeOffset(2026, 7, 2, 10, 0, 0, TimeSpan.Zero));
+            CurrentDateTime: new DateTimeOffset(FutureStartDate.ToDateTime(TimeOnly.MinValue).AddHours(10), TimeSpan.Zero));
 
         var weather = new Dictionary<DateOnly, WeatherCondition>
         {
@@ -431,7 +433,7 @@ public sealed class ItineraryReplanningEngineTests
             CurrentBlock: BlockType.Morning,
             Scope: ReplanScope.RemainingTrip,
             IsBadWeather: false,
-            CurrentDateTime: new DateTimeOffset(2026, 7, 2, 10, 0, 0, TimeSpan.Zero));
+            CurrentDateTime: new DateTimeOffset(FutureStartDate.ToDateTime(TimeOnly.MinValue).AddHours(10), TimeSpan.Zero));
 
         var weather = new Dictionary<DateOnly, WeatherCondition>
         {
@@ -471,7 +473,7 @@ public sealed class ItineraryReplanningEngineTests
             CurrentBlock: BlockType.Morning,
             Scope: ReplanScope.CurrentDay,
             IsBadWeather: true,
-            CurrentDateTime: new DateTimeOffset(2026, 7, 1, 10, 0, 0, TimeSpan.Zero));
+            CurrentDateTime: new DateTimeOffset(FutureStartDate.ToDateTime(TimeOnly.MinValue).AddHours(10), TimeSpan.Zero));
 
         var weather = new Dictionary<DateOnly, WeatherCondition>
         {
@@ -513,7 +515,7 @@ public sealed class ItineraryReplanningEngineTests
             CurrentBlock: BlockType.Morning,
             Scope: ReplanScope.CurrentDay,
             IsBadWeather: true,
-            CurrentDateTime: new DateTimeOffset(2026, 7, 1, 10, 0, 0, TimeSpan.Zero));
+            CurrentDateTime: new DateTimeOffset(FutureStartDate.ToDateTime(TimeOnly.MinValue).AddHours(10), TimeSpan.Zero));
 
         var weather = new Dictionary<DateOnly, WeatherCondition>
         {
@@ -554,7 +556,7 @@ public sealed class ItineraryReplanningEngineTests
             CurrentBlock: BlockType.Morning,
             Scope: ReplanScope.CurrentDay,
             IsBadWeather: false,
-            CurrentDateTime: new DateTimeOffset(2026, 7, 1, 12, 0, 0, TimeSpan.Zero));
+            CurrentDateTime: new DateTimeOffset(FutureStartDate.ToDateTime(TimeOnly.MinValue).AddHours(12), TimeSpan.Zero));
 
         var weather = new Dictionary<DateOnly, WeatherCondition>
         {
@@ -595,7 +597,7 @@ public sealed class ItineraryReplanningEngineTests
             CurrentBlock: BlockType.Morning,
             Scope: ReplanScope.RemainingTrip,
             IsBadWeather: false,
-            CurrentDateTime: new DateTimeOffset(2026, 7, 1, 10, 0, 0, TimeSpan.Zero));
+            CurrentDateTime: new DateTimeOffset(FutureStartDate.ToDateTime(TimeOnly.MinValue).AddHours(10), TimeSpan.Zero));
 
         var weather = new Dictionary<DateOnly, WeatherCondition>
         {

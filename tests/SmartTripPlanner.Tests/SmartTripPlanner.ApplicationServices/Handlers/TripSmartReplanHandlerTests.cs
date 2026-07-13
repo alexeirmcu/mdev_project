@@ -45,6 +45,8 @@ public sealed class TripSmartReplanHandlerTests
             _userContextMock.Object);
     }
 
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static Trip CreateTrip(string ownerUserId = "user-42")
     {
         var city = new City("madrid-es", "Madrid", true);
@@ -54,8 +56,8 @@ public sealed class TripSmartReplanHandlerTests
             TripCode = "MAD-2026-TEST",
             CityId = 1L,
             City = city,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 3),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate.AddDays(2),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
@@ -104,7 +106,7 @@ public sealed class TripSmartReplanHandlerTests
 
         // Act - morning of day 1 (July 2), scope CurrentDay, good weather
         var payload = new TripSmartReplanRequest(
-            new DateTime(2026, 7, 2, 9, 0, 0, DateTimeKind.Utc),
+            DateTime.SpecifyKind(FutureStartDate.ToDateTime(new TimeOnly(9, 0)).AddDays(1), DateTimeKind.Utc),
             "CurrentDay",
             WeatherCondition.Good);
         var result = await _handler.Handle(
@@ -152,7 +154,7 @@ public sealed class TripSmartReplanHandlerTests
 
         // Act - afternoon of day 0 (July 1), scope RemainingTrip, bad weather
         var payload = new TripSmartReplanRequest(
-            new DateTime(2026, 7, 1, 14, 30, 0, DateTimeKind.Utc),
+            DateTime.SpecifyKind(FutureStartDate.ToDateTime(new TimeOnly(14, 30)), DateTimeKind.Utc),
             "RemainingTrip",
             WeatherCondition.Bad);
         var result = await _handler.Handle(
@@ -196,7 +198,7 @@ public sealed class TripSmartReplanHandlerTests
             .Returns(Task.CompletedTask);
 
         var payload = new TripSmartReplanRequest(
-            new DateTime(2026, 7, 1, 20, 0, 0, DateTimeKind.Utc),
+            DateTime.SpecifyKind(FutureStartDate.ToDateTime(new TimeOnly(20, 0)), DateTimeKind.Utc),
             "CurrentBlock",
             WeatherCondition.Good);
         var result = await _handler.Handle(
@@ -225,7 +227,7 @@ public sealed class TripSmartReplanHandlerTests
 
         // CurrentDateTime after trip end
         var payload = new TripSmartReplanRequest(
-            new DateTime(2026, 7, 4, 10, 0, 0, DateTimeKind.Utc),
+            DateTime.SpecifyKind(FutureStartDate.ToDateTime(new TimeOnly(10, 0)).AddDays(3), DateTimeKind.Utc),
             "CurrentDay",
             WeatherCondition.Good);
 
@@ -278,7 +280,7 @@ public sealed class TripSmartReplanHandlerTests
 
         // CurrentDateTime before trip start (June 30, trip starts July 1)
         var payload = new TripSmartReplanRequest(
-            new DateTime(2026, 6, 30, 10, 0, 0, DateTimeKind.Utc),
+            DateTime.SpecifyKind(FutureStartDate.ToDateTime(new TimeOnly(10, 0)).AddDays(-1), DateTimeKind.Utc),
             "CurrentDay",
             WeatherCondition.Good);
 
@@ -301,8 +303,8 @@ public sealed class TripSmartReplanHandlerTests
             TripCode = "MAD-2026-NOD",
             CityId = 1L,
             City = city,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 3),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate.AddDays(2),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
@@ -317,7 +319,7 @@ public sealed class TripSmartReplanHandlerTests
             .ReturnsAsync(trip);
 
         var payload = new TripSmartReplanRequest(
-            new DateTime(2026, 7, 1, 10, 0, 0, DateTimeKind.Utc),
+            DateTime.SpecifyKind(FutureStartDate.ToDateTime(new TimeOnly(10, 0)), DateTimeKind.Utc),
             "CurrentDay",
             WeatherCondition.Good);
 

@@ -7,13 +7,15 @@ namespace SmartTripPlanner.Tests.Domain.AggregatesModel;
 [TestClass]
 public sealed class TripTests
 {
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static Trip CreateTrip() => new()
     {
         TripId = Guid.NewGuid(),
         TripCode = "MAD-2026-TEST",
         CityId = 1L,
-        StartDate = new DateOnly(2026, 6, 1),
-        EndDate = new DateOnly(2026, 6, 3),
+        StartDate = FutureStartDate,
+        EndDate = FutureStartDate.AddDays(2),
         BaseHotel = new Location("Hotel", 0, 0),
         OwnerUserId = "user-42",
         CreatedAt = DateTimeOffset.UtcNow
@@ -32,9 +34,9 @@ public sealed class TripTests
         var trip = CreateTrip(); // June 1 to June 3 = 3 days
         trip.GenerateDaysFrom(trip.StartDate);
         Assert.AreEqual(3, trip.Days.Count);
-        Assert.AreEqual(new DateOnly(2026, 6, 1), trip.Days[0].Date);
-        Assert.AreEqual(new DateOnly(2026, 6, 2), trip.Days[1].Date);
-        Assert.AreEqual(new DateOnly(2026, 6, 3), trip.Days[2].Date);
+        Assert.AreEqual(trip.StartDate, trip.Days[0].Date);
+        Assert.AreEqual(trip.StartDate.AddDays(1), trip.Days[1].Date);
+        Assert.AreEqual(trip.StartDate.AddDays(2), trip.Days[2].Date);
     }
 
     [TestMethod]
@@ -131,8 +133,8 @@ public sealed class TripTests
     public void UpdateDates_WithValidRange_SetsDates()
     {
         var trip = CreateTrip();
-        var start = new DateOnly(2026, 7, 1);
-        var end = new DateOnly(2026, 7, 5);
+        var start = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10));
+        var end = start.AddDays(4);
 
         trip.UpdateDates(start, end);
 
@@ -146,7 +148,7 @@ public sealed class TripTests
         var trip = CreateTrip();
 
         Assert.ThrowsExactly<BusinessRuleException>(() =>
-            trip.UpdateDates(new DateOnly(2026, 7, 5), new DateOnly(2026, 7, 1)));
+            trip.UpdateDates(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10)), DateOnly.FromDateTime(DateTime.UtcNow.AddDays(6))));
     }
 
     [TestMethod]
@@ -155,7 +157,7 @@ public sealed class TripTests
         var trip = CreateTrip();
 
         Assert.ThrowsExactly<BusinessRuleException>(() =>
-            trip.UpdateDates(new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 20)));
+            trip.UpdateDates(DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5)), DateOnly.FromDateTime(DateTime.UtcNow.AddDays(24))));
     }
 
     [TestMethod]

@@ -89,6 +89,8 @@ public sealed class HeuristicItineraryGeneratorTests
         return place;
     }
 
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static Trip CreateTrip(IReadOnlyList<MustSee> mustSees, int dayCount = 3,
         bool carAvailable = false, bool weatherAware = true, int children = 0,
         ReturnToHotelStrategy returnToHotelStrategy = ReturnToHotelStrategy.Always,
@@ -99,8 +101,8 @@ public sealed class HeuristicItineraryGeneratorTests
             TripId = Guid.NewGuid(),
             TripCode = "TEST-CODE",
             CityId = 1,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 1 + dayCount - 1),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate.AddDays(dayCount - 1),
             BaseHotel = new Location("Test Hotel", 40.4168, -3.7038),
             Travelers = new Travelers(2, children, 0),
             Preferences = new TripPreferences(carAvailable, 30, weatherAware, returnToHotelStrategy: returnToHotelStrategy, allowMustSeeOvertime: allowMustSeeOvertime),
@@ -118,7 +120,7 @@ public sealed class HeuristicItineraryGeneratorTests
     private static Dictionary<DateOnly, WeatherCondition> AllClearWeather(int dayCount)
     {
         var dict = new Dictionary<DateOnly, WeatherCondition>();
-        var start = new DateOnly(2026, 7, 1);
+        var start = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
         for (int i = 0; i < dayCount; i++)
             dict[start.AddDays(i)] = WeatherCondition.Clear;
         return dict;
@@ -258,19 +260,18 @@ public sealed class HeuristicItineraryGeneratorTests
     [TestMethod]
     public async Task GenerateAsync_MustSeeClosedOnFirstDay_PlacedOnOpenDay()
     {
-        // Trip starts on Wednesday (July 1, 2026)
-        var firstDay = new DateOnly(2026, 7, 1); // Wednesday
-        Assert.AreEqual(DayOfWeek.Wednesday, firstDay.DayOfWeek);
+        var trip = CreateTrip(Array.Empty<MustSee>(), dayCount: 5);
+        var closedDay = trip.StartDate.DayOfWeek;
 
         var mustSees = new List<MustSee>
         {
-            new(1, "Closed Wednesdays", Priority.High) // unpinned
+            new(1, "Closed On First Day", Priority.High) // unpinned
         };
-        var trip = CreateTrip(mustSees, dayCount: 5); // Wed-Sun
+        trip.AddMustSee(mustSees[0]);
         var places = new List<Place>
         {
-            CreatePlaceWithHours(1, "Closed Wednesdays", 40.4168, -3.7038,
-                closedDays: new[] { DayOfWeek.Wednesday })
+            CreatePlaceWithHours(1, "Closed On First Day", 40.4168, -3.7038,
+                closedDays: new[] { closedDay })
         };
 
         await _generator.GenerateAsync(trip, places, AllClearWeather(5), CancellationToken.None);
@@ -298,7 +299,7 @@ public sealed class HeuristicItineraryGeneratorTests
             weatherAware: true, carAvailable: false);
         var weather = new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Bad }
+            { trip.StartDate, WeatherCondition.Bad }
         };
 
         var indoor = CreatePlace(1, "Indoor Museum", 40.4168, -3.7038, duration: 60, isIndoor: true);
@@ -321,7 +322,7 @@ public sealed class HeuristicItineraryGeneratorTests
             weatherAware: false, carAvailable: false);
         var weather = new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Bad }
+            { trip.StartDate, WeatherCondition.Bad }
         };
 
         var indoor = CreatePlace(1, "Indoor Museum", 40.4168, -3.7038, duration: 60, isIndoor: true);
@@ -605,8 +606,8 @@ public sealed class HeuristicItineraryGeneratorTests
 
         var weather = new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear },
-            { new DateOnly(2026, 7, 2), WeatherCondition.Bad }
+            { trip.StartDate, WeatherCondition.Clear },
+            { trip.StartDate.AddDays(1), WeatherCondition.Bad }
         };
 
         await _generator.GenerateAsync(trip, places, weather, CancellationToken.None);
@@ -628,9 +629,9 @@ public sealed class HeuristicItineraryGeneratorTests
         await _generator.GenerateAsync(trip, places, AllClearWeather(3), CancellationToken.None);
 
         Assert.AreEqual(3, trip.Days.Count);
-        Assert.AreEqual(new DateOnly(2026, 7, 1), trip.Days[0].Date);
-        Assert.AreEqual(new DateOnly(2026, 7, 2), trip.Days[1].Date);
-        Assert.AreEqual(new DateOnly(2026, 7, 3), trip.Days[2].Date);
+        Assert.AreEqual(trip.StartDate, trip.Days[0].Date);
+        Assert.AreEqual(trip.StartDate.AddDays(1), trip.Days[1].Date);
+        Assert.AreEqual(trip.StartDate.AddDays(2), trip.Days[2].Date);
     }
 
     // ─────────────────────────────────────────────────────────────────────────────

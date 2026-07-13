@@ -11,10 +11,12 @@ public sealed class GenerateTripValidatorTests
 {
     private readonly GenerateTripValidator _sut = new();
 
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static GenerateTrip CreateValidRequest() => new(new TripGenerationRequest(
         "madrid-es",
-        new DateOnly(2026, 7, 1),
-        new DateOnly(2026, 7, 3),
+        DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5)),
+        DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
         new LocationModel("Hotel Central", 40.4168, -3.7038),
         new List<MustSeeInput> { new(1L, Priority.High) },
         new TravelersInput(2, 0, 0),
@@ -63,7 +65,7 @@ public sealed class GenerateTripValidatorTests
         var request = CreateValidRequest() with
         {
             Payload = new TripGenerationRequest(
-                "madrid-es", new DateOnly(2026, 7, 3), new DateOnly(2026, 7, 1),
+                "madrid-es", FutureStartDate.AddDays(2), FutureStartDate,
                 new LocationModel("H", 0, 0),
                 new List<MustSeeInput> { new(1L, Priority.High) })
         };
@@ -77,7 +79,7 @@ public sealed class GenerateTripValidatorTests
         var request = CreateValidRequest() with
         {
             Payload = new TripGenerationRequest(
-                "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
+                "madrid-es", FutureStartDate, FutureStartDate.AddDays(2),
                 new LocationModel("H", 0, 0),
                 new List<MustSeeInput> { new(1L, Priority.High), new(1L, Priority.Low) },
                 new TravelersInput(2, 0, 0))
@@ -92,7 +94,7 @@ public sealed class GenerateTripValidatorTests
         var request = CreateValidRequest() with
         {
             Payload = new TripGenerationRequest(
-                "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
+                "madrid-es", FutureStartDate, FutureStartDate.AddDays(2),
                 new LocationModel("H", 0, 0),
                 new List<MustSeeInput> { new(1L, Priority.High) },
                 new TravelersInput(2, 0, 0), null, "25:00")
@@ -107,7 +109,7 @@ public sealed class GenerateTripValidatorTests
         var request = CreateValidRequest() with
         {
             Payload = new TripGenerationRequest(
-                "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
+                "madrid-es", FutureStartDate, FutureStartDate.AddDays(2),
                 new LocationModel("H", 0, 0),
                 new List<MustSeeInput>(),
                 new TravelersInput(2, 0, 0))
@@ -122,7 +124,7 @@ public sealed class GenerateTripValidatorTests
         var request = CreateValidRequest() with
         {
             Payload = new TripGenerationRequest(
-                "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
+                "madrid-es", FutureStartDate, FutureStartDate.AddDays(2),
                 new LocationModel("H", 0, 0),
                 MustSees: null,
                 Travelers: new TravelersInput(2, 0, 0))
@@ -137,7 +139,7 @@ public sealed class GenerateTripValidatorTests
         var request = CreateValidRequest() with
         {
             Payload = new TripGenerationRequest(
-                "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
+                "madrid-es", FutureStartDate, FutureStartDate.AddDays(2),
                 BaseHotel: null,
                 MustSees: new List<MustSeeInput> { new(1L, Priority.High) },
                 Travelers: new TravelersInput(2, 0, 0))
@@ -152,7 +154,7 @@ public sealed class GenerateTripValidatorTests
         var request = CreateValidRequest() with
         {
             Payload = new TripGenerationRequest(
-                "madrid-es", new DateOnly(2026, 7, 1), new DateOnly(2026, 7, 3),
+                "madrid-es", FutureStartDate, FutureStartDate.AddDays(2),
                 new LocationModel("H", 0, 0),
                 new List<MustSeeInput> { new(1L, Priority.High) },
                 Travelers: null)

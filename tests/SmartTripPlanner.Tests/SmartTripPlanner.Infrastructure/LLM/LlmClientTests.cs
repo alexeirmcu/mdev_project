@@ -42,7 +42,7 @@ public sealed class LlmClientTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(chatResponse);
 
-        var result = await _client.GetEnrichmentJsonAsync("test prompt");
+        var result = await _client.GetEnrichmentJsonAsync("system prompt", "test prompt", 0.1f);
 
         Assert.AreEqual(expectedJson, result);
     }
@@ -61,15 +61,16 @@ public sealed class LlmClientTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(chatResponse);
 
-        await _client.GetEnrichmentJsonAsync("test prompt");
+        await _client.GetEnrichmentJsonAsync("system prompt", "test prompt", 0.1f);
 
         _chatClientMock.Verify(c => c.GetResponseAsync(
             It.Is<IList<ChatMessage>>(messages =>
                 messages.Count == 2 &&
                 messages[0].Role == ChatRole.System &&
+                messages[0].Text == "system prompt" &&
                 messages[1].Role == ChatRole.User &&
                 messages[1].Text == "test prompt"),
-            It.Is<ChatOptions>(o => o.ResponseFormat == ChatResponseFormat.Json),
+            It.Is<ChatOptions>(o => o.ResponseFormat == ChatResponseFormat.Json && o.Temperature == 0.1f),
             It.IsAny<CancellationToken>()), Times.Once);
     }
 
@@ -84,7 +85,7 @@ public sealed class LlmClientTests
 
         try
         {
-            await _client.GetEnrichmentJsonAsync("test prompt");
+            await _client.GetEnrichmentJsonAsync("system prompt", "test prompt", 0.1f);
             Assert.Fail("Expected HttpRequestException was not thrown");
         }
         catch (HttpRequestException)
@@ -94,7 +95,7 @@ public sealed class LlmClientTests
     }
 
     [TestMethod]
-    public async Task GetEnrichmentJsonAsync_WithZeroTimeout_Cancels()
+    public async Task GetEnrichmentJsonAsync_WithZeroTimeout_DoesNotApplyCustomTimeout()
     {
         _options.RequestTimeoutSeconds = 0;
 
@@ -109,15 +110,9 @@ public sealed class LlmClientTests
                 return Task.FromResult(new ChatResponse(new List<ChatMessage> { new(ChatRole.Assistant, "{}") }));
             });
 
-        try
-        {
-            await _client.GetEnrichmentJsonAsync("test prompt");
-            Assert.Fail("Expected OperationCanceledException was not thrown");
-        }
-        catch (OperationCanceledException)
-        {
-            // Expected — zero timeout cancelled the linked token before the call
-        }
+        var result = await _client.GetEnrichmentJsonAsync("system prompt", "test prompt", 0.1f);
+
+        Assert.AreEqual("{}", result);
     }
 
     [TestMethod]
@@ -134,7 +129,7 @@ public sealed class LlmClientTests
 
         try
         {
-            await _client.GetEnrichmentJsonAsync("test prompt");
+            await _client.GetEnrichmentJsonAsync("system prompt", "test prompt", 0.1f);
             Assert.Fail("Expected InvalidOperationException was not thrown");
         }
         catch (InvalidOperationException)

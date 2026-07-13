@@ -30,6 +30,8 @@ public sealed class TimelineSchedulerTests
         return block;
     }
 
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static Trip CreateTripWithDay(BlockTimeline morning, BlockTimeline? afternoon = null, BlockTimeline? evening = null)
     {
         var trip = new Trip
@@ -37,8 +39,8 @@ public sealed class TimelineSchedulerTests
             TripId = Guid.NewGuid(),
             TripCode = "TEST",
             CityId = 1,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 1),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate,
             BaseHotel = new Location("Hotel", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),

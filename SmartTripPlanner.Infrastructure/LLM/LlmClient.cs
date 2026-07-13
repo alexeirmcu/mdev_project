@@ -18,30 +18,35 @@ internal sealed class LlmClient : ILlmClient
         _logger = logger;
     }
 
-    public async Task<string> GetEnrichmentJsonAsync(string prompt, CancellationToken ct = default)
+    public async Task<string> GetEnrichmentJsonAsync(string systemPrompt, string userPrompt, float temperature, CancellationToken ct = default)
     {
         _logger.LogInformation(
-            "Sending LLM request to {BaseUrl} with model {Model}. Prompt length: {PromptLength} chars",
+            "Sending LLM request to {BaseUrl} with model {Model} (temperature: {Temperature}). Prompt length: {PromptLength} chars",
             _options.BaseUrl,
             _options.Model,
-            prompt.Length);
+            temperature,
+            userPrompt.Length);
 
         var messages = new List<ChatMessage>
         {
-            new(ChatRole.System, "You are a place metadata assistant. Respond ONLY with valid JSON."),
-            new(ChatRole.User, prompt)
+            new(ChatRole.System, systemPrompt),
+            new(ChatRole.User, userPrompt)
         };
 
         var chatOptions = new ChatOptions
         {
             ResponseFormat = ChatResponseFormat.Json,
-            ModelId = _options.Model
+            ModelId = _options.Model,
+            Temperature = temperature
         };
 
         try
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-            cts.CancelAfter(TimeSpan.FromSeconds(_options.RequestTimeoutSeconds));
+            if (_options.RequestTimeoutSeconds > 0)
+            {
+                cts.CancelAfter(TimeSpan.FromSeconds(_options.RequestTimeoutSeconds));
+            }
             var response = await _chatClient.GetResponseAsync(messages, chatOptions, cts.Token);
 
             if (response.Messages.Count == 0 || string.IsNullOrEmpty(response.Messages[0].Text))

@@ -50,12 +50,14 @@ public sealed class GenerateTripHandlerTests
             _userContextMock.Object);
     }
 
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static TripGenerationRequest CreateValidRequest(int? pinnedDayIndex = null)
     {
         return new TripGenerationRequest(
             "madrid-es",
-            new DateOnly(2026, 7, 1),
-            new DateOnly(2026, 7, 3),
+            FutureStartDate,
+            FutureStartDate.AddDays(2),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             new List<MustSeeInput>
             {
@@ -105,8 +107,8 @@ public sealed class GenerateTripHandlerTests
         Assert.AreEqual(1L, result.CityId);
         Assert.AreEqual("madrid-es", result.CityCode);
         Assert.AreEqual("Madrid", result.CityName);
-        Assert.AreEqual(new DateOnly(2026, 7, 1), result.StartDate);
-        Assert.AreEqual(new DateOnly(2026, 7, 3), result.EndDate);
+        Assert.AreEqual(FutureStartDate, result.StartDate);
+        Assert.AreEqual(FutureStartDate.AddDays(2), result.EndDate);
         Assert.AreEqual(2, result.Travelers.Adults);
         Assert.AreEqual(1, result.Travelers.Children);
         Assert.AreEqual(2, result.MustSees.Count);
@@ -200,8 +202,8 @@ public sealed class GenerateTripHandlerTests
         // 15-day trip exceeds 14-day max
         var request = new TripGenerationRequest(
             "madrid-es",
-            new DateOnly(2026, 7, 1),
-            new DateOnly(2026, 7, 15),
+            FutureStartDate,
+            FutureStartDate.AddDays(14),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             new List<MustSeeInput> { new(1L, Priority.High) },
             null, null, "09:00");
@@ -228,8 +230,8 @@ public sealed class GenerateTripHandlerTests
     {
         var request = new TripGenerationRequest(
             "madrid-es",
-            new DateOnly(2026, 7, 1),
-            new DateOnly(2026, 7, 3),
+            FutureStartDate,
+            FutureStartDate.AddDays(2),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             new List<MustSeeInput> { new(1L, Priority.High, null, BlockType.Morning) },
             null, null, "09:00");
@@ -258,8 +260,8 @@ public sealed class GenerateTripHandlerTests
         // Arrange
         var request = new TripGenerationRequest(
             "madrid-es",
-            new DateOnly(2026, 7, 1),
-            new DateOnly(2026, 7, 3),
+            FutureStartDate,
+            FutureStartDate.AddDays(2),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             new List<MustSeeInput>
             {
@@ -304,8 +306,8 @@ public sealed class GenerateTripHandlerTests
         // Arrange
         var request = new TripGenerationRequest(
             "madrid-es",
-            new DateOnly(2026, 7, 1),
-            new DateOnly(2026, 7, 3),
+            FutureStartDate,
+            FutureStartDate.AddDays(2),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             MustSees: null, // No must-sees
             Travelers: new TravelersInput(2, 0, 0),
@@ -341,8 +343,8 @@ public sealed class GenerateTripHandlerTests
         // Arrange
         var request = new TripGenerationRequest(
             "madrid-es",
-            new DateOnly(2026, 7, 1),
-            new DateOnly(2026, 7, 3),
+            FutureStartDate,
+            FutureStartDate.AddDays(2),
             BaseHotel: null, // No hotel
             MustSees: new List<MustSeeInput>
             {
@@ -415,8 +417,8 @@ public sealed class GenerateTripHandlerTests
         // Arrange - Travelers and Preferences null, should use defaults
         var request = new TripGenerationRequest(
             "madrid-es",
-            new DateOnly(2026, 7, 1),
-            new DateOnly(2026, 7, 3),
+            FutureStartDate,
+            FutureStartDate.AddDays(2),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             new List<MustSeeInput>
             {

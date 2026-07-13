@@ -35,15 +35,19 @@ public sealed class TripsControllerAuthTests
     private static readonly string User99Token = "Bearer " + TestJwtTokenFactory.CreateToken("user-99");
     private static readonly string ExpiredToken = "Bearer " + TestJwtTokenFactory.CreateToken("user-42", expiryHours: -1);
 
-    private static readonly TripGenerationRequest SampleRequest = new(
+    private static TripGenerationRequest CreateSampleRequest()
+    {
+        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+        return new TripGenerationRequest(
         CityCode: "madrid-es",
-        StartDate: new DateOnly(2026, 7, 1),
-        EndDate: new DateOnly(2026, 7, 3),
+        StartDate: startDate,
+        EndDate: startDate.AddDays(2),
         BaseHotel: new LocationModel("Hotel Central", 40.4168, -3.7038),
         MustSees: null,
         Travelers: new TravelersInput(2, 0, 0),
         Preferences: new TripPreferencesInput(false, 30, true, Interests: new List<string> { "culture", "food" }),
         DefaultStartHour: "09:00");
+    }
 
     [ClassInitialize]
     public static void ClassInit(TestContext context)
@@ -123,7 +127,7 @@ public sealed class TripsControllerAuthTests
     [TestMethod]
     public async Task PostTrips_WithoutToken_Returns401()
     {
-        var response = await _client.PostAsJsonAsync("/api/trips", SampleRequest, JsonOptions);
+        var response = await _client.PostAsJsonAsync("/api/trips", CreateSampleRequest(), JsonOptions);
 
         Assert.AreEqual(HttpStatusCode.Unauthorized, response.StatusCode);
     }
@@ -145,7 +149,7 @@ public sealed class TripsControllerAuthTests
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/trips")
         {
-            Content = JsonContent.Create(SampleRequest, options: JsonOptions),
+            Content = JsonContent.Create(CreateSampleRequest(), options: JsonOptions),
             Headers = { Authorization = new AuthenticationHeaderValue("Bearer", "not-a-valid-jwt-token") }
         };
 
@@ -159,7 +163,7 @@ public sealed class TripsControllerAuthTests
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/trips")
         {
-            Content = JsonContent.Create(SampleRequest, options: JsonOptions),
+            Content = JsonContent.Create(CreateSampleRequest(), options: JsonOptions),
             Headers = { Authorization = AuthenticationHeaderValue.Parse(ExpiredToken) }
         };
 
@@ -177,7 +181,7 @@ public sealed class TripsControllerAuthTests
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/trips")
         {
-            Content = JsonContent.Create(SampleRequest, options: JsonOptions),
+            Content = JsonContent.Create(CreateSampleRequest(), options: JsonOptions),
             Headers = { Authorization = AuthenticationHeaderValue.Parse(User42Token) }
         };
 
@@ -279,7 +283,7 @@ public sealed class TripsControllerAuthTests
     {
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/trips")
         {
-            Content = JsonContent.Create(SampleRequest, options: JsonOptions),
+            Content = JsonContent.Create(CreateSampleRequest(), options: JsonOptions),
             Headers = { Authorization = AuthenticationHeaderValue.Parse(token) }
         };
 

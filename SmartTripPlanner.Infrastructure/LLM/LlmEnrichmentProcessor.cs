@@ -20,6 +20,8 @@ internal sealed class LlmEnrichmentProcessor : ILlmEnrichmentProcessor
     private readonly PlannerDbContext _dbContext;
     private readonly ILlmClient _llmClient;
     private readonly IFoursquareApiClient _foursquareApiClient;
+    private readonly IPromptTemplateProvider _templateProvider;
+    private readonly PlaceEnrichmentPromptBuilder _promptBuilder;
     private readonly LlmEnrichmentOptions _options;
     private readonly ILogger<LlmEnrichmentProcessor> _logger;
 
@@ -27,12 +29,16 @@ internal sealed class LlmEnrichmentProcessor : ILlmEnrichmentProcessor
         PlannerDbContext dbContext,
         ILlmClient llmClient,
         IFoursquareApiClient foursquareApiClient,
+        IPromptTemplateProvider templateProvider,
+        PlaceEnrichmentPromptBuilder promptBuilder,
         IOptions<LlmEnrichmentOptions> options,
         ILogger<LlmEnrichmentProcessor> logger)
     {
         _dbContext = dbContext;
         _llmClient = llmClient;
         _foursquareApiClient = foursquareApiClient;
+        _templateProvider = templateProvider;
+        _promptBuilder = promptBuilder;
         _options = options.Value;
         _logger = logger;
     }
@@ -76,8 +82,9 @@ internal sealed class LlmEnrichmentProcessor : ILlmEnrichmentProcessor
                 }
             }
 
-            var prompt = PlaceEnrichmentPromptBuilder.Build(place, tipsText);
-            var json = await _llmClient.GetEnrichmentJsonAsync(prompt, ct);
+            var template = _templateProvider.GetTemplate("PlaceEnrichment");
+            var prompt = _promptBuilder.Build(place, tipsText);
+            var json = await _llmClient.GetEnrichmentJsonAsync(template.SystemPrompt, prompt, template.Temperature, ct);
 
             var response = JsonSerializer.Deserialize<PlaceEnrichmentResponse>(json, JsonOptions);
             if (response is null)

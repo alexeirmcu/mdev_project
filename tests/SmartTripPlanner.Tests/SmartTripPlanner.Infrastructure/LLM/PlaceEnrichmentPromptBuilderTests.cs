@@ -1,4 +1,6 @@
+using Moq;
 using SmartTripPlanner.Domain.AggregatesModel;
+using SmartTripPlanner.Domain.Ports;
 using SmartTripPlanner.Infrastructure.LLM;
 
 namespace SmartTripPlanner.Tests.Infrastructure.LLM;
@@ -6,12 +8,24 @@ namespace SmartTripPlanner.Tests.Infrastructure.LLM;
 [TestClass]
 public sealed class PlaceEnrichmentPromptBuilderTests
 {
+    private const string DefaultUserTemplate =
+        "Place: {{Name}}\n{{CategoriesSection}}{{OpeningHoursSection}}{{VisitorTipsSection}}\n\nRespond with valid JSON only in this exact schema:\n{{Schema}}";
+
+    private static PlaceEnrichmentPromptBuilder CreateBuilder(string userTemplate)
+    {
+        var mock = new Mock<IPromptTemplateProvider>();
+        mock.Setup(t => t.GetTemplate("PlaceEnrichment"))
+            .Returns(new PromptTemplate("system", userTemplate));
+        return new PlaceEnrichmentPromptBuilder(mock.Object);
+    }
+
     [TestMethod]
     public void Build_WithPlace_ContainsName()
     {
+        var builder = CreateBuilder(DefaultUserTemplate);
         var place = CreatePlace("Prado Museum");
 
-        var prompt = PlaceEnrichmentPromptBuilder.Build(place);
+        var prompt = builder.Build(place, null);
 
         Assert.IsTrue(prompt.Contains("Prado Museum"));
     }
@@ -19,11 +33,12 @@ public sealed class PlaceEnrichmentPromptBuilderTests
     [TestMethod]
     public void Build_WithPlace_ContainsCategories()
     {
+        var builder = CreateBuilder(DefaultUserTemplate);
         var place = CreatePlace("Prado Museum");
         place.AddAttribute(new PlaceAttribute("foursquare", "category", "museum"));
         place.AddAttribute(new PlaceAttribute("foursquare", "category", "art"));
 
-        var prompt = PlaceEnrichmentPromptBuilder.Build(place);
+        var prompt = builder.Build(place, null);
 
         Assert.IsTrue(prompt.Contains("museum, art") || prompt.Contains("art, museum"));
     }
@@ -31,10 +46,11 @@ public sealed class PlaceEnrichmentPromptBuilderTests
     [TestMethod]
     public void Build_WithPlace_ContainsOpeningHours()
     {
+        var builder = CreateBuilder(DefaultUserTemplate);
         var place = CreatePlace("Prado Museum");
         place.OpeningHours.Add(new OpeningHoursWindow(DayOfWeek.Monday, 540, 1020)); // 09:00-17:00
 
-        var prompt = PlaceEnrichmentPromptBuilder.Build(place);
+        var prompt = builder.Build(place, null);
 
         Assert.IsTrue(prompt.Contains("Monday"));
         Assert.IsTrue(prompt.Contains("09:00"));
@@ -44,10 +60,11 @@ public sealed class PlaceEnrichmentPromptBuilderTests
     [TestMethod]
     public void Build_WithoutCategoryAttributes_OmitsCategories()
     {
+        var builder = CreateBuilder(DefaultUserTemplate);
         var place = CreatePlace("Prado Museum");
         place.AddAttribute(new PlaceAttribute("foursquare", "chain", "Prado"));
 
-        var prompt = PlaceEnrichmentPromptBuilder.Build(place);
+        var prompt = builder.Build(place, null);
 
         Assert.IsFalse(prompt.Contains("Categories:"));
     }
@@ -55,9 +72,10 @@ public sealed class PlaceEnrichmentPromptBuilderTests
     [TestMethod]
     public void Build_WithTipsText_IncludesTips()
     {
+        var builder = CreateBuilder(DefaultUserTemplate);
         var place = CreatePlace("Prado Museum");
 
-        var prompt = PlaceEnrichmentPromptBuilder.Build(place, "Great art collection");
+        var prompt = builder.Build(place, "Great art collection");
 
         Assert.IsTrue(prompt.Contains("Great art collection"));
         Assert.IsTrue(prompt.Contains("Visitor Tips:"));
@@ -66,9 +84,10 @@ public sealed class PlaceEnrichmentPromptBuilderTests
     [TestMethod]
     public void Build_WithoutTipsText_DoesNotIncludeTipsSection()
     {
+        var builder = CreateBuilder(DefaultUserTemplate);
         var place = CreatePlace("Prado Museum");
 
-        var prompt = PlaceEnrichmentPromptBuilder.Build(place);
+        var prompt = builder.Build(place, null);
 
         Assert.IsFalse(prompt.Contains("Visitor Tips:"));
     }
@@ -76,9 +95,10 @@ public sealed class PlaceEnrichmentPromptBuilderTests
     [TestMethod]
     public void Build_WithNameContainingQuotes_EscapesQuotes()
     {
+        var builder = CreateBuilder(DefaultUserTemplate);
         var place = CreatePlace("Museo \"Bellas Artes\"");
 
-        var prompt = PlaceEnrichmentPromptBuilder.Build(place);
+        var prompt = builder.Build(place, null);
 
         Assert.IsTrue(prompt.Contains("Museo \\\"Bellas Artes\\\""));
     }
@@ -86,9 +106,10 @@ public sealed class PlaceEnrichmentPromptBuilderTests
     [TestMethod]
     public void Build_WithTipsContainingQuotes_EscapesQuotes()
     {
+        var builder = CreateBuilder(DefaultUserTemplate);
         var place = CreatePlace("Test Place");
 
-        var prompt = PlaceEnrichmentPromptBuilder.Build(place, "He said \"Great!\"");
+        var prompt = builder.Build(place, "He said \"Great!\"");
 
         Assert.IsTrue(prompt.Contains("He said \\\"Great!\\\""));
     }
@@ -96,9 +117,10 @@ public sealed class PlaceEnrichmentPromptBuilderTests
     [TestMethod]
     public void Build_Always_ContainsJsonSchema()
     {
+        var builder = CreateBuilder(DefaultUserTemplate);
         var place = CreatePlace("Prado Museum");
 
-        var prompt = PlaceEnrichmentPromptBuilder.Build(place);
+        var prompt = builder.Build(place, null);
 
         Assert.IsTrue(prompt.Contains("TypicalDurationMinutes"));
         Assert.IsTrue(prompt.Contains("IsIndoor"));

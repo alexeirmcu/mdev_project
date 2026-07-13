@@ -20,7 +20,7 @@ public sealed class CandidateScorerTests
     }
 
     [TestMethod]
-    public void Score_FamilyTripWithFamilyPlace_GetsBonus()
+    public void Score_FamilyTripWithFamilyPlace_GetsProportionalBonus()
     {
         var place = CreatePlace(isFamilyFriendly: true);
         var context = new ScoringContext(
@@ -29,8 +29,8 @@ public sealed class CandidateScorerTests
             DistanceFromBlockCenterKm: 0);
 
         var score = _scorer.Score(place, context);
-        // Family bonus (15) + popularity (0.5 * 20 = 10) - distance (0) = 25
-        Assert.AreEqual(25, score, 0.001);
+        // Family bonus (3/5 * 15 = 9) + popularity (0.5 * 20 = 10) - distance (0) = 19
+        Assert.AreEqual(19, score, 0.001);
     }
 
     [TestMethod]
@@ -99,8 +99,8 @@ public sealed class CandidateScorerTests
             DistanceFromBlockCenterKm: 1.0);
 
         var score = _scorer.Score(place, context);
-        // family (15) + popularity (10) - distance (5) + weather indoor (20) = 40
-        Assert.AreEqual(40, score, 0.001);
+        // family (3/5 * 15 = 9) + popularity (10) - distance (5) + weather indoor (20) = 34
+        Assert.AreEqual(34, score, 0.001);
     }
 
     [TestMethod]
@@ -161,5 +161,29 @@ public sealed class CandidateScorerTests
         var scoreLow = _scorer.Score(placeB, contextLow);
 
         Assert.IsTrue(scoreHigh > scoreLow);
+    }
+
+    [TestMethod]
+    public void Score_HighFamilyFriendlyScore_OutranksLowFamilyFriendlyScore()
+    {
+        var placeLow = CreatePlace(isFamilyFriendly: true);
+        placeLow.MarkEnriched(60, false, 1, 0.5);
+
+        var placeHigh = CreatePlace(isFamilyFriendly: true);
+        placeHigh.MarkEnriched(60, false, 5, 0.5);
+
+        var context = new ScoringContext(
+            IsFamilyTrip: true,
+            IsBadWeather: false,
+            DistanceFromBlockCenterKm: 0);
+
+        var scoreLow = _scorer.Score(placeLow, context);
+        var scoreHigh = _scorer.Score(placeHigh, context);
+
+        Assert.IsTrue(scoreHigh > scoreLow);
+        // high: (5/5 * 15 = 15) + popularity (0.5 * 20 = 10) = 25
+        // low:  (1/5 * 15 = 3) + popularity (0.5 * 20 = 10) = 13
+        Assert.AreEqual(25, scoreHigh, 0.001);
+        Assert.AreEqual(13, scoreLow, 0.001);
     }
 }

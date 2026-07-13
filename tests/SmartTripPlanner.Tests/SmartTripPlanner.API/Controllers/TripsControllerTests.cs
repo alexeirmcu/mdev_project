@@ -25,16 +25,19 @@ public sealed class TripsControllerTests
         _controller = new TripsController(_mediatorMock.Object, _userContextMock.Object);
     }
 
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static TripPlanResponse CreateResponseWithDays()
     {
+        var startDate = FutureStartDate;
         return new TripPlanResponse(
             Guid.NewGuid(),
             "MAD-2026-TEST",
             1L,
             "madrid-es",
             "Madrid",
-            new DateOnly(2026, 7, 1),
-            new DateOnly(2026, 7, 3),
+            startDate,
+            startDate.AddDays(2),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             new TravelersInput(2, 0, 0),
             new TripPreferencesInput(false, 30, true),
@@ -50,7 +53,7 @@ public sealed class TripsControllerTests
                 new()
                 {
                     DayIndex = 0,
-                    Date = new DateOnly(2026, 7, 1),
+                    Date = startDate,
                     WeatherSummary = "Clear",
                     Blocks = new List<BlockResponse>
                     {
@@ -95,7 +98,7 @@ public sealed class TripsControllerTests
                 new()
                 {
                     DayIndex = 1,
-                    Date = new DateOnly(2026, 7, 2),
+                    Date = startDate.AddDays(1),
                     WeatherSummary = "Clear",
                     Blocks = new List<BlockResponse>
                     {
@@ -107,7 +110,7 @@ public sealed class TripsControllerTests
                 new()
                 {
                     DayIndex = 2,
-                    Date = new DateOnly(2026, 7, 3),
+                    Date = startDate.AddDays(2),
                     WeatherSummary = "Clear",
                     Blocks = new List<BlockResponse>
                     {
@@ -130,8 +133,8 @@ public sealed class TripsControllerTests
         var response = CreateResponseWithDays();
         var request = new TripGenerationRequest(
             "madrid-es",
-            new DateOnly(2026, 7, 1),
-            new DateOnly(2026, 7, 3),
+            FutureStartDate,
+            FutureStartDate.AddDays(2),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             new List<MustSeeInput> { new(1L, Priority.High) },
             new TravelersInput(2, 0, 0),
@@ -167,8 +170,8 @@ public sealed class TripsControllerTests
         var response = CreateResponseWithDays();
         var request = new TripGenerationRequest(
             "madrid-es",
-            new DateOnly(2026, 7, 1),
-            new DateOnly(2026, 7, 3),
+            FutureStartDate,
+            FutureStartDate.AddDays(2),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             new List<MustSeeInput> { new(1L, Priority.High) },
             new TravelersInput(2, 0, 0),
@@ -214,8 +217,8 @@ public sealed class TripsControllerTests
         var response = CreateResponseWithDays();
         var request = new TripGenerationRequest(
             "madrid-es",
-            new DateOnly(2026, 7, 1),
-            new DateOnly(2026, 7, 3),
+            FutureStartDate,
+            FutureStartDate.AddDays(2),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             new List<MustSeeInput> { new(1L, Priority.High) },
             new TravelersInput(2, 0, 0),
@@ -256,8 +259,8 @@ public sealed class TripsControllerTests
             1L,
             "madrid-es",
             "Madrid",
-            new DateOnly(2026, 7, 1),
-            new DateOnly(2026, 7, 3),
+            FutureStartDate,
+            FutureStartDate.AddDays(2),
             new LocationModel("Hotel Central", 40.4168, -3.7038),
             new TravelersInput(2, 0, 0),
             new TripPreferencesInput(false, 30, true),
@@ -306,6 +309,8 @@ public sealed class TripsControllerTests
     [TestMethod]
     public async Task ListTrips_ReturnsOkWithResponse()
     {
+        var tripStart = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(20));
+        var filterStart = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
         var expected = new List<TripSummaryResponse>
         {
             new(
@@ -313,8 +318,8 @@ public sealed class TripsControllerTests
                 1L,
                 "madrid-es",
                 "Madrid",
-                new DateOnly(2026, 6, 15),
-                new DateOnly(2026, 6, 18),
+                tripStart,
+                tripStart.AddDays(3),
                 3,
                 2,
                 8)
@@ -323,14 +328,14 @@ public sealed class TripsControllerTests
         _mediatorMock
             .Setup(m => m.Send(It.Is<ListTrips>(q =>
                 q.CityCode == "madrid-es" &&
-                q.StartDate == new DateOnly(2026, 6, 1) &&
-                q.EndDate == new DateOnly(2026, 6, 30)), It.IsAny<CancellationToken>()))
+                q.StartDate == filterStart &&
+                q.EndDate == filterStart.AddDays(25)), It.IsAny<CancellationToken>()))
             .ReturnsAsync(expected);
 
         var act = await _controller.ListTrips(
             "madrid-es",
-            new DateOnly(2026, 6, 1),
-            new DateOnly(2026, 6, 30),
+            filterStart,
+            filterStart.AddDays(25),
             CancellationToken.None);
 
         var okResult = act as OkObjectResult;

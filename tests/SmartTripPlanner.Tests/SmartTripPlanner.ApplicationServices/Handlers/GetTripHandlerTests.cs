@@ -46,14 +46,15 @@ public sealed class GetTripHandlerTests
         var city = new City("madrid-es", "Madrid", true);
         SetEntityId(city, 1L);
 
+        var StartDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
         var trip = new Trip
         {
             TripId = tripId,
             TripCode = "MAD-2026-TEST",
             CityId = 1L,
             City = city,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 3),
+            StartDate = StartDate,
+            EndDate = StartDate.AddDays(2),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
@@ -75,8 +76,8 @@ public sealed class GetTripHandlerTests
         Assert.AreEqual(1L, result.CityId);
         Assert.AreEqual("madrid-es", result.CityCode);
         Assert.AreEqual("Madrid", result.CityName);
-        Assert.AreEqual(new DateOnly(2026, 7, 1), result.StartDate);
-        Assert.AreEqual(new DateOnly(2026, 7, 3), result.EndDate);
+        Assert.AreEqual(StartDate, result.StartDate);
+        Assert.AreEqual(StartDate.AddDays(2), result.EndDate);
         Assert.AreEqual("CREATED", result.Status);
 
         _tripRepoMock.Verify(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()), Times.Once);
@@ -113,8 +114,8 @@ public sealed class GetTripHandlerTests
             TripCode = "MAD-2026-TEST",
             CityId = 1L,
             City = city,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 3),
+            StartDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5)),
+            EndDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(7)),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),

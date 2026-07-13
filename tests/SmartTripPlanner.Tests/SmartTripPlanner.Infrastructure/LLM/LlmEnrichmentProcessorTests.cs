@@ -16,6 +16,19 @@ namespace SmartTripPlanner.Tests.Infrastructure.LLM;
 [TestClass]
 public sealed class LlmEnrichmentProcessorTests
 {
+    private static IPromptTemplateProvider CreateTemplateProvider()
+    {
+        var mock = new Mock<IPromptTemplateProvider>();
+        mock.Setup(t => t.GetTemplate("PlaceEnrichment"))
+            .Returns(new PromptTemplate("system", "template"));
+        return mock.Object;
+    }
+
+    private static PlaceEnrichmentPromptBuilder CreatePromptBuilder()
+    {
+        return new PlaceEnrichmentPromptBuilder(CreateTemplateProvider());
+    }
+
     private static PlannerDbContext CreateDbContext()
     {
         var options = new DbContextOptionsBuilder<PlannerDbContext>()
@@ -58,7 +71,7 @@ public sealed class LlmEnrichmentProcessorTests
         await db.SaveChangesAsync();
 
         var llmClientMock = new Mock<ILlmClient>();
-        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("{\"TypicalDurationMinutes\":120,\"IsIndoor\":true,\"FamilyFriendlyScore\":4,\"Popularity\":0.8}");
 
         var fsqClientMock = new Mock<IFoursquareApiClient>();
@@ -69,6 +82,8 @@ public sealed class LlmEnrichmentProcessorTests
             db,
             llmClientMock.Object,
             fsqClientMock.Object,
+            CreateTemplateProvider(),
+            CreatePromptBuilder(),
             optionsMock.Object,
             Mock.Of<ILogger<LlmEnrichmentProcessor>>());
 
@@ -98,7 +113,7 @@ public sealed class LlmEnrichmentProcessorTests
         await db.SaveChangesAsync();
 
         var llmClientMock = new Mock<ILlmClient>();
-        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("not valid json");
 
         var fsqClientMock = new Mock<IFoursquareApiClient>();
@@ -109,6 +124,8 @@ public sealed class LlmEnrichmentProcessorTests
             db,
             llmClientMock.Object,
             fsqClientMock.Object,
+            CreateTemplateProvider(),
+            CreatePromptBuilder(),
             optionsMock.Object,
             Mock.Of<ILogger<LlmEnrichmentProcessor>>());
 
@@ -132,7 +149,7 @@ public sealed class LlmEnrichmentProcessorTests
         await db.SaveChangesAsync();
 
         var llmClientMock = new Mock<ILlmClient>();
-        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("{\"TypicalDurationMinutes\":120,\"IsIndoor\":true,\"FamilyFriendlyScore\":7,\"Popularity\":0.8}");
 
         var fsqClientMock = new Mock<IFoursquareApiClient>();
@@ -143,6 +160,8 @@ public sealed class LlmEnrichmentProcessorTests
             db,
             llmClientMock.Object,
             fsqClientMock.Object,
+            CreateTemplateProvider(),
+            CreatePromptBuilder(),
             optionsMock.Object,
             Mock.Of<ILogger<LlmEnrichmentProcessor>>());
 
@@ -167,7 +186,7 @@ public sealed class LlmEnrichmentProcessorTests
         await db.SaveChangesAsync();
 
         var llmClientMock = new Mock<ILlmClient>();
-        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new HttpRequestException("LLM unavailable"));
 
         var fsqClientMock = new Mock<IFoursquareApiClient>();
@@ -178,6 +197,8 @@ public sealed class LlmEnrichmentProcessorTests
             db,
             llmClientMock.Object,
             fsqClientMock.Object,
+            CreateTemplateProvider(),
+            CreatePromptBuilder(),
             optionsMock.Object,
             Mock.Of<ILogger<LlmEnrichmentProcessor>>());
 
@@ -200,7 +221,7 @@ public sealed class LlmEnrichmentProcessorTests
         await db.SaveChangesAsync();
 
         var llmClientMock = new Mock<ILlmClient>();
-        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("LLM error"));
 
         var fsqClientMock = new Mock<IFoursquareApiClient>();
@@ -211,6 +232,8 @@ public sealed class LlmEnrichmentProcessorTests
             db,
             llmClientMock.Object,
             fsqClientMock.Object,
+            CreateTemplateProvider(),
+            CreatePromptBuilder(),
             optionsMock.Object,
             Mock.Of<ILogger<LlmEnrichmentProcessor>>());
 
@@ -239,6 +262,8 @@ public sealed class LlmEnrichmentProcessorTests
             db,
             llmClientMock.Object,
             fsqClientMock.Object,
+            CreateTemplateProvider(),
+            CreatePromptBuilder(),
             optionsMock.Object,
             Mock.Of<ILogger<LlmEnrichmentProcessor>>());
 
@@ -263,6 +288,8 @@ public sealed class LlmEnrichmentProcessorTests
             db,
             llmClientMock.Object,
             fsqClientMock.Object,
+            CreateTemplateProvider(),
+            CreatePromptBuilder(),
             optionsMock.Object,
             Mock.Of<ILogger<LlmEnrichmentProcessor>>());
 
@@ -281,7 +308,7 @@ public sealed class LlmEnrichmentProcessorTests
         await db.SaveChangesAsync();
 
         var llmClientMock = new Mock<ILlmClient>();
-        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("{\"TypicalDurationMinutes\":90,\"IsIndoor\":false,\"FamilyFriendlyScore\":3,\"Popularity\":0.6}");
 
         var fsqClientMock = new Mock<IFoursquareApiClient>();
@@ -305,6 +332,8 @@ public sealed class LlmEnrichmentProcessorTests
             db,
             llmClientMock.Object,
             fsqClientMock.Object,
+            CreateTemplateProvider(),
+            CreatePromptBuilder(),
             optionsMock.Object,
             Mock.Of<ILogger<LlmEnrichmentProcessor>>());
 
@@ -329,7 +358,7 @@ public sealed class LlmEnrichmentProcessorTests
         await db.SaveChangesAsync();
 
         var llmClientMock = new Mock<ILlmClient>();
-        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+        llmClientMock.Setup(l => l.GetEnrichmentJsonAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<float>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync("{\"TypicalDurationMinutes\":90,\"IsIndoor\":false,\"FamilyFriendlyScore\":3,\"Popularity\":0.6}");
 
         var fsqClientMock = new Mock<IFoursquareApiClient>();
@@ -343,6 +372,8 @@ public sealed class LlmEnrichmentProcessorTests
             db,
             llmClientMock.Object,
             fsqClientMock.Object,
+            CreateTemplateProvider(),
+            CreatePromptBuilder(),
             optionsMock.Object,
             Mock.Of<ILogger<LlmEnrichmentProcessor>>());
 

@@ -6,11 +6,13 @@ namespace SmartTripPlanner.Tests.Domain.AggregatesModel;
 [TestClass]
 public sealed class DayPlanTests
 {
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static DayPlan CreateDayPlan()
     {
         var day = new DayPlan(
             1,
-            new DateOnly(2026, 6, 1),
+            FutureStartDate,
             new BlockTimeline { BlockType = BlockType.Morning },
             new BlockTimeline { BlockType = BlockType.Afternoon },
             new BlockTimeline { BlockType = BlockType.Evening }
@@ -99,7 +101,7 @@ public sealed class DayPlanTests
         var afternoon = new BlockTimeline { BlockType = BlockType.Afternoon };
         var evening = new BlockTimeline { BlockType = BlockType.Evening };
 
-        var day = new DayPlan(0, new DateOnly(2026, 7, 1), morning, afternoon, evening);
+        var day = new DayPlan(0, FutureStartDate, morning, afternoon, evening);
 
         Assert.AreEqual(3, day.Blocks.Count);
         Assert.AreSame(morning, day.GetBlock(BlockType.Morning));
@@ -115,7 +117,7 @@ public sealed class DayPlanTests
         var wrongTimeline = new BlockTimeline { BlockType = BlockType.Morning }; // Should be Evening
 
         Assert.ThrowsExactly<ArgumentException>(() =>
-            new DayPlan(0, new DateOnly(2026, 7, 1), morning, afternoon, wrongTimeline));
+            new DayPlan(0, FutureStartDate, morning, afternoon, wrongTimeline));
     }
 
     [TestMethod]

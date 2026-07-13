@@ -51,6 +51,8 @@ public sealed class ListTripsHandlerTests
         return city;
     }
 
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static Trip CreateTrip(Guid? tripId = null, long cityId = 1L, City? city = null,
         string ownerUserId = "user-42", DateOnly? startDate = null, DateOnly? endDate = null)
     {
@@ -60,8 +62,8 @@ public sealed class ListTripsHandlerTests
             TripCode = "MAD-2026-TEST",
             CityId = cityId,
             City = city ?? CreateCity(),
-            StartDate = startDate ?? new DateOnly(2026, 6, 15),
-            EndDate = endDate ?? new DateOnly(2026, 6, 18),
+            StartDate = startDate ?? FutureStartDate,
+            EndDate = endDate ?? FutureStartDate.AddDays(3),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
@@ -198,8 +200,8 @@ public sealed class ListTripsHandlerTests
     public async Task Handle_WithDateFilters_PassesDatesToListAsync()
     {
         // Arrange
-        var startDate = new DateOnly(2026, 6, 1);
-        var endDate = new DateOnly(2026, 6, 30);
+        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10));
+        var endDate = startDate.AddDays(29);
         _tripRepoMock
             .Setup(r => r.ListAsync("user-42", null, startDate, endDate, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new List<Trip>());

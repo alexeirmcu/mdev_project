@@ -38,6 +38,8 @@ public sealed class UpdateTripHandlerTests
             _userContextMock.Object);
     }
 
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static Trip CreateTrip()
     {
         var city = new City("madrid-es", "Madrid", true);
@@ -49,8 +51,8 @@ public sealed class UpdateTripHandlerTests
             TripCode = "MAD-2026-TEST",
             CityId = 1L,
             City = city,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 3),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate.AddDays(2),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
@@ -87,8 +89,8 @@ public sealed class UpdateTripHandlerTests
             TripCode = "MAD-2026-TEST",
             CityId = 1L,
             City = city,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 3),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate.AddDays(2),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
@@ -122,7 +124,7 @@ public sealed class UpdateTripHandlerTests
             .ReturnsAsync(trip);
 
         var request = new UpdateTrip(tripId, new TripUpdateRequest(
-            StartDate: new DateOnly(2026, 8, 1)));
+            StartDate: DateOnly.FromDateTime(DateTime.UtcNow.AddDays(10))));
 
         var exception = await CatchExceptionAsync<BusinessRuleException>(
             () => _handler.Handle(request, CancellationToken.None));
@@ -201,14 +203,16 @@ public sealed class UpdateTripHandlerTests
         _tripRepoMock.Setup(r => r.GetByIdAsync(tripId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(trip);
 
+        var startDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(15));
+        var endDate = startDate.AddDays(4);
         var request = new UpdateTrip(tripId, new TripUpdateRequest(
-            StartDate: new DateOnly(2026, 8, 1),
-            EndDate: new DateOnly(2026, 8, 5)));
+            StartDate: startDate,
+            EndDate: endDate));
 
         await _handler.Handle(request, CancellationToken.None);
 
-        Assert.AreEqual(new DateOnly(2026, 8, 1), trip.StartDate);
-        Assert.AreEqual(new DateOnly(2026, 8, 5), trip.EndDate);
+        Assert.AreEqual(startDate, trip.StartDate);
+        Assert.AreEqual(endDate, trip.EndDate);
         _tripRepoMock.Verify(r => r.UpdateAsync(trip, It.IsAny<CancellationToken>()), Times.Once);
     }
 

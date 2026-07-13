@@ -38,6 +38,9 @@ public sealed class ToggleActivityCompletionHandlerTests
             _userContextMock.Object);
     }
 
+    private static DateOnly PastStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(-3));
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static Trip CreateTripWithActivities(string ownerUserId = "user-42")
     {
         var city = new City("madrid-es", "Madrid", true);
@@ -47,8 +50,8 @@ public sealed class ToggleActivityCompletionHandlerTests
             TripCode = "MAD-2026-TEST",
             CityId = 1L,
             City = city,
-            StartDate = new DateOnly(2026, 6, 1),
-            EndDate = new DateOnly(2026, 6, 3),
+            StartDate = PastStartDate,
+            EndDate = PastStartDate.AddDays(2),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
@@ -237,7 +240,7 @@ public sealed class ToggleActivityCompletionHandlerTests
     [TestMethod]
     public async Task Handle_FutureDayCompletion_ThrowsBusinessRuleException()
     {
-        // Trip is in the future (next month). Today is June 24, so all days are in the future.
+        // Trip's first day is in the future, so completing an activity should fail.
         var city = new City("madrid-es", "Madrid", true);
         var trip = new Trip
         {
@@ -245,8 +248,8 @@ public sealed class ToggleActivityCompletionHandlerTests
             TripCode = "MAD-2026-FUT",
             CityId = 1L,
             City = city,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 3),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate.AddDays(2),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
@@ -285,8 +288,8 @@ public sealed class ToggleActivityCompletionHandlerTests
             TripCode = "MAD-2026-NOD",
             CityId = 1L,
             City = city,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 3),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate.AddDays(2),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),

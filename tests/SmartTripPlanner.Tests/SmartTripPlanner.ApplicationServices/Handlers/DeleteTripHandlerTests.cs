@@ -27,6 +27,8 @@ public sealed class DeleteTripHandlerTests
             Mock.Of<ILogger<DeleteTripHandler>>());
     }
 
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static Trip CreateTrip(string ownerUserId = "user-42")
     {
         var city = new City("madrid-es", "Madrid", true);
@@ -38,8 +40,8 @@ public sealed class DeleteTripHandlerTests
             TripCode = "MAD-2026-TEST",
             CityId = 1L,
             City = city,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 3),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate.AddDays(2),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),

@@ -37,6 +37,8 @@ public sealed class UnpinnedMustSeePlacerTests
         return place;
     }
 
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static Trip CreateTrip(IReadOnlyList<MustSee> mustSees, int dayCount = 3)
     {
         var trip = new Trip
@@ -44,8 +46,8 @@ public sealed class UnpinnedMustSeePlacerTests
             TripId = Guid.NewGuid(),
             TripCode = "TEST",
             CityId = 1,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 1 + dayCount - 1),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate.AddDays(dayCount - 1),
             BaseHotel = new Location("Hotel", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
@@ -81,16 +83,17 @@ public sealed class UnpinnedMustSeePlacerTests
     [TestMethod]
     public void Place_PrefersOpenDaysOverClosedDays()
     {
-        // Trip starts Wednesday. Place closed on Wednesday.
+        // Trip starts on some day. Place closed on that day.
         var mustSee = new MustSee(1, "Place", Priority.High);
         var trip = CreateTrip(new[] { mustSee }, dayCount: 3);
-        var place = CreatePlaceWithHours(1, "Closed Wed", 40.4168, -3.7038,
-            closedDays: new[] { DayOfWeek.Wednesday });
+        var closedDay = trip.StartDate.DayOfWeek;
+        var place = CreatePlaceWithHours(1, "Closed On First Day", 40.4168, -3.7038,
+            closedDays: new[] { closedDay });
 
         var result = _placer.Place(trip, mustSee, place);
 
         Assert.IsTrue(result);
-        // Should NOT be on day 0 (Wednesday)
+        // Should NOT be on day 0 (closed day)
         Assert.AreEqual(0, trip.Days[0].GetBlock(BlockType.Morning).Activities.Count);
     }
 

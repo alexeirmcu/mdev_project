@@ -69,8 +69,8 @@ public sealed class GenerateTripItineraryHandlerTests
             TripCode = "MAD-2026-TEST",
             CityId = 1L,
             City = city,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 3),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate.AddDays(2),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
@@ -136,9 +136,9 @@ public sealed class GenerateTripItineraryHandlerTests
 
         var weatherData = new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear },
-            { new DateOnly(2026, 7, 2), WeatherCondition.Clear },
-            { new DateOnly(2026, 7, 3), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear },
+            { trip.StartDate.AddDays(1), WeatherCondition.Clear },
+            { trip.StartDate.AddDays(2), WeatherCondition.Clear }
         };
         _weatherProviderMock.Setup(w => w.GetWeatherAsync(
                 trip.CityId, trip.StartDate, trip.EndDate, It.IsAny<CancellationToken>()))
@@ -180,9 +180,9 @@ public sealed class GenerateTripItineraryHandlerTests
 
         var weatherData = new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear },
-            { new DateOnly(2026, 7, 2), WeatherCondition.Clear },
-            { new DateOnly(2026, 7, 3), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear },
+            { trip.StartDate.AddDays(1), WeatherCondition.Clear },
+            { trip.StartDate.AddDays(2), WeatherCondition.Clear }
         };
         _weatherProviderMock.Setup(w => w.GetWeatherAsync(
                 trip.CityId, trip.StartDate, trip.EndDate, It.IsAny<CancellationToken>()))
@@ -209,6 +209,8 @@ public sealed class GenerateTripItineraryHandlerTests
         _tripRepoMock.Verify(r => r.UpdateAsync(trip, It.IsAny<CancellationToken>()), Times.Once);
     }
 
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static Trip CreateTrip()
     {
         var city = new City("madrid-es", "Madrid", true);
@@ -220,8 +222,8 @@ public sealed class GenerateTripItineraryHandlerTests
             TripCode = "MAD-2026-TEST",
             CityId = 1L,
             City = city,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 3),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate.AddDays(2),
             BaseHotel = new Location("Hotel Central", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
@@ -286,9 +288,9 @@ public sealed class GenerateTripItineraryHandlerTests
 
         var weatherData = new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear },
-            { new DateOnly(2026, 7, 2), WeatherCondition.Clear },
-            { new DateOnly(2026, 7, 3), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear },
+            { trip.StartDate.AddDays(1), WeatherCondition.Clear },
+            { trip.StartDate.AddDays(2), WeatherCondition.Clear }
         };
         _weatherProviderMock.Setup(w => w.GetWeatherAsync(
                 trip.CityId, trip.StartDate, trip.EndDate, It.IsAny<CancellationToken>()))
@@ -336,9 +338,9 @@ public sealed class GenerateTripItineraryHandlerTests
 
         var weatherData = new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear },
-            { new DateOnly(2026, 7, 2), WeatherCondition.Clear },
-            { new DateOnly(2026, 7, 3), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear },
+            { trip.StartDate.AddDays(1), WeatherCondition.Clear },
+            { trip.StartDate.AddDays(2), WeatherCondition.Clear }
         };
         _weatherProviderMock.Setup(w => w.GetWeatherAsync(
                 trip.CityId, trip.StartDate, trip.EndDate, It.IsAny<CancellationToken>()))
@@ -382,9 +384,9 @@ public sealed class GenerateTripItineraryHandlerTests
 
         var weatherData = new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear },
-            { new DateOnly(2026, 7, 2), WeatherCondition.Clear },
-            { new DateOnly(2026, 7, 3), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear },
+            { trip.StartDate.AddDays(1), WeatherCondition.Clear },
+            { trip.StartDate.AddDays(2), WeatherCondition.Clear }
         };
         _weatherProviderMock.Setup(w => w.GetWeatherAsync(
                 trip.CityId, trip.StartDate, trip.EndDate, It.IsAny<CancellationToken>()))

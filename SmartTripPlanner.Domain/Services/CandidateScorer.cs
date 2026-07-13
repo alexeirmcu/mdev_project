@@ -14,9 +14,9 @@ public class CandidateScorer : ICandidateScorer
     {
         double score = 0;
 
-        // Family-friendly bonus: when the trip includes children, prefer family-friendly places
+        // Family-friendly bonus: proportional to the LLM-enriched FamilyFriendlyScore (1–5)
         if (context.IsFamilyTrip && place.IsFamilyFriendly)
-            score += TripPlanningConstants.FamilyFriendlyBonus;
+            score += (place.FamilyFriendlyScore / 5.0) * TripPlanningConstants.FamilyFriendlyBonus;
 
         // Popularity contribution (0–20 range given PopularityRaw 0.0–1.0)
         score += context.PopularityRaw * TripPlanningConstants.PopularityWeight;

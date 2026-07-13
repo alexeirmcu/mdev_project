@@ -76,6 +76,11 @@ public static class InfrastructureServiceRegistration
         services.AddOptions<LlmEnrichmentOptions>()
             .BindConfiguration(LlmEnrichmentOptions.SectionName);
 
+        services.AddOptions<PromptTemplateOptions>()
+            .BindConfiguration(PromptTemplateOptions.SectionName);
+
+        services.AddSingleton<IPromptTemplateProvider, ConfigurationPromptTemplateProvider>();
+        services.AddScoped<PlaceEnrichmentPromptBuilder>();
         services.AddScoped<ILlmClient, LlmClient>();
         services.AddScoped<IOutboxWriter, OutboxWriter>();
         services.AddScoped<IOutboxMessageRepository, OutboxMessageRepository>();

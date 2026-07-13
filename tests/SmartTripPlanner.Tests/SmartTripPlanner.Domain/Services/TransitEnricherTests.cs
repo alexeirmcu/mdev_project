@@ -49,6 +49,8 @@ public sealed class TransitEnricherTests
         return place;
     }
 
+    private static DateOnly FutureStartDate => DateOnly.FromDateTime(DateTime.UtcNow.AddDays(5));
+
     private static Trip CreateTrip(int dayCount = 1)
     {
         var trip = new Trip
@@ -56,8 +58,8 @@ public sealed class TransitEnricherTests
             TripId = Guid.NewGuid(),
             TripCode = "TEST",
             CityId = 1,
-            StartDate = new DateOnly(2026, 7, 1),
-            EndDate = new DateOnly(2026, 7, 1 + dayCount - 1),
+            StartDate = FutureStartDate,
+            EndDate = FutureStartDate.AddDays(dayCount - 1),
             BaseHotel = new Location("Hotel", 40.4168, -3.7038),
             Travelers = new Travelers(2, 0, 0),
             Preferences = new TripPreferences(),
@@ -78,8 +80,8 @@ public sealed class TransitEnricherTests
 
         var weather = new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear },
-            { new DateOnly(2026, 7, 2), WeatherCondition.Bad }
+            { trip.StartDate, WeatherCondition.Clear },
+            { trip.StartDate.AddDays(1), WeatherCondition.Bad }
         };
 
         await _enricher.EnrichAsync(trip, placesById, weather, CancellationToken.None);
@@ -111,7 +113,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, placesById, new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         // Transit should be assigned using ActivityNode.Location
@@ -131,7 +133,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, placesById, new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         // Single activity → no transit needed
@@ -154,7 +156,7 @@ public sealed class TransitEnricherTests
         // Pass empty placesById — enrichment should still work via ActivityNode.Location
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         // Transit should be assigned using ActivityNode.Location (not placesById lookup)
@@ -175,7 +177,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         // Both locations null → transit should be null
@@ -202,7 +204,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         // Walking below MaxWalkingMinutes → no alert, no CAR switch
@@ -231,7 +233,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         Assert.IsNotNull(act1.TransitToNext);
@@ -258,7 +260,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         Assert.IsNotNull(act1.TransitToNext);
@@ -285,7 +287,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         Assert.IsNotNull(act1.TransitToNext);
@@ -311,7 +313,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         var morning = trip.Days[0].GetBlock(BlockType.Morning);
@@ -332,7 +334,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         var morning = trip.Days[0].GetBlock(BlockType.Morning);
@@ -348,7 +350,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         var morning = trip.Days[0].GetBlock(BlockType.Morning);
@@ -376,7 +378,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         var morning = trip.Days[0].GetBlock(BlockType.Morning);
@@ -407,7 +409,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         var morning = trip.Days[0].GetBlock(BlockType.Morning);
@@ -439,7 +441,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         var afternoon = trip.Days[0].GetBlock(BlockType.Afternoon);
@@ -466,7 +468,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         var morning = trip.Days[0].GetBlock(BlockType.Morning);
@@ -497,7 +499,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         var morning = trip.Days[0].GetBlock(BlockType.Morning);
@@ -532,7 +534,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         var morning = trip.Days[0].GetBlock(BlockType.Morning);
@@ -561,7 +563,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         var evening = trip.Days[0].GetBlock(BlockType.Evening);
@@ -584,7 +586,7 @@ public sealed class TransitEnricherTests
 
         await _enricher.EnrichAsync(trip, new Dictionary<long, Place>(), new Dictionary<DateOnly, WeatherCondition>
         {
-            { new DateOnly(2026, 7, 1), WeatherCondition.Clear }
+            { trip.StartDate, WeatherCondition.Clear }
         }, CancellationToken.None);
 
         var morning = trip.Days[0].GetBlock(BlockType.Morning);
