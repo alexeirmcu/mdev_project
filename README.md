@@ -14,7 +14,7 @@ It maximizes sightseeing efficiency, suggests the most sensible transport (Car v
 ### The Hybrid Planning Engine
 The core innovation is the separation of **Optimization** and **Enrichment**:
 
-1.  **Deterministic Optimization (Synchronous)**: Uses **Google OR-Tools (VRPTW)** to solve the routing problem in milliseconds. This ensures that time windows, priorities, and logistics are mathematically guaranteed.
+1.  **Deterministic Optimization (Synchronous)**: Uses a **heuristic multi-phase algorithm** to distribute must-sees and candidates across daily blocks in milliseconds, applying proximity, schedule, weather, and transport rules.
 2.  **Semantic Enrichment (Asynchronous)**: Uses an **LLM** as a background worker to enrich the place catalog with metadata (family-friendly scores, typical durations, indoor/outdoor flags) that standard Map APIs don't provide.
 
 ### Architectural Pattern: Clean Architecture (Onion)
@@ -22,7 +22,7 @@ The solution is structured to ensure a strict separation of concerns:
 
 - **`Domain`**: Pure business logic, entities, and repository interfaces. Zero framework dependencies.
 - **`ApplicationServices`**: Use-case orchestration using **CQRS with MediatR**. Handles commands, validation (FluentValidation), and mapping (AutoMapper).
-- **`Infrastructure`**: Implementation details. EF Core (InMemory), Google OR-Tools, and LLM integration.
+- **`Infrastructure`**: Implementation details. EF Core (PostgreSQL), and LLM integration.
 - **`API`**: Thin controllers that act as the entry point.
 
 ---
@@ -34,10 +34,10 @@ The solution is structured to ensure a strict separation of concerns:
 | **Platform** | .NET 8 / C# 12 |
 | **API** | ASP.NET Core MVC Controllers |
 | **Orchestration** | MediatR 12.x |
-| **Optimization** | Google OR-Tools (Vehicle Routing Problem with Time Windows) |
+| **Optimization** | Heuristic multi-phase algorithm (5 phases: GenerateDays → PinnedMustSees → UnpinnedMustSees → FillCandidates → EnrichTransitAndWeather) |
 | **Validation** | FluentValidation |
 | **Mapping** | AutoMapper 13.x |
-| **Persistence** | EF Core 8.x (InMemory for MVP) |
+| **Persistence** | EF Core 8.x + PostgreSQL |
 | **Logging** | Serilog 4.x |
 | **API Docs** | Swashbuckle.AspNetCore (Swagger) |
 
@@ -48,7 +48,7 @@ The solution is structured to ensure a strict separation of concerns:
 - **Must-See**: A destination the user explicitly wants to visit. These are prioritized by the solver.
 - **BlockTimeline**: A segment of the day (Morning/Afternoon/Evening) with a target duration.
 - **ActivityNode**: A specific visit within a block, including estimated arrival/departure and duration.
-- **VRPTW**: *Vehicle Routing Problem with Time Windows* — the mathematical model used to optimize the route.
+- **Heuristic Itinerary Generator**: Domain service that orchestrates the 5-phase planning algorithm.
 
 ---
 
@@ -67,7 +67,7 @@ To add a new feature or endpoint, follow this flow:
 
 ## 🚦 Quick Start (Devlocal)
 
-The project is configured for zero-dependency local development using an In-Memory database.
+The project is configured for local development with PostgreSQL via docker-compose.
 
 1. Clone the repo.
 2. Open `SmartTripPlanner.sln` in Visual Studio 2022 or JetBrains Rider.

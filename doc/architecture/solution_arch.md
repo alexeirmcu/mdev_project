@@ -15,7 +15,7 @@ Este documento define la estructura y las directrices técnicas definitivas para
 | Mapping | AutoMapper 13.x |
 | Logging | Serilog 4.x |
 | Validación | FluentValidation |
-| Persistencia | Entity Framework Core 8.x (InMemory para MVP) |
+| Persistencia | Entity Framework Core 8.x + PostgreSQL |
 | API Docs | Swashbuckle.AspNetCore 6.8.x |
 
 ---
@@ -30,7 +30,7 @@ La solución se llama `SmartTripPlanner.sln`. Los proyectos cuelgan directamente
 ├── SmartTripPlanner.API/                  # Entry point — Controllers, Middleware, Config
 ├── SmartTripPlanner.ApplicationServices/  # Commands, Handlers, Services, Behaviors
 ├── SmartTripPlanner.Domain/               # AggregatesModel, ApiModels, Enums, Repository
-├── SmartTripPlanner.Infrastructure/       # EF Core, Repositories, OR-Tools, LLM Enricher
+├── SmartTripPlanner.Infrastructure/       # EF Core, Repositories, LLM Enricher
 └── tests/
     └── SmartTripPlanner.Tests/
 ```
@@ -177,7 +177,7 @@ ApplicationServices/
 
 Implementaciones concretas. Los tipos de EF quedan confinados aquí.
 
-**NuGet:** `Google.OrTools`, `Microsoft.EntityFrameworkCore`, `Microsoft.EntityFrameworkCore.InMemory`, `Serilog 4.x`
+**NuGet:** `Microsoft.EntityFrameworkCore`, `Microsoft.EntityFrameworkCore.Tools`, `Npgsql.EntityFrameworkCore.PostgreSQL`, `Microsoft.Extensions.AI.Abstractions`, `Microsoft.Extensions.Hosting.Abstractions`, `Microsoft.Extensions.Http`, `Serilog 4.x`
 
 **Estructura:**
 
@@ -189,8 +189,8 @@ Infrastructure/
 │   ├── TripRepository.cs           # implementa ITripRepository
 │   └── CityRepository.cs           # implementa ICityRepository — MVP: datos hardcoded ciudad piloto (Madrid)
 ├── Optimization/
-│   └── GoogleOrToolsOptimizer.cs   # implementa ITripOptimizerService
-│                                   # MVP: mock estructurado con datos de Madrid, sin solver real
+│   └── HeuristicItineraryGenerator.cs   # implementa IItineraryGenerator
+│                                        # Algoritmo heurístico por 5 fases
 ├── Services/
 │   └── LlmCatalogEnricher.cs       # implementa ICatalogEnrichmentService (async mock)
 └── IServiceCollectionExtension.cs
@@ -215,7 +215,7 @@ API/
 ├── ConfigurationHelper.cs              # appsettings + env + KeyVault loader
 ├── appsettings.json
 ├── appsettings.Development.json
-├── appsettings.Devlocal.json           # InMemory, sin dependencias reales
+├── appsettings.Devlocal.json           # PostgreSQL en docker-compose local
 ├── Controllers/
 │   └── TripsController.cs              # [ApiController] [Route("api/trips")] — inyecta IMediator
 ├── Configurations/

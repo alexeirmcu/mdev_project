@@ -19,7 +19,7 @@ Este flujo genera el itinerario multi-dia de un viaje previamente creado (Flujo 
 - **Transit directo entre bloques consecutivos** (`InterBlockTransit`) via `ReturnToHotelStrategy`.
 
 **No Alcance:**
-- OR-Tools VRP solver (post-MVP).
+- Google OR-Tools VRP solver (evaluado como mejora futura, no implementado en MVP).
 - Routing real con API externa (Google Maps, HERE, etc.).
 - Replanificacion automatica (Flow 4).
 - Multi-ciudad / cambio de hotel.

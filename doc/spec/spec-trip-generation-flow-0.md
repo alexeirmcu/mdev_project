@@ -155,7 +155,7 @@ public static class TripCodeGenerator
 }
 ```
 
-**Nota:** En el MVP con EF InMemory, la probabilidad de colisión es negligible. En producción con alta concurrencia, considerar un índice único en BD y retry con backoff.
+**Nota:** En el MVP con PostgreSQL, la probabilidad de colisión es negligible gracias al índice único en BD. En producción con alta concurrencia, considerar retry con backoff.
 
 ---
 
@@ -501,7 +501,7 @@ await _tripRepository.AddAsync(trip, ct);
 await _unitOfWork.SaveChangesAsync(ct); // Si UnitOfWork está separado del repository
 ```
 
-**Nota:** En el MVP con EF InMemory, `AddAsync` en el repositorio puede incluir `SaveChangesAsync` internamente. Para el futuro con BD real, se recomienda separar `IUnitOfWork` para transacciones explícitas.
+**Nota:** En el MVP con PostgreSQL, `AddAsync` en el repositorio incluye `SaveChangesAsync` internamente. Se recomienda separar `IUnitOfWork` para transacciones explícitas en iteraciones futuras.
 
 ### 5.5 Mapeo y Respuesta
 
@@ -686,7 +686,7 @@ public interface IPlaceRepository
 4. **Desacoplamiento:** `Trip` no mantiene referencias a `Place` entities. Solo almacena `PlaceId` (long, FK interna) en `MustSee` Value Objects.
 5. **Estado inicial:** El `Trip` se crea con `Days` vacía. No se genera itinerario en este flujo. La respuesta mapea `Status = "CREATED"` cuando `Days` está vacío.
 6. **Idempotencia:** Crear el mismo trip dos veces genera dos `TripId` diferentes (no hay conflicto por datos de entrada).
-7. **Persistencia:** El trip se almacena en EF InMemory (MVP) y es recuperable vía `GET /api/trips/{tripId}`.
+7. **Persistencia:** El trip se almacena en PostgreSQL y es recuperable vía `GET /api/trips/{tripId}`.
 8. **Fire-and-forget:** El handler NO dispara el enriquecimiento en Flow 0. Eso se hace en Flow 2 (post-generación) o en Flow 1 (post-búsqueda).
 9. **Tests:** Existen tests unitarios para `GenerateTripHandler` que cubren:
    - Happy path (creación exitosa)
@@ -906,9 +906,9 @@ public void GenerateDays_PopulatesDays()
 
 ## 13. Notas de Implementación
 
-### 13.1 EF Core InMemory (MVP)
+### 13.1 EF Core PostgreSQL
 
-Como se usa EF Core InMemory, el `TripDbContext` debe configurar la relación de `Trip` con `MustSee` como **owned type** (value object) o **complex type** (EF Core 8+):
+El `TripDbContext` debe configurar la relación de `Trip` con `MustSee` como **owned type** (value object) o **complex type** (EF Core 8+):
 
 ```csharp
 // En TripDbContext.OnModelCreating
