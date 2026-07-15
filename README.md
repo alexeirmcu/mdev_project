@@ -109,6 +109,20 @@ dotnet user-secrets list --project SmartTripPlanner.API
 
 ---
 
+## 🚦 Test Deployment
+
+The rest API is deployed on render server, and can be accesible via swagger (available temporally for test)
+
+https://smart-trip-planner-api.onrender.com/swagger
+
+Postman collection
+
+Api can be tested using the provided postman collection (doc/SmartTravelApi.postman_collection.json)
+
+Sample tokens
+ 
+For token generation we can follow the (doc/jwt-auth.md), we have 2 user token sample ready to use in (doc/tokens.md)
+
 ## 📑 Documentation
 
 - [Solution Architecture](doc/architecture/solution_arch.md) — Deep dive into the layers and models.
