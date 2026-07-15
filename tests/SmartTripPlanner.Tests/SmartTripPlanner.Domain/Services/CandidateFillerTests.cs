@@ -144,6 +144,7 @@ public sealed class CandidateFillerTests
         {
             CreatePlace(1, "Test Place", 40.4168, -3.7038, duration: 60),
         };
+        candidates[0].MarkEnriched(60, true, 3, 0.5); // indoor — so it passes the bad-weather filter
 
         ScoringContext? capturedContext = null;
         _scorerMock
@@ -209,5 +210,69 @@ public sealed class CandidateFillerTests
 
         Assert.IsNotNull(capturedPopularity);
         Assert.AreEqual(0.85, capturedPopularity, "Should use Place.Popularity, not hardcoded 0.5");
+    }
+
+    [TestMethod]
+    public async Task FillAsync_BadWeather_ExcludesOutdoorCandidates()
+    {
+        var trip = CreateTrip(Array.Empty<MustSee>(), dayCount: 1);
+
+        // Outdoor place with high popularity — would score high, should be excluded
+        var outdoor = CreatePlace(1, "Outdoor Park", 40.4168, -3.7038, duration: 60);
+        outdoor.MarkEnriched(60, false, 3, 1.0);
+        var candidates = new List<Place> { outdoor };
+
+        var weather = new Dictionary<DateOnly, WeatherCondition>
+        {
+            { trip.StartDate, WeatherCondition.Bad }
+        };
+
+        await _filler.FillAsync(trip, candidates, weather, CancellationToken.None);
+
+        // No outdoor candidate should be added despite high popularity
+        Assert.AreEqual(0, trip.Days[0].GetBlock(BlockType.Morning).Activities.Count,
+            "Outdoor place should be excluded on bad weather");
+    }
+
+    [TestMethod]
+    public async Task FillAsync_BadWeather_IncludesIndoorCandidates()
+    {
+        var trip = CreateTrip(Array.Empty<MustSee>(), dayCount: 1);
+
+        var indoor = CreatePlace(1, "Indoor Museum", 40.4168, -3.7038, duration: 60);
+        indoor.MarkEnriched(60, true, 3, 0.5);
+        var candidates = new List<Place> { indoor };
+
+        var weather = new Dictionary<DateOnly, WeatherCondition>
+        {
+            { trip.StartDate, WeatherCondition.Bad }
+        };
+
+        await _filler.FillAsync(trip, candidates, weather, CancellationToken.None);
+
+        // Indoor candidate should be added despite bad weather
+        Assert.AreEqual(1, trip.Days[0].GetBlock(BlockType.Morning).Activities.Count,
+            "Indoor place should be included on bad weather");
+    }
+
+    [TestMethod]
+    public async Task FillAsync_GoodWeather_IncludesOutdoorCandidates()
+    {
+        var trip = CreateTrip(Array.Empty<MustSee>(), dayCount: 1);
+
+        var outdoor = CreatePlace(1, "Outdoor Park", 40.4168, -3.7038, duration: 60);
+        outdoor.MarkEnriched(60, false, 3, 0.5);
+        var candidates = new List<Place> { outdoor };
+
+        var weather = new Dictionary<DateOnly, WeatherCondition>
+        {
+            { trip.StartDate, WeatherCondition.Clear }
+        };
+
+        await _filler.FillAsync(trip, candidates, weather, CancellationToken.None);
+
+        // Outdoor place should be included when weather is good
+        Assert.AreEqual(1, trip.Days[0].GetBlock(BlockType.Morning).Activities.Count,
+            "Outdoor place should be included on good weather");
     }
 }

@@ -45,6 +45,14 @@ public class CandidateFiller : ICandidateFiller
                                 && ItineraryGeneratorHelpers.IsPlaceOpenOnDay(p, dayPlan.Date.DayOfWeek))
                     .ToList();
 
+                // Exclude outdoor places on bad weather
+                if (isBadWeather && trip.Preferences.WeatherAwareEnabled)
+                {
+                    availableCandidates = availableCandidates
+                        .Where(p => p.IsIndoor)
+                        .ToList();
+                }
+
                 if (availableCandidates.Count == 0)
                     continue;
 
@@ -114,6 +122,14 @@ public class CandidateFiller : ICandidateFiller
                     .Where(p => !usedPlaceIds.Contains(p.Id)
                                 && ItineraryGeneratorHelpers.IsPlaceOpenOnDay(p, dayPlan.Date.DayOfWeek))
                     .ToList();
+
+                // Exclude outdoor places on bad weather
+                if (isBadWeather && trip.Preferences.WeatherAwareEnabled)
+                {
+                    availableCandidates = availableCandidates
+                        .Where(p => p.IsIndoor)
+                        .ToList();
+                }
 
                 if (availableCandidates.Count == 0)
                     continue;
