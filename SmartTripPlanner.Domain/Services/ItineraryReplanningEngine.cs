@@ -186,9 +186,14 @@ public class ItineraryReplanningEngine : IItineraryReplanningEngine
         var placesById = candidates.ToDictionary(p => p.Id);
 
         // 10. REFILL via FillScopedAsync
+        // Build override dictionary: current day uses user's explicit decision; future days use API forecast
+        var replanWeather = new Dictionary<DateOnly, WeatherCondition>(weather);
+        var currentDayDate = trip.Days[currentDayIndex].Date;
+        replanWeather[currentDayDate] = isBadWeather ? WeatherCondition.Bad : WeatherCondition.Good;
+
         var candidateList = candidates.ToList();
         await _filler.FillScopedAsync(trip, scope, candidateList,
-            excludePlaceIds, weather, ct);
+            excludePlaceIds, replanWeather, ct);
 
         // 11. ENRICH via EnrichScopedAsync
         await _enricher.EnrichScopedAsync(trip, scope,

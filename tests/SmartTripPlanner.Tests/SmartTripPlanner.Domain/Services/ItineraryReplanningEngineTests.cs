@@ -14,6 +14,7 @@ public sealed class ItineraryReplanningEngineTests
         public bool FillScopedCalled { get; private set; }
         public HashSet<long>? LastExcludePlaceIds { get; private set; }
         public ReplanScope? LastScope { get; private set; }
+        public Dictionary<DateOnly, WeatherCondition>? LastWeatherData { get; private set; }
 
         public Task FillAsync(Trip trip, List<Place> candidatePool, Dictionary<DateOnly, WeatherCondition> weatherData, CancellationToken ct)
             => Task.CompletedTask;
@@ -23,6 +24,7 @@ public sealed class ItineraryReplanningEngineTests
             FillScopedCalled = true;
             LastScope = scope;
             LastExcludePlaceIds = new HashSet<long>(excludePlaceIds);
+            LastWeatherData = new Dictionary<DateOnly, WeatherCondition>(weatherData);
 
             // For testing weather swap: add indoor candidates to empty slots if available
             foreach (var dayPlan in trip.Days)
@@ -615,5 +617,54 @@ public sealed class ItineraryReplanningEngineTests
         Assert.IsTrue(trip.Days[2].GetBlock(BlockType.Morning).Activities.Any(a => a.PlaceId == 3));
         Assert.IsTrue(trip.Days[2].GetBlock(BlockType.Afternoon).Activities.Any(a => a.PlaceId == 4));
         Assert.IsTrue(filler.FillScopedCalled, "FillScoped should be called");
+    }
+
+    [TestMethod]
+    public async Task ReplanAsync_UserSaysBad_ApiSaysGood_ShouldFillIndoor()
+    {
+        // Arrange: API says Good for current day, but user explicitly says Bad
+        var trip = CreateTripWithDays(2);
+        var outdoor = CreateActivity(1, "Outdoor", isCompleted: false, isIndoor: false);
+        AddActivityToDay(trip, 0, BlockType.Morning, outdoor);
+
+        var indoorPlace = CreatePlace(2, "Indoor", isIndoor: true);
+        var anotherIndoor = CreatePlace(3, "Indoor2", isIndoor: true);
+
+        var filler = new StubCandidateFiller();
+        var enricher = new StubTransitEnricher();
+        var scheduler = new StubTimelineScheduler();
+        var engine = new ItineraryReplanningEngine(filler, enricher, scheduler);
+
+        var context = new ReplanContext(
+            CurrentDayIndex: 0,
+            CurrentBlock: BlockType.Morning,
+            Scope: ReplanScope.CurrentDay,
+            IsBadWeather: true, // User says Bad
+            CurrentDateTime: new DateTimeOffset(FutureStartDate.ToDateTime(TimeOnly.MinValue).AddHours(10), TimeSpan.Zero));
+
+        // API says Good for current day, Bad for day 2
+        var weather = new Dictionary<DateOnly, WeatherCondition>
+        {
+            { trip.Days[0].Date, WeatherCondition.Good },
+            { trip.Days[1].Date, WeatherCondition.Bad }
+        };
+
+        // Act
+        await engine.ReplanAsync(trip, context, new List<Place> { indoorPlace, anotherIndoor }, weather, CancellationToken.None);
+
+        // Assert
+        // 1. Weather-aware swap removes outdoor activity (uses isBadWeather from context)
+        var morning = trip.Days[0].GetBlock(BlockType.Morning);
+        Assert.IsFalse(morning.Activities.Any(a => a.PlaceId == 1),
+            "Outdoor activity should be removed because user said Bad");
+
+        // 2. The filler should receive replanWeather where current day is Bad (not Good from API)
+        Assert.IsNotNull(filler.LastWeatherData, "FillScopedAsync should have received weather data");
+        Assert.AreEqual(WeatherCondition.Bad, filler.LastWeatherData[trip.Days[0].Date],
+            "Current day weather must be overridden to Bad (user decision), not API Good");
+
+        // 3. Day 2 should retain API weather (not overridden)
+        Assert.AreEqual(WeatherCondition.Bad, filler.LastWeatherData[trip.Days[1].Date],
+            "Future day weather should come from API, not be overridden");
     }
 }
