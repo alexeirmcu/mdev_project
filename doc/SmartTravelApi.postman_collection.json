@@ -1,0 +1,486 @@
+{
+	"info": {
+		"_postman_id": "10d95738-238e-4e88-8bac-42caef7d8444",
+		"name": "SmartTravelApi",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "6604884"
+	},
+	"item": [
+		{
+			"name": "TripUpdate",
+			"request": {
+				"method": "PATCH",
+				"header": [
+					{
+						"key": "accept",
+						"value": "text/plain"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n   /* \"preferences\": {\r\n        \"carAvailable\": false,\r\n        \"maxWalkingMinutes\": 60,\r\n        \"weatherAwareEnabled\": true,\r\n        \"interests\": [\r\n            \"Museum\",\r\n            \"Church\",\r\n            \"Park\"\r\n        ],\r\n        \"returnToHotelStrategy\": 2,\r\n        \"allowMustSeeOvertime\": true\r\n    }*/\r\n   \"mustSeesToAdd\": [\r\n    {\r\n      \"placeId\": 1,\r\n      \"priority\": 0,\r\n      \"pinnedDayIndex\": 0,\r\n      \"pinnedBlock\": 0,\r\n      \"forceIncludeDespiteWeather\": true\r\n    },\r\n    {\r\n      \"placeId\": 2      \r\n    },\r\n    {\r\n      \"placeId\": 3      \r\n    },\r\n    {\r\n      \"placeId\": 4      \r\n    },\r\n    {\r\n      \"placeId\": 5      \r\n    },\r\n    {\r\n      \"placeId\": 6      \r\n    },\r\n    {\r\n      \"placeId\": 7      \r\n    }\r\n  ]\r\n\r\n\r\n}"
+				},
+				"url": {
+					"raw": "{{smartTripUrl}}/api/trips/:tripId",
+					"host": [
+						"{{smartTripUrl}}"
+					],
+					"path": [
+						"api",
+						"trips",
+						":tripId"
+					],
+					"variable": [
+						{
+							"key": "tripId",
+							"value": "{{tripId}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "TripCreate",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "text/plain"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"cityCode\": \"madrid\",\r\n  \"startDate\": \"2026-07-19\",\r\n  \"endDate\": \"2026-07-23\",\r\n  \"baseHotel\": {\r\n    \"name\": \"casa rio rosas\",\r\n    \"latitude\": 40.44191,\r\n    \"longitude\": -3.702777\r\n  },\r\n  \"mustSees\": [\r\n    \r\n  ],\r\n  \"travelers\": {\r\n    \"adults\": 2,\r\n    \"children\": 2,\r\n    \"infants\": 0\r\n  },\r\n  \"preferences\": {\r\n    \"carAvailable\": false,\r\n    \"maxWalkingMinutes\": 60,\r\n    \"weatherAwareEnabled\": true,\r\n    \"interests\": [\r\n      \"Museum\"\r\n    ]\r\n  },\r\n  \"defaultStartHour\": \"09:00\"\r\n}"
+				},
+				"url": {
+					"raw": "{{smartTripUrl}}/api/trips",
+					"host": [
+						"{{smartTripUrl}}"
+					],
+					"path": [
+						"api",
+						"trips"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "TripGenerate",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "text/plain"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"startDate\": \"2026-07-20\",\r\n  \"endDate\": \"2026-07-5\",\r\n  \"baseHotel\": {\r\n    \"name\": \"casa rio rosas\",\r\n    \"latitude\": 40.441909,\r\n    \"longitude\": -3.702748\r\n  },\r\n  \"travelers\": {\r\n    \"adults\": 2,\r\n    \"children\": 2,\r\n    \"infants\": 0\r\n  },\r\n  \"preferences\": {\r\n    \"carAvailable\": false,\r\n    \"maxWalkingMinutes\": 60,\r\n    \"weatherAwareEnabled\": true\r\n  },\r\n  \"defaultStartHour\": \"09:00\",\r\n  \"mustSeesToAdd\": [\r\n    \r\n  ],\r\n  \"mustSeesToRemove\": [\r\n    \r\n  ]\r\n}"
+				},
+				"url": {
+					"raw": "{{smartTripUrl}}/api/trips/:tripId/generate",
+					"host": [
+						"{{smartTripUrl}}"
+					],
+					"path": [
+						"api",
+						"trips",
+						":tripId",
+						"generate"
+					],
+					"variable": [
+						{
+							"key": "tripId",
+							"value": "{{tripId}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "TripGet",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "accept",
+						"value": "text/plain"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": ""
+				},
+				"url": {
+					"raw": "{{smartTripUrl}}/api/trips/:tripId",
+					"host": [
+						"{{smartTripUrl}}"
+					],
+					"path": [
+						"api",
+						"trips",
+						":tripId"
+					],
+					"variable": [
+						{
+							"key": "tripId",
+							"value": "{{tripId}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "TripDelete",
+			"request": {
+				"method": "DELETE",
+				"header": [
+					{
+						"key": "accept",
+						"value": "text/plain"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"startDate\": \"2026-07-20\",\r\n  \"endDate\": \"2026-07-5\",\r\n  \"baseHotel\": {\r\n    \"name\": \"casa rio rosas\",\r\n    \"latitude\": 40.441909,\r\n    \"longitude\": -3.702748\r\n  },\r\n  \"travelers\": {\r\n    \"adults\": 2,\r\n    \"children\": 2,\r\n    \"infants\": 0\r\n  },\r\n  \"preferences\": {\r\n    \"carAvailable\": false,\r\n    \"maxWalkingMinutes\": 60,\r\n    \"weatherAwareEnabled\": true\r\n  },\r\n  \"defaultStartHour\": \"09:00\",\r\n  \"mustSeesToAdd\": [\r\n    \r\n  ],\r\n  \"mustSeesToRemove\": [\r\n    \r\n  ]\r\n}"
+				},
+				"url": {
+					"raw": "{{smartTripUrl}}/api/trips/:tripId",
+					"host": [
+						"{{smartTripUrl}}"
+					],
+					"path": [
+						"api",
+						"trips",
+						":tripId"
+					],
+					"variable": [
+						{
+							"key": "tripId",
+							"value": "{{tripId}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "placesSearch",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "*/*"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"cityCode\": \"madrid\"\r\n  ,\"query\": \"museo\"  \r\n  ,\"maxResults\": 10\r\n // ,\"category\": \"Café\"\r\n  //\"isIndoor\": true,\r\n // \"isFamilyFriendly\": true,\r\n // \"maxDurationMinutes\": 250\r\n}"
+				},
+				"url": {
+					"raw": "{{smartTripUrl}}/trips/places/search",
+					"host": [
+						"{{smartTripUrl}}"
+					],
+					"path": [
+						"trips",
+						"places",
+						"search"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "CityInterests",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "accept",
+						"value": "*/*"
+					}
+				],
+				"url": {
+					"raw": "{{smartTripUrl}}/api/cities/:cityCode/interests",
+					"host": [
+						"{{smartTripUrl}}"
+					],
+					"path": [
+						"api",
+						"cities",
+						":cityCode",
+						"interests"
+					],
+					"variable": [
+						{
+							"key": "cityCode",
+							"value": "madrid"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "TripWeatherRefresh",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "text/plain"
+					}
+				],
+				"url": {
+					"raw": "{{smartTripUrl}}/api/trips/:tripId/weather-refresh",
+					"host": [
+						"{{smartTripUrl}}"
+					],
+					"path": [
+						"api",
+						"trips",
+						":tripId",
+						"weather-refresh"
+					],
+					"variable": [
+						{
+							"key": "tripId",
+							"value": "{{tripId}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "ActivityCompleted",
+			"request": {
+				"method": "PATCH",
+				"header": [
+					{
+						"key": "accept",
+						"value": "text/plain"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"placeId\": 1,\r\n  \"isCompleted\": true\r\n}"
+				},
+				"url": {
+					"raw": "{{smartTripUrl}}/api/trips/:tripId/days/:dayIndex/completion",
+					"host": [
+						"{{smartTripUrl}}"
+					],
+					"path": [
+						"api",
+						"trips",
+						":tripId",
+						"days",
+						":dayIndex",
+						"completion"
+					],
+					"variable": [
+						{
+							"key": "tripId",
+							"value": "{{tripId}}"
+						},
+						{
+							"key": "dayIndex",
+							"value": "0"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "EmergencyReplan",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "text/plain"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"currentDateTime\": \"2026-06-25T08:23:21.700Z\",\r\n  \"scope\": \"CurrentBlock\",\r\n  \"currentBlockWeather\": 2\r\n}"
+				},
+				"url": {
+					"raw": "{{smartTripUrl}}/api/trips/:tripId/replan",
+					"host": [
+						"{{smartTripUrl}}"
+					],
+					"path": [
+						"api",
+						"trips",
+						":tripId",
+						"replan"
+					],
+					"variable": [
+						{
+							"key": "tripId",
+							"value": "{{tripId}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "TripRegenerateDayPlan",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "accept",
+						"value": "text/plain"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"dayIndex\": 1\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "{{smartTripUrl}}/api/trips/:tripId/regenerate-day",
+					"host": [
+						"{{smartTripUrl}}"
+					],
+					"path": [
+						"api",
+						"trips",
+						":tripId",
+						"regenerate-day"
+					],
+					"variable": [
+						{
+							"key": "tripId",
+							"value": "{{tripId}}"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "TripList",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "accept",
+						"value": "text/plain"
+					}
+				],
+				"url": {
+					"raw": "{{smartTripUrl}}/api/trips?cityCode=madrid",
+					"host": [
+						"{{smartTripUrl}}"
+					],
+					"path": [
+						"api",
+						"trips"
+					],
+					"query": [
+						{
+							"key": "cityCode",
+							"value": "madrid"
+						},
+						{
+							"key": "startDate",
+							"value": "2026-06-24",
+							"disabled": true
+						},
+						{
+							"key": "endDate",
+							"value": "2026-06-30",
+							"disabled": true
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [
+			{
+				"key": "token",
+				"value": "{{token}}",
+				"type": "string"
+			}
+		]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"packages": {},
+				"exec": [
+					""
+				]
+			}
+		}
+	]
+}
