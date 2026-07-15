@@ -620,6 +620,72 @@ public sealed class ItineraryReplanningEngineTests
     }
 
     [TestMethod]
+    public async Task ReplanAsync_CurrentDayScope_ShouldNotDuplicatePlacesFromFutureDays()
+    {
+        // Arrange
+        var trip = CreateTripWithDays(3);
+
+        // Day 1 (current day) — morning slot to be replanned
+        var day1Morning = CreateActivity(1, "Day1Morning", isCompleted: false, isIndoor: true);
+        AddActivityToDay(trip, 1, BlockType.Morning, day1Morning);
+
+        // Day 2 (future day) — has an activity with place 2
+        var day2Activity = CreateActivity(2, "Day2Activity", isCompleted: false, isIndoor: true);
+        AddActivityToDay(trip, 2, BlockType.Morning, day2Activity);
+
+        // Day 3 (future day) — has an activity with place 3
+        var day3Activity = CreateActivity(3, "Day3Activity", isCompleted: false, isIndoor: true);
+        AddActivityToDay(trip, 2, BlockType.Afternoon, day3Activity);
+
+        // Candidates: place 4 is the only available new place
+        // Places 2 and 3 exist in future days — they must be excluded
+        var place4 = CreatePlace(4, "NewPlace", isIndoor: true);
+
+        var filler = new StubCandidateFiller();
+        var enricher = new StubTransitEnricher();
+        var scheduler = new StubTimelineScheduler();
+        var engine = new ItineraryReplanningEngine(filler, enricher, scheduler);
+
+        var context = new ReplanContext(
+            CurrentDayIndex: 1,
+            CurrentBlock: BlockType.Morning,
+            Scope: ReplanScope.CurrentDay,
+            IsBadWeather: false,
+            CurrentDateTime: new DateTimeOffset(FutureStartDate.ToDateTime(TimeOnly.MinValue).AddHours(10), TimeSpan.Zero));
+
+        var weather = new Dictionary<DateOnly, WeatherCondition>
+        {
+            { trip.Days[1].Date, WeatherCondition.Clear },
+            { trip.Days[2].Date, WeatherCondition.Clear }
+        };
+
+        // Act
+        await engine.ReplanAsync(trip, context, new List<Place> { place4 }, weather, CancellationToken.None);
+
+        // Assert: filler should have received excludePlaceIds containing future day placeIds
+        Assert.IsTrue(filler.FillScopedCalled, "FillScopedAsync should be called");
+        Assert.IsNotNull(filler.LastExcludePlaceIds, "excludePlaceIds should not be null");
+
+        // Current day's own activity (place 1) must be excluded
+        Assert.IsTrue(filler.LastExcludePlaceIds.Contains(1),
+            "Current day's own activity PlaceId should be excluded");
+
+        // Future days' activities must be excluded (the bug fix)
+        Assert.IsTrue(filler.LastExcludePlaceIds.Contains(2),
+            "Future day (day 3) activity PlaceId should be excluded");
+        Assert.IsTrue(filler.LastExcludePlaceIds.Contains(3),
+            "Future day (day 3) activity PlaceId should be excluded");
+
+        // Place 4 should NOT be excluded (it's a new candidate)
+        Assert.IsFalse(filler.LastExcludePlaceIds.Contains(4),
+            "New candidate PlaceId should not be excluded");
+
+        // Verify the filler had scope CurrentDay
+        Assert.AreEqual(ReplanScope.CurrentDay, filler.LastScope,
+            "Scope should be CurrentDay");
+    }
+
+    [TestMethod]
     public async Task ReplanAsync_UserSaysBad_ApiSaysGood_ShouldFillIndoor()
     {
         // Arrange: API says Good for current day, but user explicitly says Bad

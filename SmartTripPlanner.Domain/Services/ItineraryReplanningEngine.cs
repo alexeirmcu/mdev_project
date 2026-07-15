@@ -182,6 +182,19 @@ public class ItineraryReplanningEngine : IItineraryReplanningEngine
             }
         }
 
+        // Also include activities from future days (to prevent duplicates across the entire itinerary)
+        foreach (var day in trip.Days.Where(d => d.DayIndex > currentDayIndex))
+        {
+            foreach (var blockType in new[] { BlockType.Morning, BlockType.Afternoon, BlockType.Evening })
+            {
+                var block = day.GetBlock(blockType);
+                foreach (var activity in block.Activities)
+                {
+                    excludePlaceIds.Add(activity.PlaceId);
+                }
+            }
+        }
+
         // 9. Build placesById for enricher
         var placesById = candidates.ToDictionary(p => p.Id);
 
