@@ -68,18 +68,18 @@ public class UpdateTripHandler(
             anyModification = true;
         }
 
-        // Apply must-see modifications
-        if (payload.MustSeesToAdd is not null && payload.MustSeesToAdd.Count > 0)
-        {
-            await AddMustSeesAsync(trip, payload.MustSeesToAdd, ct);
-            anyModification = true;
-        }
-
         if (payload.MustSeesToRemove is not null && payload.MustSeesToRemove.Count > 0)
         {
             RemoveMustSees(trip, payload.MustSeesToRemove);
             anyModification = true;
         }
+
+        // Apply must-see modifications
+        if (payload.MustSeesToAdd is not null && payload.MustSeesToAdd.Count > 0)
+        {
+            await AddMustSeesAsync(trip, payload.MustSeesToAdd, ct);
+            anyModification = true;
+        }        
 
         // If the trip was GENERATED and any modification was applied, invalidate itinerary
         if (anyModification && trip.Days.Any())
