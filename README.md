@@ -117,11 +117,9 @@ https://smart-trip-planner-api.onrender.com/swagger
 
 Postman collection
 
-Api can be tested using the provided postman collection (doc/SmartTravelApi.postman_collection.json)
-
-Sample tokens
- 
-For token generation we can follow the (doc/jwt-auth.md), we have 2 user token sample ready to use in (doc/tokens.md)
+- Api can be tested using the provided postman collection [postman collection](doc/SmartTravelApi.postman_collection.json)
+- The collection expects an [environment definition](doc/smarttrip_render.postman_environment.json).
+- For token generation we can follow the [jwt-auth](doc/jwt-auth.md), we have prepared 2 [token samples](doc/tokens.md) ready for use.
 
 ## 📑 Documentation
 
