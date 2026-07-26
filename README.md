@@ -115,6 +115,11 @@ The rest API is deployed on render server, and can be accesible via swagger (ava
 
 https://smart-trip-planner-api.onrender.com/swagger
 
+Client app sample
+
+https://stp-client-cwfl.onrender.com/
+
+
 Postman collection
 
 - Api can be tested using the provided postman collection [postman collection](doc/SmartTravelApi.postman_collection.json)
